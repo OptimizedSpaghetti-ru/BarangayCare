@@ -22,7 +22,7 @@ import {
   Info,
 } from "lucide-react";
 import { useAuth } from "./auth-context";
-import { toast } from "sonner@2.0.3";
+import { toast } from "sonner";
 
 interface LoginFormProps {
   onSwitchToSignup: () => void;
