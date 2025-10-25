@@ -57,6 +57,7 @@
     "vite": "6.3.5"
   },
   "scripts": {
+    "vercel-build": "npm ci && npm run build",
     "dev": "vite",
     "build": "vite build"
   }
