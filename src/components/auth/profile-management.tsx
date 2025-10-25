@@ -1,37 +1,60 @@
-import { useState } from 'react';
-import { Button } from '../ui/button';
-import { Input } from '../ui/input';
-import { Label } from '../ui/label';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '../ui/dialog';
-import { Alert, AlertDescription } from '../ui/alert';
-import { Separator } from '../ui/separator';
-import { User, Phone, Mail, Trash2, Save, AlertTriangle, Camera, Upload } from 'lucide-react';
-import { useAuth } from './auth-context';
-import { toast } from 'sonner@2.0.3';
+import { useState } from "react";
+import { Button } from "../ui/button";
+import { Input } from "../ui/input";
+import { Label } from "../ui/label";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "../ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "../ui/dialog";
+import { Alert, AlertDescription } from "../ui/alert";
+import { Separator } from "../ui/separator";
+import {
+  User,
+  Phone,
+  Mail,
+  Trash2,
+  Save,
+  AlertTriangle,
+  Camera,
+  Upload,
+} from "lucide-react";
+import { useAuth } from "./auth-context";
+import { toast } from "sonner@2.0.3";
 
 export function ProfileManagement() {
-  const { user, updateProfile, deleteAccount, signOut } = useAuth();
+  const { user, updateProfile, deleteAccount, signOut, isAdmin } = useAuth();
   const [editMode, setEditMode] = useState(false);
-  const [name, setName] = useState(user?.name || '');
-  const [phoneNumber, setPhoneNumber] = useState(user?.phoneNumber || '');
+  const [name, setName] = useState(user?.name || "");
+  const [phoneNumber, setPhoneNumber] = useState(user?.phoneNumber || "");
   const [loading, setLoading] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [profilePicture, setProfilePicture] = useState<string | null>(null);
 
   const handleSaveProfile = async () => {
     if (!name.trim()) {
-      toast.error('Name is required');
+      toast.error("Name is required");
       return;
     }
 
     setLoading(true);
     const { error } = await updateProfile(name, phoneNumber);
-    
+
     if (error) {
       toast.error(error);
     } else {
-      toast.success('Profile updated successfully');
+      toast.success("Profile updated successfully");
       setEditMode(false);
     }
     setLoading(false);
@@ -40,11 +63,11 @@ export function ProfileManagement() {
   const handleDeleteAccount = async () => {
     setLoading(true);
     const { error } = await deleteAccount();
-    
+
     if (error) {
       toast.error(error);
     } else {
-      toast.success('Account deleted successfully');
+      toast.success("Account deleted successfully");
       await signOut();
     }
     setLoading(false);
@@ -52,22 +75,22 @@ export function ProfileManagement() {
   };
 
   const handleCancelEdit = () => {
-    setName(user?.name || '');
-    setPhoneNumber(user?.phoneNumber || '');
+    setName(user?.name || "");
+    setPhoneNumber(user?.phoneNumber || "");
     setEditMode(false);
   };
 
   const handleProfilePictureUpload = () => {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = 'image/*';
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = "image/*";
     input.onchange = (e) => {
       const file = (e.target as HTMLInputElement).files?.[0];
       if (file) {
         const reader = new FileReader();
         reader.onload = (event) => {
           setProfilePicture(event.target?.result as string);
-          toast.success('Profile picture updated!');
+          toast.success("Profile picture updated!");
         };
         reader.readAsDataURL(file);
       }
@@ -98,7 +121,8 @@ export function ProfileManagement() {
             <span>Profile Information</span>
           </CardTitle>
           <CardDescription>
-            Manage your personal information, profile picture, and account settings
+            Manage your personal information, profile picture, and account
+            settings
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
@@ -107,7 +131,11 @@ export function ProfileManagement() {
             <div className="relative">
               <div className="w-20 h-20 rounded-full bg-primary flex items-center justify-center text-white text-2xl overflow-hidden">
                 {profilePicture ? (
-                  <img src={profilePicture} alt="Profile" className="w-full h-full object-cover" />
+                  <img
+                    src={profilePicture}
+                    alt="Profile"
+                    className="w-full h-full object-cover"
+                  />
                 ) : (
                   user?.name?.charAt(0).toUpperCase()
                 )}
@@ -123,7 +151,11 @@ export function ProfileManagement() {
             </div>
             <div className="space-y-1">
               <h3 className="text-lg font-medium">{user?.name}</h3>
-              <Button variant="outline" size="sm" onClick={handleProfilePictureUpload}>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleProfilePictureUpload}
+              >
                 <Upload className="w-4 h-4 mr-2" />
                 Change Picture
               </Button>
@@ -161,7 +193,7 @@ export function ProfileManagement() {
               ) : (
                 <div className="flex items-center space-x-2 p-3 bg-muted rounded-md">
                   <Phone className="w-4 h-4 text-muted-foreground" />
-                  <span>{user.phoneNumber || 'Not provided'}</span>
+                  <span>{user.phoneNumber || "Not provided"}</span>
                 </div>
               )}
             </div>
@@ -172,40 +204,59 @@ export function ProfileManagement() {
             <div className="flex items-center space-x-2 p-3 bg-muted rounded-md">
               <Mail className="w-4 h-4 text-muted-foreground" />
               <span>{user.email}</span>
-              <span className="text-xs text-muted-foreground">(Cannot be changed)</span>
+              <span className="text-xs text-muted-foreground">
+                (Cannot be changed)
+              </span>
             </div>
           </div>
 
           {/* Account Information Grid */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 bg-muted/50 rounded-lg">
             <div className="space-y-1">
-              <Label className="text-sm text-muted-foreground">Account Status</Label>
+              <Label className="text-sm text-muted-foreground">
+                Account Status
+              </Label>
               <div className="flex items-center space-x-2">
                 <div className="w-2 h-2 bg-green-500 rounded-full"></div>
                 <span className="text-sm font-medium">Active</span>
               </div>
             </div>
             <div className="space-y-1">
-              <Label className="text-sm text-muted-foreground">Account Type</Label>
-              <span className="text-sm font-medium">Resident</span>
+              <Label className="text-sm text-muted-foreground">
+                Account Type
+              </Label>
+              <div className="flex items-center space-x-2">
+                <span className="text-sm font-medium">
+                  {isAdmin ? "Administrator" : "Resident"}
+                </span>
+                {isAdmin && (
+                  <span className="px-2 py-0.5 text-xs font-medium bg-primary/10 text-primary rounded-full">
+                    Admin
+                  </span>
+                )}
+              </div>
             </div>
             <div className="space-y-1">
-              <Label className="text-sm text-muted-foreground">Account Created</Label>
+              <Label className="text-sm text-muted-foreground">
+                Account Created
+              </Label>
               <span className="text-sm">
-                {new Date(user.createdAt).toLocaleDateString('en-US', {
-                  year: 'numeric',
-                  month: 'long',
-                  day: 'numeric'
+                {new Date(user.createdAt).toLocaleDateString("en-US", {
+                  year: "numeric",
+                  month: "long",
+                  day: "numeric",
                 })}
               </span>
             </div>
             <div className="space-y-1">
-              <Label className="text-sm text-muted-foreground">Last Updated</Label>
+              <Label className="text-sm text-muted-foreground">
+                Last Updated
+              </Label>
               <span className="text-sm">
-                {new Date(user.updatedAt).toLocaleDateString('en-US', {
-                  year: 'numeric',
-                  month: 'long',
-                  day: 'numeric'
+                {new Date(user.updatedAt).toLocaleDateString("en-US", {
+                  year: "numeric",
+                  month: "long",
+                  day: "numeric",
                 })}
               </span>
             </div>
@@ -220,7 +271,7 @@ export function ProfileManagement() {
                   className="flex items-center space-x-2"
                 >
                   <Save className="w-4 h-4" />
-                  <span>{loading ? 'Saving...' : 'Save Changes'}</span>
+                  <span>{loading ? "Saving..." : "Save Changes"}</span>
                 </Button>
                 <Button
                   variant="outline"
@@ -257,8 +308,9 @@ export function ProfileManagement() {
           <Alert className="mb-4">
             <AlertTriangle className="w-4 h-4" />
             <AlertDescription>
-              Once you delete your account, there is no going back. All your complaints, 
-              data, and account information will be permanently removed.
+              Once you delete your account, there is no going back. All your
+              complaints, data, and account information will be permanently
+              removed.
             </AlertDescription>
           </Alert>
 
@@ -274,13 +326,15 @@ export function ProfileManagement() {
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle className="text-destructive">Delete Account</DialogTitle>
+                <DialogTitle className="text-destructive">
+                  Delete Account
+                </DialogTitle>
                 <DialogDescription>
-                  Are you absolutely sure you want to delete your account? This action 
-                  cannot be undone and will permanently remove:
+                  Are you absolutely sure you want to delete your account? This
+                  action cannot be undone and will permanently remove:
                 </DialogDescription>
               </DialogHeader>
-              
+
               <div className="space-y-2 text-sm">
                 <ul className="list-disc list-inside space-y-1 text-muted-foreground">
                   <li>Your profile and personal information</li>
@@ -305,7 +359,7 @@ export function ProfileManagement() {
                   className="flex items-center space-x-2"
                 >
                   <Trash2 className="w-4 h-4" />
-                  <span>{loading ? 'Deleting...' : 'Delete Account'}</span>
+                  <span>{loading ? "Deleting..." : "Delete Account"}</span>
                 </Button>
               </DialogFooter>
             </DialogContent>
