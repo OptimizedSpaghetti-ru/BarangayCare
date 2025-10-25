@@ -15,6 +15,7 @@ interface User {
 interface AuthContextType {
   user: User | null;
   loading: boolean;
+  isAdmin: boolean;
   signUp: (
     email: string,
     password: string,
@@ -38,6 +39,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   const supabase = getSupabaseClient();
 
@@ -69,11 +71,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           if (response.ok) {
             const { profile } = await response.json();
             setUser(profile);
+            // Check if user has admin role in metadata
+            const adminRole = session.user?.user_metadata?.role === "admin";
+            setIsAdmin(adminRole);
           } else {
             setUser(null);
+            setIsAdmin(false);
           }
         } else {
           setUser(null);
+          setIsAdmin(false);
         }
       } catch (error) {
         console.error("Auth initialization error:", error);
@@ -105,9 +112,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (response.ok) {
           const { profile } = await response.json();
           setUser(profile);
+          // Check if user has admin role in metadata
+          const adminRole = session.user?.user_metadata?.role === "admin";
+          setIsAdmin(adminRole);
         }
       } else if (event === "SIGNED_OUT") {
         setUser(null);
+        setIsAdmin(false);
       }
     });
 
@@ -301,6 +312,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (response.ok) {
         const { profile } = await response.json();
         setUser(profile);
+        // Check if user has admin role in metadata
+        const adminRole = session.user?.user_metadata?.role === "admin";
+        setIsAdmin(adminRole);
       }
     }
   };
@@ -308,6 +322,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const value = {
     user,
     loading,
+    isAdmin,
     signUp,
     signIn,
     signInWithGoogle,

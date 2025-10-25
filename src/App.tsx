@@ -57,11 +57,10 @@ interface Complaint {
 // No sample data - only real data will be displayed
 
 function AppContent() {
-  const { user, loading } = useAuth();
+  const { user, loading, isAdmin } = useAuth();
   const { complaints, addComplaint, updateComplaint } = useComplaints();
   const [currentView, setCurrentView] = useState("dashboard");
   const [authView, setAuthView] = useState<"login" | "signup">("login");
-  const [isAdmin, setIsAdmin] = useState(false);
   const [selectedComplaint, setSelectedComplaint] = useState<Complaint | null>(
     null
   );
@@ -208,12 +207,7 @@ function AppContent() {
 
         {currentView === "profile" && <ProfileManagement />}
 
-        {currentView === "settings" && (
-          <ResidentSettings
-            isAdmin={isAdmin}
-            onToggleAdmin={() => setIsAdmin(!isAdmin)}
-          />
-        )}
+        {currentView === "settings" && <ResidentSettings />}
       </main>
 
       {/* Request Details Dialog */}

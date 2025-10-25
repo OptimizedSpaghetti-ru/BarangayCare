@@ -1,38 +1,44 @@
-import { useState } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
-import { Button } from './ui/button';
-import { Input } from './ui/input';
-import { Label } from './ui/label';
-import { Switch } from './ui/switch';
-import { Separator } from './ui/separator';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
-import { 
-  Settings, 
-  Bell, 
-  Shield, 
-  Palette, 
-  Globe, 
-  Smartphone, 
-  Mail, 
-  Save, 
-  Moon, 
+import { useState } from "react";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "./ui/card";
+import { Button } from "./ui/button";
+import { Input } from "./ui/input";
+import { Label } from "./ui/label";
+import { Switch } from "./ui/switch";
+import { Separator } from "./ui/separator";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "./ui/select";
+import {
+  Settings,
+  Bell,
+  Shield,
+  Palette,
+  Globe,
+  Smartphone,
+  Mail,
+  Save,
+  Moon,
   Sun,
   Monitor,
-  ShieldCheck
-} from 'lucide-react';
-import { useTheme } from './theme-provider';
-import { useAuth } from './auth/auth-context';
-import { toast } from 'sonner@2.0.3';
+} from "lucide-react";
+import { useTheme } from "./theme-provider";
+import { useAuth } from "./auth/auth-context";
+import { toast } from "sonner@2.0.3";
 
-interface ResidentSettingsProps {
-  isAdmin?: boolean;
-  onToggleAdmin?: () => void;
-}
-
-export function ResidentSettings({ isAdmin = false, onToggleAdmin }: ResidentSettingsProps) {
+export function ResidentSettings() {
   const { theme, setTheme } = useTheme();
   const { user } = useAuth();
-  
+
   // Settings state
   const [notifications, setNotifications] = useState({
     email: true,
@@ -40,43 +46,43 @@ export function ResidentSettings({ isAdmin = false, onToggleAdmin }: ResidentSet
     sms: false,
     statusUpdates: true,
     weeklyDigest: true,
-    communityNews: false
+    communityNews: false,
   });
 
   const [preferences, setPreferences] = useState({
-    language: 'en',
-    timezone: 'Asia/Manila',
-    defaultLocation: 'Barangay Hall',
-    autoLocation: true
+    language: "en",
+    timezone: "Asia/Manila",
+    defaultLocation: "Barangay Hall",
+    autoLocation: true,
   });
 
   const [privacy, setPrivacy] = useState({
     showProfile: true,
     shareLocation: true,
     allowContact: true,
-    dataCollection: false
+    dataCollection: false,
   });
 
   const [unsavedChanges, setUnsavedChanges] = useState(false);
 
   const handleNotificationChange = (key: string, value: boolean) => {
-    setNotifications(prev => ({ ...prev, [key]: value }));
+    setNotifications((prev) => ({ ...prev, [key]: value }));
     setUnsavedChanges(true);
   };
 
   const handlePreferenceChange = (key: string, value: string | boolean) => {
-    setPreferences(prev => ({ ...prev, [key]: value }));
+    setPreferences((prev) => ({ ...prev, [key]: value }));
     setUnsavedChanges(true);
   };
 
   const handlePrivacyChange = (key: string, value: boolean) => {
-    setPrivacy(prev => ({ ...prev, [key]: value }));
+    setPrivacy((prev) => ({ ...prev, [key]: value }));
     setUnsavedChanges(true);
   };
 
   const handleSaveSettings = () => {
     // In a real app, this would save to backend
-    toast.success('Settings saved successfully!');
+    toast.success("Settings saved successfully!");
     setUnsavedChanges(false);
   };
 
@@ -88,25 +94,23 @@ export function ResidentSettings({ isAdmin = false, onToggleAdmin }: ResidentSet
       sms: false,
       statusUpdates: true,
       weeklyDigest: true,
-      communityNews: false
+      communityNews: false,
     });
     setPreferences({
-      language: 'en',
-      timezone: 'Asia/Manila',
-      defaultLocation: 'Barangay Hall',
-      autoLocation: true
+      language: "en",
+      timezone: "Asia/Manila",
+      defaultLocation: "Barangay Hall",
+      autoLocation: true,
     });
     setPrivacy({
       showProfile: true,
       shareLocation: true,
       allowContact: true,
-      dataCollection: false
+      dataCollection: false,
     });
     setUnsavedChanges(true);
-    toast.success('Settings reset to defaults');
+    toast.success("Settings reset to defaults");
   };
-
-
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
@@ -137,24 +141,24 @@ export function ResidentSettings({ isAdmin = false, onToggleAdmin }: ResidentSet
             <Label>Theme</Label>
             <div className="grid grid-cols-3 gap-2">
               <Button
-                variant={theme === 'light' ? 'default' : 'outline'}
-                onClick={() => setTheme('light')}
+                variant={theme === "light" ? "default" : "outline"}
+                onClick={() => setTheme("light")}
                 className="flex items-center space-x-2"
               >
                 <Sun className="w-4 h-4" />
                 <span>Light</span>
               </Button>
               <Button
-                variant={theme === 'dark' ? 'default' : 'outline'}
-                onClick={() => setTheme('dark')}
+                variant={theme === "dark" ? "default" : "outline"}
+                onClick={() => setTheme("dark")}
                 className="flex items-center space-x-2"
               >
                 <Moon className="w-4 h-4" />
                 <span>Dark</span>
               </Button>
               <Button
-                variant={theme === 'system' ? 'default' : 'outline'}
-                onClick={() => setTheme('system')}
+                variant={theme === "system" ? "default" : "outline"}
+                onClick={() => setTheme("system")}
                 className="flex items-center space-x-2"
               >
                 <Monitor className="w-4 h-4" />
@@ -187,7 +191,9 @@ export function ResidentSettings({ isAdmin = false, onToggleAdmin }: ResidentSet
               </div>
               <Switch
                 checked={notifications.email}
-                onCheckedChange={(checked) => handleNotificationChange('email', checked)}
+                onCheckedChange={(checked) =>
+                  handleNotificationChange("email", checked)
+                }
               />
             </div>
 
@@ -200,7 +206,9 @@ export function ResidentSettings({ isAdmin = false, onToggleAdmin }: ResidentSet
               </div>
               <Switch
                 checked={notifications.push}
-                onCheckedChange={(checked) => handleNotificationChange('push', checked)}
+                onCheckedChange={(checked) =>
+                  handleNotificationChange("push", checked)
+                }
               />
             </div>
 
@@ -213,7 +221,9 @@ export function ResidentSettings({ isAdmin = false, onToggleAdmin }: ResidentSet
               </div>
               <Switch
                 checked={notifications.sms}
-                onCheckedChange={(checked) => handleNotificationChange('sms', checked)}
+                onCheckedChange={(checked) =>
+                  handleNotificationChange("sms", checked)
+                }
               />
             </div>
           </div>
@@ -222,7 +232,7 @@ export function ResidentSettings({ isAdmin = false, onToggleAdmin }: ResidentSet
 
           <div className="space-y-4">
             <h4 className="font-medium">Notification Types</h4>
-            
+
             <div className="flex items-center justify-between">
               <div className="space-y-1">
                 <Label>Status Updates</Label>
@@ -232,7 +242,9 @@ export function ResidentSettings({ isAdmin = false, onToggleAdmin }: ResidentSet
               </div>
               <Switch
                 checked={notifications.statusUpdates}
-                onCheckedChange={(checked) => handleNotificationChange('statusUpdates', checked)}
+                onCheckedChange={(checked) =>
+                  handleNotificationChange("statusUpdates", checked)
+                }
               />
             </div>
 
@@ -245,7 +257,9 @@ export function ResidentSettings({ isAdmin = false, onToggleAdmin }: ResidentSet
               </div>
               <Switch
                 checked={notifications.weeklyDigest}
-                onCheckedChange={(checked) => handleNotificationChange('weeklyDigest', checked)}
+                onCheckedChange={(checked) =>
+                  handleNotificationChange("weeklyDigest", checked)
+                }
               />
             </div>
 
@@ -258,7 +272,9 @@ export function ResidentSettings({ isAdmin = false, onToggleAdmin }: ResidentSet
               </div>
               <Switch
                 checked={notifications.communityNews}
-                onCheckedChange={(checked) => handleNotificationChange('communityNews', checked)}
+                onCheckedChange={(checked) =>
+                  handleNotificationChange("communityNews", checked)
+                }
               />
             </div>
           </div>
@@ -280,7 +296,12 @@ export function ResidentSettings({ isAdmin = false, onToggleAdmin }: ResidentSet
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="language">Language</Label>
-              <Select value={preferences.language} onValueChange={(value) => handlePreferenceChange('language', value)}>
+              <Select
+                value={preferences.language}
+                onValueChange={(value) =>
+                  handlePreferenceChange("language", value)
+                }
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="Select language" />
                 </SelectTrigger>
@@ -294,7 +315,12 @@ export function ResidentSettings({ isAdmin = false, onToggleAdmin }: ResidentSet
 
             <div className="space-y-2">
               <Label htmlFor="timezone">Timezone</Label>
-              <Select value={preferences.timezone} onValueChange={(value) => handlePreferenceChange('timezone', value)}>
+              <Select
+                value={preferences.timezone}
+                onValueChange={(value) =>
+                  handlePreferenceChange("timezone", value)
+                }
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="Select timezone" />
                 </SelectTrigger>
@@ -312,7 +338,9 @@ export function ResidentSettings({ isAdmin = false, onToggleAdmin }: ResidentSet
             <Input
               id="defaultLocation"
               value={preferences.defaultLocation}
-              onChange={(e) => handlePreferenceChange('defaultLocation', e.target.value)}
+              onChange={(e) =>
+                handlePreferenceChange("defaultLocation", e.target.value)
+              }
               placeholder="Enter your default location"
             />
           </div>
@@ -326,7 +354,9 @@ export function ResidentSettings({ isAdmin = false, onToggleAdmin }: ResidentSet
             </div>
             <Switch
               checked={preferences.autoLocation}
-              onCheckedChange={(checked) => handlePreferenceChange('autoLocation', checked)}
+              onCheckedChange={(checked) =>
+                handlePreferenceChange("autoLocation", checked)
+              }
             />
           </div>
         </CardContent>
@@ -353,7 +383,9 @@ export function ResidentSettings({ isAdmin = false, onToggleAdmin }: ResidentSet
             </div>
             <Switch
               checked={privacy.showProfile}
-              onCheckedChange={(checked) => handlePrivacyChange('showProfile', checked)}
+              onCheckedChange={(checked) =>
+                handlePrivacyChange("showProfile", checked)
+              }
             />
           </div>
 
@@ -366,7 +398,9 @@ export function ResidentSettings({ isAdmin = false, onToggleAdmin }: ResidentSet
             </div>
             <Switch
               checked={privacy.shareLocation}
-              onCheckedChange={(checked) => handlePrivacyChange('shareLocation', checked)}
+              onCheckedChange={(checked) =>
+                handlePrivacyChange("shareLocation", checked)
+              }
             />
           </div>
 
@@ -379,7 +413,9 @@ export function ResidentSettings({ isAdmin = false, onToggleAdmin }: ResidentSet
             </div>
             <Switch
               checked={privacy.allowContact}
-              onCheckedChange={(checked) => handlePrivacyChange('allowContact', checked)}
+              onCheckedChange={(checked) =>
+                handlePrivacyChange("allowContact", checked)
+              }
             />
           </div>
 
@@ -392,17 +428,17 @@ export function ResidentSettings({ isAdmin = false, onToggleAdmin }: ResidentSet
             </div>
             <Switch
               checked={privacy.dataCollection}
-              onCheckedChange={(checked) => handlePrivacyChange('dataCollection', checked)}
+              onCheckedChange={(checked) =>
+                handlePrivacyChange("dataCollection", checked)
+              }
             />
           </div>
         </CardContent>
       </Card>
 
-
-
       {/* Action Buttons */}
       <div className="flex flex-col sm:flex-row gap-4 pt-4">
-        <Button 
+        <Button
           onClick={handleSaveSettings}
           disabled={!unsavedChanges}
           className="flex items-center space-x-2"
@@ -410,11 +446,8 @@ export function ResidentSettings({ isAdmin = false, onToggleAdmin }: ResidentSet
           <Save className="w-4 h-4" />
           <span>Save Settings</span>
         </Button>
-        
-        <Button 
-          variant="outline" 
-          onClick={resetSettings}
-        >
+
+        <Button variant="outline" onClick={resetSettings}>
           Reset to Defaults
         </Button>
       </div>
@@ -425,38 +458,6 @@ export function ResidentSettings({ isAdmin = false, onToggleAdmin }: ResidentSet
             You have unsaved changes. Don't forget to save your settings.
           </p>
         </div>
-      )}
-
-      {/* Admin Mode Section (if admin functionality is available) */}
-      {onToggleAdmin && (
-        <Card className="border-2 border-primary/20">
-          <CardHeader>
-            <CardTitle className="flex items-center space-x-2 text-primary">
-              <ShieldCheck className="w-5 h-5" />
-              <span>Administrative Access</span>
-            </CardTitle>
-            <CardDescription>
-              Toggle admin mode to access administrative features and user management tools
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center justify-between">
-              <div className="space-y-1">
-                <Label>Admin Mode</Label>
-                <p className="text-sm text-muted-foreground">
-                  {isAdmin ? 'Admin mode is currently active' : 'Admin mode is currently inactive'}
-                </p>
-              </div>
-              <Button
-                onClick={onToggleAdmin}
-                variant={isAdmin ? 'destructive' : 'default'}
-                className="min-w-24"
-              >
-                {isAdmin ? 'Exit Admin' : 'Enter Admin'}
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
       )}
     </div>
   );
