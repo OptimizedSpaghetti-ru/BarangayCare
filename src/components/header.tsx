@@ -96,7 +96,7 @@ export function Header({
               className="flex items-center space-x-2 hover:opacity-80 transition-opacity"
             >
               <img
-                src="./icon/no-bg-icon.png"
+                src="/no-bg-icon.png"
                 alt="BarangayCARE Logo"
                 className="w-8 h-8 rounded-lg object-cover"
               />

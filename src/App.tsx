@@ -147,7 +147,7 @@ function AppContent() {
           <div className="text-center mb-8">
             <div className="flex items-center justify-center space-x-2 mb-4">
               <img
-                src="./icon/no-bg-icon.png"
+                src="/no-bg-icon.png"
                 alt="BarangayCARE Logo"
                 className="w-10 h-10"
               />
