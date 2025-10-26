@@ -1,14 +1,43 @@
-import { useState, useEffect } from 'react';
-import { Button } from '../ui/button';
-import { Input } from '../ui/input';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/table';
-import { Badge } from '../ui/badge';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '../ui/dialog';
-import { Alert, AlertDescription } from '../ui/alert';
-import { Search, Users, UserCheck, UserX, Trash2, AlertTriangle, Eye } from 'lucide-react';
-import { getSupabaseClient } from '../../utils/supabase/client';
-import { toast } from 'sonner@2.0.3';
+import { useState, useEffect } from "react";
+import { Button } from "../ui/button";
+import { Input } from "../ui/input";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "../ui/card";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "../ui/table";
+import { Badge } from "../ui/badge";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "../ui/dialog";
+import { Alert, AlertDescription } from "../ui/alert";
+import {
+  Search,
+  Users,
+  UserCheck,
+  UserX,
+  Trash2,
+  AlertTriangle,
+  Eye,
+} from "lucide-react";
+import { getSupabaseClient } from "../../utils/supabase/client";
+import { toast } from "sonner@2.0.3";
 
 interface User {
   id: string;
@@ -23,7 +52,7 @@ interface User {
 export function UserManagement() {
   const [users, setUsers] = useState<User[]>([]);
   const [filteredUsers, setFilteredUsers] = useState<User[]>([]);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(true);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [showDetailsDialog, setShowDetailsDialog] = useState(false);
@@ -33,7 +62,9 @@ export function UserManagement() {
 
   const supabase = getSupabaseClient();
 
-  const serverUrl = `https://${supabase.supabaseUrl.split('//')[1].split('.')[0]}.supabase.co/functions/v1/make-server-fc40ab2c`;
+  const serverUrl = `https://${
+    supabase.supabaseUrl.split("//")[1].split(".")[0]
+  }.supabase.co/functions/v1/make-server-fc40ab2c`;
 
   useEffect(() => {
     fetchUsers();
@@ -41,13 +72,14 @@ export function UserManagement() {
 
   useEffect(() => {
     // Filter users based on search term
-    if (searchTerm.trim() === '') {
+    if (searchTerm.trim() === "") {
       setFilteredUsers(users);
     } else {
-      const filtered = users.filter(user =>
-        user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (user.phoneNumber && user.phoneNumber.includes(searchTerm))
+      const filtered = users.filter(
+        (user) =>
+          user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          (user.phoneNumber && user.phoneNumber.includes(searchTerm))
       );
       setFilteredUsers(filtered);
     }
@@ -55,16 +87,18 @@ export function UserManagement() {
 
   const fetchUsers = async () => {
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
       if (!session?.access_token) {
-        toast.error('Please sign in to access user management');
+        toast.error("Please sign in to access user management");
         return;
       }
 
       const response = await fetch(`${serverUrl}/admin/users`, {
         headers: {
-          'Authorization': `Bearer ${session.access_token}`,
-          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.access_token}`,
+          "Content-Type": "application/json",
         },
       });
 
@@ -74,47 +108,54 @@ export function UserManagement() {
       } else {
         const error = await response.json();
         if (response.status === 403) {
-          toast.error('Admin access required');
+          toast.error("Admin access required");
         } else {
-          toast.error(error.error || 'Failed to fetch users');
+          toast.error(error.error || "Failed to fetch users");
         }
       }
     } catch (error) {
-      console.error('Error fetching users:', error);
-      toast.error('Network error while fetching users');
+      console.error("Error fetching users:", error);
+      toast.error("Network error while fetching users");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleToggleUserStatus = async (userId: string, currentStatus: boolean) => {
+  const handleToggleUserStatus = async (
+    userId: string,
+    currentStatus: boolean
+  ) => {
     try {
       setActionLoading(true);
-      const { data: { session } } = await supabase.auth.getSession();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
       if (!session?.access_token) {
-        toast.error('Please sign in to perform this action');
+        toast.error("Please sign in to perform this action");
         return;
       }
 
       const response = await fetch(`${serverUrl}/admin/users/${userId}`, {
-        method: 'PUT',
+        method: "PUT",
         headers: {
-          'Authorization': `Bearer ${session.access_token}`,
-          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.access_token}`,
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({ isActive: !currentStatus }),
       });
 
       if (response.ok) {
         await fetchUsers();
-        toast.success(`User ${!currentStatus ? 'activated' : 'deactivated'} successfully`);
+        toast.success(
+          `User ${!currentStatus ? "activated" : "deactivated"} successfully`
+        );
       } else {
         const error = await response.json();
-        toast.error(error.error || 'Failed to update user status');
+        toast.error(error.error || "Failed to update user status");
       }
     } catch (error) {
-      console.error('Error updating user status:', error);
-      toast.error('Network error while updating user status');
+      console.error("Error updating user status:", error);
+      toast.error("Network error while updating user status");
     } finally {
       setActionLoading(false);
     }
@@ -125,32 +166,37 @@ export function UserManagement() {
 
     try {
       setActionLoading(true);
-      const { data: { session } } = await supabase.auth.getSession();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
       if (!session?.access_token) {
-        toast.error('Please sign in to perform this action');
+        toast.error("Please sign in to perform this action");
         return;
       }
 
-      const response = await fetch(`${serverUrl}/admin/users/${userToDelete.id}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${session.access_token}`,
-          'Content-Type': 'application/json',
-        },
-      });
+      const response = await fetch(
+        `${serverUrl}/admin/users/${userToDelete.id}`,
+        {
+          method: "DELETE",
+          headers: {
+            Authorization: `Bearer ${session.access_token}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
 
       if (response.ok) {
         await fetchUsers();
-        toast.success('User deleted successfully');
+        toast.success("User deleted successfully");
         setDeleteDialogOpen(false);
         setUserToDelete(null);
       } else {
         const error = await response.json();
-        toast.error(error.error || 'Failed to delete user');
+        toast.error(error.error || "Failed to delete user");
       }
     } catch (error) {
-      console.error('Error deleting user:', error);
-      toast.error('Network error while deleting user');
+      console.error("Error deleting user:", error);
+      toast.error("Network error while deleting user");
     } finally {
       setActionLoading(false);
     }
@@ -163,8 +209,8 @@ export function UserManagement() {
 
   const stats = {
     total: users.length,
-    active: users.filter(u => u.isActive).length,
-    inactive: users.filter(u => !u.isActive).length,
+    active: users.filter((u) => u.isActive).length,
+    inactive: users.filter((u) => !u.isActive).length,
   };
 
   if (loading) {
@@ -180,7 +226,7 @@ export function UserManagement() {
 
   return (
     <div className="space-y-6">
-      <div className="bg-gradient-to-r from-primary to-accent text-primary-foreground p-4 sm:p-6 rounded-lg">
+      <div className="bg-gradient-to-r from-secondary to-primary text-secondary-foreground p-4 sm:p-6 rounded-lg">
         <h1 className="text-xl sm:text-2xl flex items-center space-x-2">
           <Users className="w-6 h-6" />
           <span>User Management</span>
@@ -197,25 +243,33 @@ export function UserManagement() {
             <CardTitle className="text-sm sm:text-base">Total Users</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl sm:text-3xl text-foreground">{stats.total}</div>
+            <div className="text-2xl sm:text-3xl text-foreground">
+              {stats.total}
+            </div>
           </CardContent>
         </Card>
-        
+
         <Card>
           <CardHeader className="pb-2 sm:pb-3">
             <CardTitle className="text-sm sm:text-base">Active Users</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl sm:text-3xl text-green-600 dark:text-green-500">{stats.active}</div>
+            <div className="text-2xl sm:text-3xl text-green-600 dark:text-green-500">
+              {stats.active}
+            </div>
           </CardContent>
         </Card>
-        
+
         <Card>
           <CardHeader className="pb-2 sm:pb-3">
-            <CardTitle className="text-sm sm:text-base">Inactive Users</CardTitle>
+            <CardTitle className="text-sm sm:text-base">
+              Inactive Users
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl sm:text-3xl text-red-600 dark:text-red-500">{stats.inactive}</div>
+            <div className="text-2xl sm:text-3xl text-red-600 dark:text-red-500">
+              {stats.inactive}
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -224,7 +278,9 @@ export function UserManagement() {
       <Card>
         <CardHeader>
           <CardTitle>All Users</CardTitle>
-          <CardDescription>View and manage all registered users</CardDescription>
+          <CardDescription>
+            View and manage all registered users
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
@@ -257,17 +313,21 @@ export function UserManagement() {
                         <TableCell>
                           <div>
                             <div className="font-medium">{user.name}</div>
-                            <div className="text-sm text-muted-foreground">{user.email}</div>
+                            <div className="text-sm text-muted-foreground">
+                              {user.email}
+                            </div>
                           </div>
                         </TableCell>
                         <TableCell>
                           <div className="text-sm">
-                            {user.phoneNumber || 'Not provided'}
+                            {user.phoneNumber || "Not provided"}
                           </div>
                         </TableCell>
                         <TableCell>
-                          <Badge variant={user.isActive ? 'default' : 'secondary'}>
-                            {user.isActive ? 'Active' : 'Inactive'}
+                          <Badge
+                            variant={user.isActive ? "default" : "secondary"}
+                          >
+                            {user.isActive ? "Active" : "Inactive"}
                           </Badge>
                         </TableCell>
                         <TableCell>
@@ -283,12 +343,18 @@ export function UserManagement() {
                               <Eye className="w-4 h-4" />
                             </Button>
                             <Button
-                              variant={user.isActive ? 'outline' : 'default'}
+                              variant={user.isActive ? "outline" : "default"}
                               size="sm"
-                              onClick={() => handleToggleUserStatus(user.id, user.isActive)}
+                              onClick={() =>
+                                handleToggleUserStatus(user.id, user.isActive)
+                              }
                               disabled={actionLoading}
                             >
-                              {user.isActive ? <UserX className="w-4 h-4" /> : <UserCheck className="w-4 h-4" />}
+                              {user.isActive ? (
+                                <UserX className="w-4 h-4" />
+                              ) : (
+                                <UserCheck className="w-4 h-4" />
+                              )}
                             </Button>
                             <Button
                               variant="outline"
@@ -319,20 +385,26 @@ export function UserManagement() {
                       <div className="flex items-start justify-between">
                         <div className="space-y-1">
                           <h3 className="font-medium">{user.name}</h3>
-                          <p className="text-sm text-muted-foreground">{user.email}</p>
+                          <p className="text-sm text-muted-foreground">
+                            {user.email}
+                          </p>
                           {user.phoneNumber && (
-                            <p className="text-sm text-muted-foreground">{user.phoneNumber}</p>
+                            <p className="text-sm text-muted-foreground">
+                              {user.phoneNumber}
+                            </p>
                           )}
                         </div>
-                        <Badge variant={user.isActive ? 'default' : 'secondary'}>
-                          {user.isActive ? 'Active' : 'Inactive'}
+                        <Badge
+                          variant={user.isActive ? "default" : "secondary"}
+                        >
+                          {user.isActive ? "Active" : "Inactive"}
                         </Badge>
                       </div>
-                      
+
                       <div className="text-xs text-muted-foreground">
                         Joined: {new Date(user.createdAt).toLocaleDateString()}
                       </div>
-                      
+
                       <div className="flex items-center space-x-2">
                         <Button
                           variant="outline"
@@ -344,12 +416,18 @@ export function UserManagement() {
                           View
                         </Button>
                         <Button
-                          variant={user.isActive ? 'outline' : 'default'}
+                          variant={user.isActive ? "outline" : "default"}
                           size="sm"
-                          onClick={() => handleToggleUserStatus(user.id, user.isActive)}
+                          onClick={() =>
+                            handleToggleUserStatus(user.id, user.isActive)
+                          }
                           disabled={actionLoading}
                         >
-                          {user.isActive ? <UserX className="w-4 h-4" /> : <UserCheck className="w-4 h-4" />}
+                          {user.isActive ? (
+                            <UserX className="w-4 h-4" />
+                          ) : (
+                            <UserCheck className="w-4 h-4" />
+                          )}
                         </Button>
                         <Button
                           variant="outline"
@@ -387,7 +465,7 @@ export function UserManagement() {
               View detailed information about this user
             </DialogDescription>
           </DialogHeader>
-          
+
           {selectedUser && (
             <div className="space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -401,36 +479,47 @@ export function UserManagement() {
                 </div>
                 <div>
                   <span className="font-medium">Phone Number:</span>
-                  <p className="text-muted-foreground">{selectedUser.phoneNumber || 'Not provided'}</p>
+                  <p className="text-muted-foreground">
+                    {selectedUser.phoneNumber || "Not provided"}
+                  </p>
                 </div>
                 <div>
                   <span className="font-medium">Status:</span>
-                  <Badge variant={selectedUser.isActive ? 'default' : 'secondary'} className="ml-2">
-                    {selectedUser.isActive ? 'Active' : 'Inactive'}
+                  <Badge
+                    variant={selectedUser.isActive ? "default" : "secondary"}
+                    className="ml-2"
+                  >
+                    {selectedUser.isActive ? "Active" : "Inactive"}
                   </Badge>
                 </div>
                 <div>
                   <span className="font-medium">Account Created:</span>
                   <p className="text-muted-foreground">
-                    {new Date(selectedUser.createdAt).toLocaleDateString('en-US', {
-                      year: 'numeric',
-                      month: 'long',
-                      day: 'numeric',
-                      hour: '2-digit',
-                      minute: '2-digit'
-                    })}
+                    {new Date(selectedUser.createdAt).toLocaleDateString(
+                      "en-US",
+                      {
+                        year: "numeric",
+                        month: "long",
+                        day: "numeric",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      }
+                    )}
                   </p>
                 </div>
                 <div>
                   <span className="font-medium">Last Updated:</span>
                   <p className="text-muted-foreground">
-                    {new Date(selectedUser.updatedAt).toLocaleDateString('en-US', {
-                      year: 'numeric',
-                      month: 'long',
-                      day: 'numeric',
-                      hour: '2-digit',
-                      minute: '2-digit'
-                    })}
+                    {new Date(selectedUser.updatedAt).toLocaleDateString(
+                      "en-US",
+                      {
+                        year: "numeric",
+                        month: "long",
+                        day: "numeric",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      }
+                    )}
                   </p>
                 </div>
               </div>
@@ -451,13 +540,15 @@ export function UserManagement() {
               Are you sure you want to permanently delete this user account?
             </DialogDescription>
           </DialogHeader>
-          
+
           {userToDelete && (
             <Alert>
               <AlertTriangle className="w-4 h-4" />
               <AlertDescription>
-                This will permanently delete the account for <strong>{userToDelete.name}</strong> ({userToDelete.email}).
-                All their data, complaints, and history will be removed. This action cannot be undone.
+                This will permanently delete the account for{" "}
+                <strong>{userToDelete.name}</strong> ({userToDelete.email}). All
+                their data, complaints, and history will be removed. This action
+                cannot be undone.
               </AlertDescription>
             </Alert>
           )}
@@ -480,7 +571,7 @@ export function UserManagement() {
               className="flex items-center space-x-2"
             >
               <Trash2 className="w-4 h-4" />
-              <span>{actionLoading ? 'Deleting...' : 'Delete User'}</span>
+              <span>{actionLoading ? "Deleting..." : "Delete User"}</span>
             </Button>
           </DialogFooter>
         </DialogContent>

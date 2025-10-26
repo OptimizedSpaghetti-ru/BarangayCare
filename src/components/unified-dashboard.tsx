@@ -1,15 +1,27 @@
-import { useState } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
-import { Button } from './ui/button';
-import { Badge } from './ui/badge';
-import { Input } from './ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
-import { 
-  MessageSquare, 
-  Calendar, 
-  MapPin, 
-  Search, 
-  Filter, 
+import { useState } from "react";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "./ui/card";
+import { Button } from "./ui/button";
+import { Badge } from "./ui/badge";
+import { Input } from "./ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "./ui/select";
+import {
+  MessageSquare,
+  Calendar,
+  MapPin,
+  Search,
+  Filter,
   Clock,
   CheckCircle,
   AlertCircle,
@@ -17,10 +29,10 @@ import {
   Eye,
   TrendingUp,
   FileText,
-  User
-} from 'lucide-react';
-import { useAuth } from './auth/auth-context';
-import { ImageWithFallback } from './figma/ImageWithFallback';
+  User,
+} from "lucide-react";
+import { useAuth } from "./auth/auth-context";
+import { ImageWithFallback } from "./figma/ImageWithFallback";
 
 interface Complaint {
   id: string;
@@ -30,9 +42,9 @@ interface Complaint {
   location: string;
   photo?: string;
   contactInfo: string;
-  status: 'pending' | 'in-progress' | 'resolved' | 'rejected';
+  status: "pending" | "in-progress" | "resolved" | "rejected";
   dateSubmitted: string;
-  priority: 'low' | 'medium' | 'high';
+  priority: "low" | "medium" | "high";
   adminNotes?: string;
   respondent?: string;
   userId?: string;
@@ -45,95 +57,114 @@ interface UnifiedDashboardProps {
   isAdmin?: boolean;
 }
 
-export function UnifiedDashboard({ complaints, onViewDetails, isAdmin = false }: UnifiedDashboardProps) {
+export function UnifiedDashboard({
+  complaints,
+  onViewDetails,
+  isAdmin = false,
+}: UnifiedDashboardProps) {
   const { user } = useAuth();
-  const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [categoryFilter, setCategoryFilter] = useState<string>('all');
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [categoryFilter, setCategoryFilter] = useState<string>("all");
 
   // Show all complaints
   const baseComplaints = complaints;
 
   // Apply search and filters
-  const filteredComplaints = baseComplaints.filter(complaint => {
-    const matchesSearch = complaint.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         complaint.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         complaint.location.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    const matchesStatus = statusFilter === 'all' || complaint.status === statusFilter;
-    const matchesCategory = categoryFilter === 'all' || complaint.category === categoryFilter;
-    
+  const filteredComplaints = baseComplaints.filter((complaint) => {
+    const matchesSearch =
+      complaint.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      complaint.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      complaint.location.toLowerCase().includes(searchTerm.toLowerCase());
+
+    const matchesStatus =
+      statusFilter === "all" || complaint.status === statusFilter;
+    const matchesCategory =
+      categoryFilter === "all" || complaint.category === categoryFilter;
+
     return matchesSearch && matchesStatus && matchesCategory;
   });
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'pending': return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-400';
-      case 'in-progress': return 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400';
-      case 'resolved': return 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400';
-      case 'rejected': return 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400';
-      default: return 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200';
+      case "pending":
+        return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-400";
+      case "in-progress":
+        return "bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400";
+      case "resolved":
+        return "bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400";
+      case "rejected":
+        return "bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400";
+      default:
+        return "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200";
     }
   };
 
   const getStatusIcon = (status: string) => {
     switch (status) {
-      case 'pending': return <Clock className="w-4 h-4" />;
-      case 'in-progress': return <AlertCircle className="w-4 h-4" />;
-      case 'resolved': return <CheckCircle className="w-4 h-4" />;
-      case 'rejected': return <XCircle className="w-4 h-4" />;
-      default: return <Clock className="w-4 h-4" />;
+      case "pending":
+        return <Clock className="w-4 h-4" />;
+      case "in-progress":
+        return <AlertCircle className="w-4 h-4" />;
+      case "resolved":
+        return <CheckCircle className="w-4 h-4" />;
+      case "rejected":
+        return <XCircle className="w-4 h-4" />;
+      default:
+        return <Clock className="w-4 h-4" />;
     }
   };
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
-      case 'high': return 'bg-red-500';
-      case 'medium': return 'bg-yellow-500';
-      case 'low': return 'bg-green-500';
-      default: return 'bg-gray-500';
+      case "high":
+        return "bg-red-500";
+      case "medium":
+        return "bg-yellow-500";
+      case "low":
+        return "bg-green-500";
+      default:
+        return "bg-gray-500";
     }
   };
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric'
+    return new Date(dateString).toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
     });
   };
 
   // Statistics for current view
   const stats = {
     total: baseComplaints.length,
-    pending: baseComplaints.filter(c => c.status === 'pending').length,
-    inProgress: baseComplaints.filter(c => c.status === 'in-progress').length,
-    resolved: baseComplaints.filter(c => c.status === 'resolved').length,
-    rejected: baseComplaints.filter(c => c.status === 'rejected').length,
+    pending: baseComplaints.filter((c) => c.status === "pending").length,
+    inProgress: baseComplaints.filter((c) => c.status === "in-progress").length,
+    resolved: baseComplaints.filter((c) => c.status === "resolved").length,
+    rejected: baseComplaints.filter((c) => c.status === "rejected").length,
   };
 
-  const categories = [...new Set(complaints.map(c => c.category))];
+  const categories = [...new Set(complaints.map((c) => c.category))];
 
   return (
     <div className="space-y-6">
       {/* Welcome Section */}
-      <div className="bg-gradient-to-r from-primary to-accent text-primary-foreground p-4 sm:p-6 rounded-lg">
+      <div className="bg-gradient-to-r from-secondary to-primary text-secondary-foreground p-4 sm:p-6 rounded-lg">
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-xl sm:text-2xl flex items-center space-x-2">
               <User className="w-6 h-6" />
               <span>
-                {isAdmin 
-                  ? 'Admin Dashboard - BarangayCARE' 
-                  : `Welcome back, ${user?.name}!`
-                }
+                {isAdmin
+                  ? "Admin Dashboard - BarangayCARE"
+                  : `Welcome back, ${user?.name}!`}
               </span>
             </h1>
             <p className="mt-2 opacity-90 text-sm sm:text-base">
-              {isAdmin 
-                ? 'Monitor and manage all community requests and user activities'
-                : 'Track your community requests and stay updated on their progress'
-              }
+              {isAdmin
+                ? "Monitor and manage all community requests and user activities"
+                : "Track your community requests and stay updated on their progress"}
             </p>
           </div>
         </div>
@@ -157,7 +188,9 @@ export function UnifiedDashboard({ complaints, onViewDetails, isAdmin = false }:
 
         <Card>
           <CardHeader className="pb-2 sm:pb-3">
-            <CardTitle className="text-xs sm:text-sm text-muted-foreground">Pending</CardTitle>
+            <CardTitle className="text-xs sm:text-sm text-muted-foreground">
+              Pending
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex items-center space-x-2">
@@ -169,7 +202,9 @@ export function UnifiedDashboard({ complaints, onViewDetails, isAdmin = false }:
 
         <Card>
           <CardHeader className="pb-2 sm:pb-3">
-            <CardTitle className="text-xs sm:text-sm text-muted-foreground">In Progress</CardTitle>
+            <CardTitle className="text-xs sm:text-sm text-muted-foreground">
+              In Progress
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex items-center space-x-2">
@@ -181,7 +216,9 @@ export function UnifiedDashboard({ complaints, onViewDetails, isAdmin = false }:
 
         <Card>
           <CardHeader className="pb-2 sm:pb-3">
-            <CardTitle className="text-xs sm:text-sm text-muted-foreground">Resolved</CardTitle>
+            <CardTitle className="text-xs sm:text-sm text-muted-foreground">
+              Resolved
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex items-center space-x-2">
@@ -193,13 +230,18 @@ export function UnifiedDashboard({ complaints, onViewDetails, isAdmin = false }:
 
         <Card className="col-span-2 sm:col-span-3 lg:col-span-1">
           <CardHeader className="pb-2 sm:pb-3">
-            <CardTitle className="text-xs sm:text-sm text-muted-foreground">Success Rate</CardTitle>
+            <CardTitle className="text-xs sm:text-sm text-muted-foreground">
+              Success Rate
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex items-center space-x-2">
               <TrendingUp className="w-5 h-5 text-green-500" />
               <span className="text-xl sm:text-2xl">
-                {stats.total > 0 ? Math.round((stats.resolved / stats.total) * 100) : 0}%
+                {stats.total > 0
+                  ? Math.round((stats.resolved / stats.total) * 100)
+                  : 0}
+                %
               </span>
             </div>
           </CardContent>
@@ -212,14 +254,13 @@ export function UnifiedDashboard({ complaints, onViewDetails, isAdmin = false }:
           <CardTitle className="flex items-center space-x-2">
             <MessageSquare className="w-5 h-5" />
             <span>
-              {isAdmin ? 'All Community Requests' : 'Community Requests'}
+              {isAdmin ? "All Community Requests" : "Community Requests"}
             </span>
           </CardTitle>
           <CardDescription>
-            {isAdmin 
-              ? 'Monitor and manage all community requests'
-              : 'View all community requests and their current status'
-            }
+            {isAdmin
+              ? "Monitor and manage all community requests"
+              : "View all community requests and their current status"}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -235,7 +276,7 @@ export function UnifiedDashboard({ complaints, onViewDetails, isAdmin = false }:
                   className="pl-10"
                 />
               </div>
-              
+
               <div className="flex gap-2">
                 <Select value={statusFilter} onValueChange={setStatusFilter}>
                   <SelectTrigger className="w-full sm:w-40">
@@ -250,13 +291,16 @@ export function UnifiedDashboard({ complaints, onViewDetails, isAdmin = false }:
                   </SelectContent>
                 </Select>
 
-                <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                <Select
+                  value={categoryFilter}
+                  onValueChange={setCategoryFilter}
+                >
                   <SelectTrigger className="w-full sm:w-40">
                     <SelectValue placeholder="Category" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Categories</SelectItem>
-                    {categories.map(category => (
+                    {categories.map((category) => (
                       <SelectItem key={category} value={category}>
                         {category.charAt(0).toUpperCase() + category.slice(1)}
                       </SelectItem>
@@ -272,61 +316,76 @@ export function UnifiedDashboard({ complaints, onViewDetails, isAdmin = false }:
                 <div className="text-center py-12">
                   <MessageSquare className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
                   <h3 className="text-lg font-medium text-foreground mb-2">
-                    {baseComplaints.length === 0 
+                    {baseComplaints.length === 0
                       ? "No requests in the system"
-                      : "No requests match your filters"
-                    }
+                      : "No requests match your filters"}
                   </h3>
                   <p className="text-muted-foreground mb-4">
-                    {baseComplaints.length === 0 
+                    {baseComplaints.length === 0
                       ? "The community hasn't submitted any requests yet"
-                      : "Try adjusting your search or filter criteria"
-                    }
+                      : "Try adjusting your search or filter criteria"}
                   </p>
-
                 </div>
               ) : (
                 filteredComplaints.map((complaint) => (
-                  <Card key={complaint.id} className="hover:shadow-md transition-shadow">
+                  <Card
+                    key={complaint.id}
+                    className="hover:shadow-md transition-shadow"
+                  >
                     <CardContent className="p-4 sm:p-6">
                       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center space-x-3 mb-2">
-                            <h3 className="font-medium truncate">{complaint.title}</h3>
+                            <h3 className="font-medium truncate">
+                              {complaint.title}
+                            </h3>
                             <div className="flex items-center space-x-2 flex-shrink-0">
                               <div
-                                className={`w-3 h-3 rounded-full ${getPriorityColor(complaint.priority)}`}
+                                className={`w-3 h-3 rounded-full ${getPriorityColor(
+                                  complaint.priority
+                                )}`}
                               />
-                              <Badge className={`${getStatusColor(complaint.status)} border-0 flex items-center space-x-1`}>
+                              <Badge
+                                className={`${getStatusColor(
+                                  complaint.status
+                                )} border-0 flex items-center space-x-1`}
+                              >
                                 {getStatusIcon(complaint.status)}
-                                <span className="capitalize">{complaint.status.replace('-', ' ')}</span>
+                                <span className="capitalize">
+                                  {complaint.status.replace("-", " ")}
+                                </span>
                               </Badge>
                             </div>
                           </div>
-                          
+
                           <p className="text-muted-foreground text-sm mb-3 line-clamp-2">
                             {complaint.description}
                           </p>
-                          
+
                           <div className="flex flex-col gap-2">
                             <div className="flex flex-wrap items-center gap-2 text-xs">
                               <Badge variant="secondary" className="text-xs">
-                                {complaint.category.charAt(0).toUpperCase() + complaint.category.slice(1)}
+                                {complaint.category.charAt(0).toUpperCase() +
+                                  complaint.category.slice(1)}
                               </Badge>
                             </div>
                             <div className="flex items-center space-x-4 text-xs text-muted-foreground">
                               <div className="flex items-center space-x-1">
                                 <MapPin className="w-3 h-3" />
-                                <span className="truncate">{complaint.location}</span>
+                                <span className="truncate">
+                                  {complaint.location}
+                                </span>
                               </div>
                               <div className="flex items-center space-x-1">
                                 <Calendar className="w-3 h-3" />
-                                <span>{formatDate(complaint.dateSubmitted)}</span>
+                                <span>
+                                  {formatDate(complaint.dateSubmitted)}
+                                </span>
                               </div>
                             </div>
                           </div>
                         </div>
-                        
+
                         <div className="flex items-center space-x-3 justify-end sm:justify-end flex-shrink-0">
                           {complaint.photo && (
                             <ImageWithFallback
