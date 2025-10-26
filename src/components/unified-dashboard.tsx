@@ -150,7 +150,13 @@ export function UnifiedDashboard({
   return (
     <div className="space-y-6">
       {/* Welcome Section */}
-      <div className="bg-gradient-to-r from-secondary to-primary text-secondary-foreground p-4 sm:p-6 rounded-lg">
+      <div
+        className={`bg-gradient-to-r ${
+          isAdmin
+            ? "from-secondary to-primary text-secondary-foreground"
+            : "from-primary to-accent text-primary-foreground"
+        } p-4 sm:p-6 rounded-lg`}
+      >
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-xl sm:text-2xl flex items-center space-x-2">
