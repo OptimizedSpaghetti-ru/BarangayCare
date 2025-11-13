@@ -413,17 +413,17 @@ For support and questions:
 - 📖 Documentation: Check the `/src` directory for detailed guides
 
 ## 🗺️ Roadmap
-
-- [ ] Mobile app (React Native)
-- [ ] SMS notifications
+- [ ] Profile Picture Integration
 - [ ] Multi-language support
+- [ ] 2FA Email
+- [ ] Mobile app (Capacitor)
+- [ ] SMS notifications
 - [ ] Advanced analytics
 - [ ] Document management
 - [ ] Event scheduling
-- [ ] Payment integration
 - [ ] GIS mapping integration
-
+- [ ] Offline Use
 ---
 
 
-_Current Branch: Barangaycare-with-fixed-admin_
+_Current Branch: Barangaycare Guest Account
