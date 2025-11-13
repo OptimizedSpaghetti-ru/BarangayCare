@@ -16,6 +16,7 @@ interface AuthContextType {
   user: User | null;
   loading: boolean;
   isAdmin: boolean;
+  isGuest: boolean;
   signUp: (
     email: string,
     password: string,
@@ -25,6 +26,7 @@ interface AuthContextType {
   signIn: (email: string, password: string) => Promise<{ error?: string }>;
   signInWithGoogle: () => Promise<{ error?: string }>;
   signInWithFacebook: () => Promise<{ error?: string }>;
+  loginAsGuest: () => void;
   signOut: () => Promise<void>;
   updateProfile: (
     name: string,
@@ -40,6 +42,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [isGuest, setIsGuest] = useState(false);
 
   const supabase = getSupabaseClient();
 
@@ -50,6 +53,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const initializeAuth = async () => {
       try {
+        // Check for guest mode in localStorage
+        const guestMode = localStorage.getItem("guestMode") === "true";
+        if (guestMode) {
+          setIsGuest(true);
+          setLoading(false);
+          return;
+        }
+
         // Get the current session
         const {
           data: { session },
@@ -226,8 +237,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const loginAsGuest = () => {
+    localStorage.setItem("guestMode", "true");
+    setIsGuest(true);
+    setUser(null);
+    setIsAdmin(false);
+  };
+
   const signOut = async () => {
     try {
+      // Clear guest mode
+      localStorage.removeItem("guestMode");
+      setIsGuest(false);
+
       await supabase.auth.signOut();
       setUser(null);
     } catch (error) {
@@ -323,10 +345,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     user,
     loading,
     isAdmin,
+    isGuest,
     signUp,
     signIn,
     signInWithGoogle,
     signInWithFacebook,
+    loginAsGuest,
     signOut,
     updateProfile,
     deleteAccount,

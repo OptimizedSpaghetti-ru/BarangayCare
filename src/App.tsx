@@ -57,7 +57,7 @@ interface Complaint {
 // No sample data - only real data will be displayed
 
 function AppContent() {
-  const { user, loading, isAdmin } = useAuth();
+  const { user, loading, isAdmin, isGuest } = useAuth();
   const { complaints, addComplaint, updateComplaint } = useComplaints();
   const [currentView, setCurrentView] = useState("dashboard");
   const [authView, setAuthView] = useState<"login" | "signup">("login");
@@ -135,6 +135,79 @@ function AppContent() {
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
           <p className="text-muted-foreground">Loading BarangayCARE...</p>
         </div>
+      </div>
+    );
+  }
+
+  // Show guest complaint form if in guest mode
+  if (isGuest) {
+    return (
+      <div className="min-h-screen bg-background">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 relative">
+          {/* Exit Guest Mode Button */}
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => {
+              localStorage.removeItem("guestMode");
+              window.location.reload();
+            }}
+            className="absolute top-4 right-4 hover:bg-destructive/10"
+            title="Exit Guest Mode"
+          >
+            <span className="sr-only">Exit Guest Mode</span>
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="24"
+              height="24"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <line x1="18" y1="6" x2="6" y2="18"></line>
+              <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+          </Button>
+
+          <div className="text-center mb-8">
+            <div className="flex items-center justify-center space-x-2 mb-4">
+              <img
+                src="/no-bg-icon.png"
+                alt="BarangayCARE Logo"
+                className="w-10 h-10"
+              />
+              <span className="text-2xl font-semibold text-foreground">
+                BarangayCARE - Guest Mode
+              </span>
+            </div>
+            <p className="text-muted-foreground mb-4">
+              Submit your complaint anonymously
+            </p>
+            <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg max-w-2xl mx-auto">
+              <p className="text-sm text-blue-800 dark:text-blue-300">
+                ⓘ You are submitting as a guest. Your complaint will be recorded
+                as "Anonymous" and you won't be able to track its status.
+                <br />
+                <a
+                  href="#"
+                  onClick={() => {
+                    localStorage.removeItem("guestMode");
+                    window.location.reload();
+                  }}
+                  className="font-medium underline"
+                >
+                  Create an account
+                </a>{" "}
+                to track your complaints and receive updates.
+              </p>
+            </div>
+          </div>
+          <ComplaintForm onSubmit={handleSubmitComplaint} />
+        </div>
+        <Toaster />
       </div>
     );
   }

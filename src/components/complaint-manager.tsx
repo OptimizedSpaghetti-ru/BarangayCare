@@ -1,6 +1,6 @@
-import { createContext, useContext, useEffect, useState } from 'react';
-import { getSupabaseClient } from '../utils/supabase/client';
-import { toast } from 'sonner@2.0.3';
+import { createContext, useContext, useEffect, useState } from "react";
+import { getSupabaseClient } from "../utils/supabase/client";
+import { toast } from "sonner@2.0.3";
 
 interface Complaint {
   id: string;
@@ -10,9 +10,9 @@ interface Complaint {
   location: string;
   photo?: string;
   contactInfo: string;
-  status: 'pending' | 'in-progress' | 'resolved' | 'rejected';
+  status: "pending" | "in-progress" | "resolved" | "rejected";
   dateSubmitted: string;
-  priority: 'low' | 'medium' | 'high';
+  priority: "low" | "medium" | "high";
   adminNotes?: string;
   respondent?: string;
   userId?: string;
@@ -22,12 +22,19 @@ interface Complaint {
 interface ComplaintContextType {
   complaints: Complaint[];
   loading: boolean;
-  addComplaint: (complaint: Omit<Complaint, 'id' | 'dateSubmitted'>) => Promise<{ error?: string }>;
-  updateComplaint: (id: string, updates: Partial<Complaint>) => Promise<{ error?: string }>;
+  addComplaint: (
+    complaint: Omit<Complaint, "id" | "dateSubmitted">
+  ) => Promise<{ error?: string }>;
+  updateComplaint: (
+    id: string,
+    updates: Partial<Complaint>
+  ) => Promise<{ error?: string }>;
   fetchComplaints: () => Promise<void>;
 }
 
-const ComplaintContext = createContext<ComplaintContextType | undefined>(undefined);
+const ComplaintContext = createContext<ComplaintContextType | undefined>(
+  undefined
+);
 
 export function ComplaintProvider({ children }: { children: React.ReactNode }) {
   const [complaints, setComplaints] = useState<Complaint[]>([]);
@@ -40,16 +47,16 @@ export function ComplaintProvider({ children }: { children: React.ReactNode }) {
 
     // Set up real-time subscription for complaints
     const channel = supabase
-      .channel('complaints-changes')
+      .channel("complaints-changes")
       .on(
-        'postgres_changes',
+        "postgres_changes",
         {
-          event: '*', // Listen to all events (INSERT, UPDATE, DELETE)
-          schema: 'public',
-          table: 'complaints',
+          event: "*", // Listen to all events (INSERT, UPDATE, DELETE)
+          schema: "public",
+          table: "complaints",
         },
         (payload) => {
-          console.log('Real-time update received:', payload);
+          console.log("Real-time update received:", payload);
           // Refetch complaints when any change occurs
           fetchComplaints();
         }
@@ -65,32 +72,34 @@ export function ComplaintProvider({ children }: { children: React.ReactNode }) {
   const fetchComplaints = async () => {
     try {
       setLoading(true);
-      const { data: { session } } = await supabase.auth.getSession();
-      
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
       if (!session) {
         setComplaints([]);
         return;
       }
 
       const user = session.user;
-      const isAdmin = user?.user_metadata?.role === 'admin';
+      const isAdmin = user?.user_metadata?.role === "admin";
 
       // Fetch complaints from Supabase
       let query = supabase
-        .from('complaints')
-        .select('*')
-        .order('date_submitted', { ascending: false });
+        .from("complaints")
+        .select("*")
+        .order("date_submitted", { ascending: false });
 
       // If not admin, only fetch user's own complaints
       if (!isAdmin) {
-        query = query.eq('user_id', user.id);
+        query = query.eq("user_id", user.id);
       }
 
       const { data, error } = await query;
 
       if (error) {
-        console.error('Error fetching complaints:', error);
-        toast.error('Failed to load complaints');
+        console.error("Error fetching complaints:", error);
+        toast.error("Failed to load complaints");
         return;
       }
 
@@ -114,20 +123,62 @@ export function ComplaintProvider({ children }: { children: React.ReactNode }) {
 
       setComplaints(transformedComplaints);
     } catch (error) {
-      console.error('Error fetching complaints:', error);
-      toast.error('Failed to load complaints');
+      console.error("Error fetching complaints:", error);
+      toast.error("Failed to load complaints");
     } finally {
       setLoading(false);
     }
   };
 
-  const addComplaint = async (complaintData: Omit<Complaint, 'id' | 'dateSubmitted'>) => {
+  const addComplaint = async (
+    complaintData: Omit<Complaint, "id" | "dateSubmitted">
+  ) => {
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
       const user = session?.user;
+      const isGuestMode = localStorage.getItem("guestMode") === "true";
 
-      if (!user) {
-        return { error: 'You must be logged in to submit a complaint' };
+      console.log("🔍 Guest Submission Debug:", {
+        hasUser: !!user,
+        isGuestMode,
+        guestModeFromStorage: localStorage.getItem("guestMode"),
+      });
+
+      // Allow guest submissions
+      if (!user && !isGuestMode) {
+        console.error("❌ Not logged in and not in guest mode");
+        return { error: "You must be logged in to submit a complaint" };
+      }
+
+      let userName = "Unknown User";
+      let userId = null;
+
+      if (isGuestMode) {
+        console.log("👤 Processing as guest user...");
+        // Get the next anonymous number
+        const { data: lastGuest } = await supabase
+          .from("complaints")
+          .select("user_name")
+          .is("user_id", null)
+          .like("user_name", "Anonymous%")
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .single();
+
+        let nextNumber = 1;
+        if (lastGuest?.user_name) {
+          const match = lastGuest.user_name.match(/Anonymous(\d+)/);
+          if (match) {
+            nextNumber = parseInt(match[1]) + 1;
+          }
+        }
+        userName = `Anonymous${nextNumber.toString().padStart(3, "0")}`;
+        userId = null;
+      } else {
+        userName = user!.user_metadata?.name || user!.email || "Unknown User";
+        userId = user!.id;
       }
 
       // Transform data from camelCase to snake_case for database
@@ -142,22 +193,36 @@ export function ComplaintProvider({ children }: { children: React.ReactNode }) {
         priority: complaintData.priority,
         admin_notes: complaintData.adminNotes,
         respondent: complaintData.respondent,
-        user_id: user.id,
-        user_name: user.user_metadata?.name || user.email || 'Unknown User',
+        user_id: userId,
+        user_name: userName,
         date_submitted: new Date().toISOString(),
       };
 
+      console.log("📝 Attempting to insert complaint:", {
+        user_id: userId,
+        user_name: userName,
+        isGuest: isGuestMode,
+      });
+
       const { data, error } = await supabase
-        .from('complaints')
+        .from("complaints")
         .insert([dbComplaint])
         .select()
         .single();
 
       if (error) {
-        console.error('Error adding complaint:', error);
-        toast.error('Failed to submit complaint');
-        return { error: 'Failed to submit complaint' };
+        console.error("❌ Database error:", error);
+        console.error("Error details:", {
+          message: error.message,
+          code: error.code,
+          details: error.details,
+          hint: error.hint,
+        });
+        toast.error(`Failed to submit complaint: ${error.message}`);
+        return { error: "Failed to submit complaint" };
       }
+
+      console.log("✅ Complaint submitted successfully:", data);
 
       // Transform response back to camelCase
       const newComplaint: Complaint = {
@@ -178,67 +243,75 @@ export function ComplaintProvider({ children }: { children: React.ReactNode }) {
       };
 
       setComplaints([newComplaint, ...complaints]);
-      toast.success('Complaint submitted successfully');
-      
+      toast.success("Complaint submitted successfully");
+
       return {};
     } catch (error) {
-      console.error('Error adding complaint:', error);
-      toast.error('Failed to submit complaint');
-      return { error: 'Failed to submit complaint' };
+      console.error("Error adding complaint:", error);
+      toast.error("Failed to submit complaint");
+      return { error: "Failed to submit complaint" };
     }
   };
 
   const updateComplaint = async (id: string, updates: Partial<Complaint>) => {
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
       if (!session) {
-        return { error: 'You must be logged in to update a complaint' };
+        return { error: "You must be logged in to update a complaint" };
       }
 
       // Transform updates from camelCase to snake_case
       const dbUpdates: any = {};
       if (updates.title !== undefined) dbUpdates.title = updates.title;
-      if (updates.description !== undefined) dbUpdates.description = updates.description;
+      if (updates.description !== undefined)
+        dbUpdates.description = updates.description;
       if (updates.category !== undefined) dbUpdates.category = updates.category;
       if (updates.location !== undefined) dbUpdates.location = updates.location;
       if (updates.photo !== undefined) dbUpdates.photo = updates.photo;
-      if (updates.contactInfo !== undefined) dbUpdates.contact_info = updates.contactInfo;
+      if (updates.contactInfo !== undefined)
+        dbUpdates.contact_info = updates.contactInfo;
       if (updates.status !== undefined) dbUpdates.status = updates.status;
       if (updates.priority !== undefined) dbUpdates.priority = updates.priority;
-      if (updates.adminNotes !== undefined) dbUpdates.admin_notes = updates.adminNotes;
-      if (updates.respondent !== undefined) dbUpdates.respondent = updates.respondent;
+      if (updates.adminNotes !== undefined)
+        dbUpdates.admin_notes = updates.adminNotes;
+      if (updates.respondent !== undefined)
+        dbUpdates.respondent = updates.respondent;
 
       const { data, error } = await supabase
-        .from('complaints')
+        .from("complaints")
         .update(dbUpdates)
-        .eq('id', id)
+        .eq("id", id)
         .select()
         .single();
 
       if (error) {
-        console.error('Error updating complaint:', error);
-        toast.error('Failed to update complaint');
-        return { error: 'Failed to update complaint' };
+        console.error("Error updating complaint:", error);
+        toast.error("Failed to update complaint");
+        return { error: "Failed to update complaint" };
       }
 
       // Update local state
-      const updatedComplaints = complaints.map(complaint =>
-        complaint.id === id ? {
-          ...complaint,
-          ...updates,
-          dateSubmitted: data.date_submitted, // Keep the database timestamp
-        } : complaint
+      const updatedComplaints = complaints.map((complaint) =>
+        complaint.id === id
+          ? {
+              ...complaint,
+              ...updates,
+              dateSubmitted: data.date_submitted, // Keep the database timestamp
+            }
+          : complaint
       );
-      
+
       setComplaints(updatedComplaints);
-      toast.success('Complaint updated successfully');
-      
+      toast.success("Complaint updated successfully");
+
       return {};
     } catch (error) {
-      console.error('Error updating complaint:', error);
-      toast.error('Failed to update complaint');
-      return { error: 'Failed to update complaint' };
+      console.error("Error updating complaint:", error);
+      toast.error("Failed to update complaint");
+      return { error: "Failed to update complaint" };
     }
   };
 
@@ -260,7 +333,7 @@ export function ComplaintProvider({ children }: { children: React.ReactNode }) {
 export function useComplaints() {
   const context = useContext(ComplaintContext);
   if (!context) {
-    throw new Error('useComplaints must be used within a ComplaintProvider');
+    throw new Error("useComplaints must be used within a ComplaintProvider");
   }
   return context;
 }

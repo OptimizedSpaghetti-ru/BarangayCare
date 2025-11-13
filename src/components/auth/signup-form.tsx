@@ -43,7 +43,8 @@ export function SignupForm({ onSwitchToLogin }: SignupFormProps) {
   const [loading, setLoading] = useState(false);
   const [emailError, setEmailError] = useState<string | null>(null);
 
-  const { signUp, signInWithGoogle, signInWithFacebook } = useAuth();
+  const { signUp, signInWithGoogle, signInWithFacebook, loginAsGuest } =
+    useAuth();
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -322,6 +323,32 @@ export function SignupForm({ onSwitchToLogin }: SignupFormProps) {
             <span>Facebook</span>
           </Button>
         </div>
+
+        <div className="relative">
+          <div className="absolute inset-0 flex items-center">
+            <Separator className="w-full" />
+          </div>
+          <div className="relative flex justify-center text-xs uppercase">
+            <span className="bg-background px-2 text-muted-foreground">Or</span>
+          </div>
+        </div>
+
+        <Button
+          variant="outline"
+          onClick={loginAsGuest}
+          disabled={loading}
+          className="w-full"
+        >
+          Continue as Guest
+        </Button>
+
+        <Alert className="border-blue-200 bg-blue-50 dark:bg-blue-900/20 dark:border-blue-800">
+          <Info className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+          <AlertDescription className="text-blue-800 dark:text-blue-300">
+            Guest mode allows you to submit complaints anonymously, but you
+            won't be able to track or view them later.
+          </AlertDescription>
+        </Alert>
 
         <div className="text-center text-sm">
           <span className="text-muted-foreground">

@@ -21,6 +21,9 @@ CREATE TABLE IF NOT EXISTS complaints (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- Note: user_id can be NULL for guest submissions
+-- Guest submissions will have user_name in format: Anonymous001, Anonymous002, etc.
+
 -- Create indexes for better query performance
 CREATE INDEX IF NOT EXISTS idx_complaints_user_id ON complaints(user_id);
 CREATE INDEX IF NOT EXISTS idx_complaints_status ON complaints(status);
@@ -64,6 +67,12 @@ CREATE POLICY "Admins can update all complaints"
   USING (
     (auth.jwt() -> 'user_metadata' ->> 'role') = 'admin'
   );
+
+-- Policy: Allow guest users to insert complaints (no authentication required)
+CREATE POLICY "Guests can insert complaints"
+  ON complaints
+  FOR INSERT
+  WITH CHECK (user_id IS NULL);
 
 -- Create function to update the updated_at timestamp
 CREATE OR REPLACE FUNCTION update_updated_at_column()
