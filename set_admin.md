@@ -1,9 +1,5 @@
 # How to Set Admin Role Without Editing Raw JSON
 
-Since you cannot edit raw JSON in the Supabase dashboard, here are alternative methods to set a user as an admin:
-
----
-
 ## Option 1: Use Supabase Dashboard (No JSON Editing)
 
 ### Method A: Using the SQL Editor (Easiest)
@@ -114,11 +110,3 @@ WHERE email = 'YOUR_EMAIL@example.com';
 Then **log out and log back in** to see the admin features!
 
 ---
-
-## Need Help?
-
-Let me know which option you'd prefer, or if you'd like me to:
-
-1. Create a built-in admin setup screen
-2. Add environment variable-based admin emails
-3. Create a different solution
