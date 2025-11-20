@@ -72,7 +72,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         if (session?.access_token) {
           // Fetch user profile
-          const response = await fetch(`${serverUrl}/auth/profile`, {
+          const profileUrl = `${serverUrl}/auth/profile`;
+          console.log("Fetching profile from:", profileUrl);
+
+          const response = await fetch(profileUrl, {
             headers: {
               Authorization: `Bearer ${session.access_token}`,
               "Content-Type": "application/json",
@@ -81,13 +84,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
           if (!mounted) return;
 
+          console.log("Profile response status:", response.status);
+
           if (response.ok) {
             const { profile } = await response.json();
+            console.log("Profile loaded successfully");
             setUser(profile);
             // Check if user has admin role in metadata
             const adminRole = session.user?.user_metadata?.role === "admin";
             setIsAdmin(adminRole);
           } else {
+            const errorText = await response.text();
+            console.error("Profile fetch failed:", response.status, errorText);
             setUser(null);
             setIsAdmin(false);
           }
@@ -297,16 +305,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         data: { session },
       } = await supabase.auth.getSession();
       if (!session?.access_token || !user) {
+        console.error("Upload failed: Not authenticated");
         return { error: "Not authenticated" };
       }
+
+      console.log("Starting profile picture upload for user:", user.id);
 
       // Create unique filename with user ID and timestamp
       const fileExt = file.name.split(".").pop();
       const fileName = `${user.id}_${Date.now()}.${fileExt}`;
-      const filePath = `profile_pictures/${fileName}`;
+      const filePath = `${fileName}`;
+
+      console.log("Uploading to path:", filePath);
 
       // Upload to Supabase Storage
-      const { error: uploadError } = await supabase.storage
+      const { data: uploadData, error: uploadError } = await supabase.storage
         .from("profile_pictures")
         .upload(filePath, file, {
           cacheControl: "3600",
@@ -314,14 +327,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         });
 
       if (uploadError) {
-        console.error("Upload error:", uploadError);
-        return { error: "Failed to upload image" };
+        console.error("Upload error details:", uploadError);
+        if (uploadError.message.includes("Bucket not found")) {
+          return {
+            error: "Storage bucket not configured. Please contact admin.",
+          };
+        }
+        if (uploadError.message.includes("Policy")) {
+          return {
+            error: "Storage permissions not configured. Please contact admin.",
+          };
+        }
+        return { error: `Upload failed: ${uploadError.message}` };
       }
+
+      console.log("Upload successful:", uploadData);
 
       // Get public URL
       const {
         data: { publicUrl },
       } = supabase.storage.from("profile_pictures").getPublicUrl(filePath);
+
+      console.log("Public URL generated:", publicUrl);
 
       // Update profile with new picture URL via API
       const response = await fetch(`${serverUrl}/auth/profile/picture`, {
@@ -333,21 +360,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         body: JSON.stringify({ profilePictureUrl: publicUrl }),
       });
 
-      const data = await response.json();
-
       if (!response.ok) {
+        const data = await response.json();
+        console.error("Profile update failed:", data);
         // Try to clean up uploaded file if profile update fails
         await supabase.storage.from("profile_pictures").remove([filePath]);
         return { error: data.error || "Failed to update profile picture" };
       }
 
+      const data = await response.json();
+      console.log("Profile updated successfully:", data);
+
       // Delete old profile picture if it exists
       if (user.profilePictureUrl) {
-        const oldPath = user.profilePictureUrl.split("/profile_pictures/")[1];
-        if (oldPath) {
-          await supabase.storage
-            .from("profile_pictures")
-            .remove([`profile_pictures/${oldPath}`]);
+        try {
+          const oldPath = user.profilePictureUrl
+            .split("/profile_pictures/")
+            .pop();
+          if (oldPath) {
+            console.log("Removing old profile picture:", oldPath);
+            await supabase.storage.from("profile_pictures").remove([oldPath]);
+          }
+        } catch (err) {
+          console.error("Failed to remove old profile picture:", err);
+          // Don't fail the upload if we can't delete the old image
         }
       }
 
@@ -355,7 +391,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return {};
     } catch (error) {
       console.error("Profile picture upload error:", error);
-      return { error: "Network error during image upload" };
+      const errorMessage =
+        error instanceof Error ? error.message : "Unknown error";
+      return { error: `Upload failed: ${errorMessage}` };
     }
   };
 

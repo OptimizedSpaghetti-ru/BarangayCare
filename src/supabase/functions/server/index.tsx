@@ -195,6 +195,7 @@ app.get("/make-server-fc40ab2c/auth/profile", async (c) => {
             email: insertedProfile.email,
             name: insertedProfile.name,
             phoneNumber: insertedProfile.phone_number,
+            profilePictureUrl: insertedProfile.profile_picture_url,
             isActive: insertedProfile.is_active,
             createdAt: insertedProfile.created_at,
             updatedAt: insertedProfile.updated_at,
@@ -216,6 +217,7 @@ app.get("/make-server-fc40ab2c/auth/profile", async (c) => {
         email: profile.email,
         name: profile.name,
         phoneNumber: profile.phone_number,
+        profilePictureUrl: profile.profile_picture_url,
         isActive: profile.is_active,
         createdAt: profile.created_at,
         updatedAt: profile.updated_at,
@@ -319,6 +321,7 @@ app.put("/make-server-fc40ab2c/auth/profile", async (c) => {
         email: updatedProfile.email,
         name: updatedProfile.name,
         phoneNumber: updatedProfile.phone_number,
+        profilePictureUrl: updatedProfile.profile_picture_url,
         isActive: updatedProfile.is_active,
         createdAt: updatedProfile.created_at,
         updatedAt: updatedProfile.updated_at,
@@ -328,6 +331,58 @@ app.put("/make-server-fc40ab2c/auth/profile", async (c) => {
     console.log(`Update profile error: ${error}`);
     return c.json(
       { error: "Internal server error while updating profile" },
+      500
+    );
+  }
+});
+
+// Update user profile picture
+app.put("/make-server-fc40ab2c/auth/profile/picture", async (c) => {
+  try {
+    const { user, error } = await verifyUser(c.req.raw);
+    if (error) {
+      return c.json({ error }, 401);
+    }
+
+    const { profilePictureUrl } = await c.req.json();
+
+    if (!profilePictureUrl) {
+      return c.json({ error: "Profile picture URL is required" }, 400);
+    }
+
+    // Update profile picture URL
+    const { data: updatedProfile, error: updateError } = await supabase
+      .from("users")
+      .update({
+        profile_picture_url: profilePictureUrl,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", user.id)
+      .select()
+      .single();
+
+    if (updateError) {
+      console.log(`Error updating profile picture: ${updateError.message}`);
+      return c.json({ error: "Failed to update profile picture" }, 500);
+    }
+
+    // Convert snake_case to camelCase for response
+    return c.json({
+      profile: {
+        id: updatedProfile.id,
+        email: updatedProfile.email,
+        name: updatedProfile.name,
+        phoneNumber: updatedProfile.phone_number,
+        profilePictureUrl: updatedProfile.profile_picture_url,
+        isActive: updatedProfile.is_active,
+        createdAt: updatedProfile.created_at,
+        updatedAt: updatedProfile.updated_at,
+      },
+    });
+  } catch (error) {
+    console.log(`Update profile picture error: ${error}`);
+    return c.json(
+      { error: "Internal server error while updating profile picture" },
       500
     );
   }
@@ -381,6 +436,7 @@ app.get("/make-server-fc40ab2c/admin/users", async (c) => {
       email: profile.email,
       name: profile.name,
       phoneNumber: profile.phone_number,
+      profilePictureUrl: profile.profile_picture_url,
       isActive: profile.is_active,
       createdAt: profile.created_at,
       updatedAt: profile.updated_at,
@@ -426,6 +482,7 @@ app.put("/make-server-fc40ab2c/admin/users/:userId", async (c) => {
         email: updatedProfile.email,
         name: updatedProfile.name,
         phoneNumber: updatedProfile.phone_number,
+        profilePictureUrl: updatedProfile.profile_picture_url,
         isActive: updatedProfile.is_active,
         createdAt: updatedProfile.created_at,
         updatedAt: updatedProfile.updated_at,

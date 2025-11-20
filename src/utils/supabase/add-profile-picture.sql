@@ -15,39 +15,27 @@ ADD COLUMN IF NOT EXISTS profile_picture_url TEXT;
 -- Create storage policies for profile_pictures bucket
 -- These policies allow users to manage their own profile pictures
 
--- Policy: Allow users to upload their own profile pictures
-CREATE POLICY "Users can upload their own profile pictures"
+-- Policy: Allow authenticated users to upload profile pictures
+CREATE POLICY "Allow authenticated uploads"
 ON storage.objects FOR INSERT
 TO authenticated
-WITH CHECK (
-  bucket_id = 'profile_pictures' 
-  AND (storage.foldername(name))[1] = 'profile_pictures'
-);
+WITH CHECK (bucket_id = 'profile_pictures');
 
--- Policy: Allow users to update their own profile pictures
-CREATE POLICY "Users can update their own profile pictures"
+-- Policy: Allow authenticated users to update profile pictures
+CREATE POLICY "Allow authenticated updates"
 ON storage.objects FOR UPDATE
 TO authenticated
-USING (
-  bucket_id = 'profile_pictures' 
-  AND (storage.foldername(name))[1] = 'profile_pictures'
-)
-WITH CHECK (
-  bucket_id = 'profile_pictures' 
-  AND (storage.foldername(name))[1] = 'profile_pictures'
-);
+USING (bucket_id = 'profile_pictures')
+WITH CHECK (bucket_id = 'profile_pictures');
 
--- Policy: Allow users to delete their own profile pictures
-CREATE POLICY "Users can delete their own profile pictures"
+-- Policy: Allow authenticated users to delete profile pictures
+CREATE POLICY "Allow authenticated deletes"
 ON storage.objects FOR DELETE
 TO authenticated
-USING (
-  bucket_id = 'profile_pictures' 
-  AND (storage.foldername(name))[1] = 'profile_pictures'
-);
+USING (bucket_id = 'profile_pictures');
 
 -- Policy: Allow public read access to profile pictures
-CREATE POLICY "Public can view profile pictures"
+CREATE POLICY "Allow public reads"
 ON storage.objects FOR SELECT
 TO public
 USING (bucket_id = 'profile_pictures');
