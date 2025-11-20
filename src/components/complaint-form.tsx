@@ -130,8 +130,7 @@ export function ComplaintForm({ onSubmit }: ComplaintFormProps) {
             {t("complaints.fileComplaint")}
           </CardTitle>
           <CardDescription className="text-primary-foreground/90 text-sm sm:text-base">
-            Help us serve you better by providing detailed information about
-            your concern.
+            {t("complaints.complaintFormDescription")}
           </CardDescription>
         </CardHeader>
         <CardContent className="mt-6 px-4 sm:px-6 pb-8">
@@ -142,7 +141,7 @@ export function ComplaintForm({ onSubmit }: ComplaintFormProps) {
                 id="title"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                placeholder={t("form.enterValue")}
+                placeholder={t("form.titlePlaceholder")}
                 required
               />
             </div>
@@ -154,15 +153,33 @@ export function ComplaintForm({ onSubmit }: ComplaintFormProps) {
                   <SelectValue placeholder={t("form.selectOption")} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="infrastructure">Infrastructure</SelectItem>
-                  <SelectItem value="sanitation">Sanitation & Waste</SelectItem>
-                  <SelectItem value="utilities">Utilities</SelectItem>
-                  <SelectItem value="security">Security & Safety</SelectItem>
-                  <SelectItem value="health">Health Services</SelectItem>
-                  <SelectItem value="emergency">Emergency</SelectItem>
-                  <SelectItem value="civil-disputes">Civil Disputes</SelectItem>
-                  <SelectItem value="minor-criminal">Minor Crime</SelectItem>
-                  <SelectItem value="other">Other</SelectItem>
+                  <SelectItem value="infrastructure">
+                    {t("complaints.categoryInfrastructure")}
+                  </SelectItem>
+                  <SelectItem value="sanitation">
+                    {t("complaints.categorySanitation")}
+                  </SelectItem>
+                  <SelectItem value="utilities">
+                    {t("complaints.categoryUtilities")}
+                  </SelectItem>
+                  <SelectItem value="security">
+                    {t("complaints.categorySecurity")}
+                  </SelectItem>
+                  <SelectItem value="health">
+                    {t("complaints.categoryHealth")}
+                  </SelectItem>
+                  <SelectItem value="emergency">
+                    {t("complaints.categoryEmergency")}
+                  </SelectItem>
+                  <SelectItem value="civil-disputes">
+                    {t("complaints.categoryCivilDisputes")}
+                  </SelectItem>
+                  <SelectItem value="minor-criminal">
+                    {t("complaints.categoryMinorCriminal")}
+                  </SelectItem>
+                  <SelectItem value="other">
+                    {t("complaints.categoryOther")}
+                  </SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -174,7 +191,7 @@ export function ComplaintForm({ onSubmit }: ComplaintFormProps) {
                   id="respondent"
                   value={respondent}
                   onChange={(e) => setRespondent(e.target.value)}
-                  placeholder={t("form.enterValue")}
+                  placeholder={t("form.respondentPlaceholder")}
                   required
                 />
                 <p className="text-xs text-muted-foreground">
@@ -190,7 +207,7 @@ export function ComplaintForm({ onSubmit }: ComplaintFormProps) {
                 id="description"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                placeholder={t("form.enterValue")}
+                placeholder={t("form.descriptionPlaceholder")}
                 rows={4}
                 required
               />
@@ -203,7 +220,7 @@ export function ComplaintForm({ onSubmit }: ComplaintFormProps) {
                   id="location"
                   value={location}
                   onChange={(e) => setLocation(e.target.value)}
-                  placeholder={t("form.enterValue")}
+                  placeholder={t("form.addressPlaceholder")}
                   className="flex-1"
                   required
                 />
@@ -221,7 +238,7 @@ export function ComplaintForm({ onSubmit }: ComplaintFormProps) {
             </div>
 
             <div className="space-y-2">
-              <Label>Photo Evidence (Optional)</Label>
+              <Label>{t("complaints.photoEvidence")}</Label>
               <div className="border-2 border-dashed border-border rounded-lg p-4 sm:p-6 text-center">
                 {photo ? (
                   <div className="space-y-2">
@@ -252,7 +269,7 @@ export function ComplaintForm({ onSubmit }: ComplaintFormProps) {
                       <span>{t("common.upload")}</span>
                     </Button>
                     <p className="text-xs sm:text-sm text-muted-foreground text-center">
-                      Photos help us understand and resolve your request faster
+                      {t("complaints.photoHelpText")}
                     </p>
                     <input
                       ref={fileInputRef}
@@ -272,7 +289,7 @@ export function ComplaintForm({ onSubmit }: ComplaintFormProps) {
                 id="contact"
                 value={contactInfo}
                 onChange={(e) => setContactInfo(e.target.value)}
-                placeholder={t("form.enterValue")}
+                placeholder={t("form.contactPlaceholder")}
                 required
               />
             </div>

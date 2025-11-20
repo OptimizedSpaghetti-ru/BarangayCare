@@ -99,6 +99,14 @@ export const fil = {
       notifications: "Mga Notipikasyon",
       pendingComplaints: "Nakabinbing Reklamo",
       resolvedComplaints: "Nalutas na Reklamo",
+      adminDescription:
+        "Subaybayan at pamahalaan ang lahat ng mga reklamo sa barangay at aktibidad ng mga residente",
+      residentDescription:
+        "Subaybayan ang iyong mga reklamo sa barangay at tingnan ang progreso",
+      adminComplaintsDescription:
+        "Subaybayan at pamahalaan ang lahat ng mga reklamo sa barangay",
+      residentComplaintsDescription:
+        "Tingnan ang lahat ng mga reklamo sa barangay at ang kanilang kasalukuyang katayuan",
     },
     // Residents
     residents: {
@@ -135,17 +143,31 @@ export const fil = {
     complaints: {
       title: "Mga Reklamo",
       fileComplaint: "Magsumite ng Reklamo",
+      complaintFormDescription:
+        "Tulungan kaming maglingkod nang mas maayos sa pamamagitan ng pagbibigay ng detalyadong impormasyon tungkol sa iyong reklamo.",
       viewComplaint: "Tingnan ang Reklamo",
       complaintTitle: "Pamagat ng Reklamo",
       complaintType: "Uri ng Reklamo",
       category: "Kategorya",
+      categoryInfrastructure: "Imprastraktura",
+      categorySanitation: "Kalinisan at Basura",
+      categoryUtilities: "Tubig/Kuryente",
+      categorySecurity: "Seguridad at Kaligtasan",
+      categoryHealth: "Kalusugan",
+      categoryEmergency: "Biglaang Aksidente",
+      categoryCivilDisputes: "Mga Alitan",
+      categoryMinorCriminal: "Magaan na Krimen",
+      categoryOther: "Iba Pa",
       description: "Paglalarawan",
+      photoEvidence: "Litrato ng Ebidensiya (Opsyonal)",
+      photoHelpText:
+        "Ang mga litrato ay tumutulong sa amin na maunawaan at malutas ang iyong reklamo nang mas mabilis",
       complainant: "Nagreklamo",
       respondent: "Respondent",
       dateFiled: "Petsa ng Pagsasampa",
       status: "Katayuan",
       pending: "Nakabinbin",
-      investigating: "Pinag-aaralan",
+      investigating: "Kasalukuyang Inaayos",
       resolved: "Nalutas",
       dismissed: "Tinanggihan",
       priority: "Prioridad",
@@ -155,6 +177,18 @@ export const fil = {
       urgent: "Agarang",
       assignedTo: "Itinalaga kay",
       resolution: "Resolusyon",
+      requestDetails: "Detalye ng Iyong Reklamo",
+      requestDetailsDescription:
+        "Kumpletong impormasyon tungkol sa reklamong ito sa komunidad",
+      submittedAt: "Isinumite Noong",
+      location: "Lokasyon",
+      contactInformation: "Impormasyon sa Pakikipag-ugnayan",
+      photoEvidenceLabel: "Litrato ng Ebidensiya",
+      adminNotes: "Mga Pasabi ng Admin",
+      requestResolved: "Ang reklamong ito ay nalutas na",
+      requestBeingProcessed: "Ang reklamong ito ay pinoproseso pa",
+      requestRejected: "Ang reklamong ito ay tinanggihan",
+      priorityLabel: "prayoridad",
     },
     // Reports
     reports: {
@@ -174,12 +208,27 @@ export const fil = {
     profile: {
       title: "Katauhan",
       editProfile: "I-edit ang Katauhan",
+      editAccount: "I-edit ang Account",
       changePassword: "Palitan ang Password",
       currentPassword: "Kasalukuyang Password",
       newPassword: "Bagong Password",
       personalInfo: "Personal na Impormasyon",
       accountSettings: "Setting ng Account",
       updatePhoto: "I-update ang Larawan",
+      managePersonalInfo:
+        "Pamahalaan ang iyong personal na impormasyon at mga setting ng profile",
+      manageAccountSettings:
+        "Pamahalaan ang iyong personal na impormasyon, larawan ng profile, at mga setting ng account",
+      viewCommunityRequests:
+        "Tingnan ang lahat ng mga kahilingan sa komunidad at ang kanilang kasalukuyang katayuan",
+      trackRequests:
+        "Subaybayan ang iyong mga kahilingan sa komunidad at manatiling nakaabiso sa kanilang pag-unlad",
+      dangerZone: "Mapanganib na Lugar",
+      deleteAccount: "Burahin ang Account",
+      deleteAccountWarning:
+        "Permanenteng burahin ang iyong account at lahat ng kaugnay na data",
+      deleteAccountDescription:
+        "Kapag binura mo ang iyong account, walang pagbabalik. Ang lahat ng iyong mga reklamo, data, at impormasyon ng account ay permanenteng tatanggalin.",
     },
     // Admin
     admin: {
@@ -235,6 +284,13 @@ export const fil = {
       selectOption: "Pumili ng opsyon",
       chooseFile: "Pumili ng file",
       dragDrop: "Hilahin at ihulog ang file dito",
+      titlePlaceholder: "Maikling paglalarawan ng iyong kahilingan",
+      categoryPlaceholder: "Pumili ng kategorya",
+      descriptionPlaceholder:
+        "Magbigay ng detalyadong impormasyon tungkol sa iyong kahilingan o reklamo",
+      addressPlaceholder: "Address ng kalye o tanda",
+      contactPlaceholder: "Numero ng telepono o email para sa follow-up",
+      respondentPlaceholder: "Ilagay ang pangalan ng respondent",
     },
   },
 };

@@ -165,7 +165,7 @@ export function LoginForm({ onSwitchToSignup }: LoginFormProps) {
                   setEmail(e.target.value);
                   if (authError) setAuthError(null);
                 }}
-                placeholder={t("form.enterValue")}
+                placeholder="Enter your email"
                 className="pl-10"
                 required
               />
@@ -184,7 +184,7 @@ export function LoginForm({ onSwitchToSignup }: LoginFormProps) {
                   setPassword(e.target.value);
                   if (authError) setAuthError(null);
                 }}
-                placeholder={t("form.enterValue")}
+                placeholder="Enter your password"
                 className="pl-10 pr-10"
                 required
               />

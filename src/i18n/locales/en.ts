@@ -99,6 +99,13 @@ export const en = {
       notifications: "Notifications",
       pendingComplaints: "Pending Complaints",
       resolvedComplaints: "Resolved Complaints",
+      adminDescription:
+        "Monitor and manage all community requests and user activities",
+      residentDescription:
+        "Track your community requests and stay updated on their progress",
+      adminComplaintsDescription: "Monitor and manage all community requests",
+      residentComplaintsDescription:
+        "View all community requests and their current status",
     },
     // Residents
     residents: {
@@ -134,12 +141,26 @@ export const en = {
     // Complaints
     complaints: {
       title: "Complaints",
-      fileComplaint: "File Complaint",
+      fileComplaint: "File a Complaint",
+      complaintFormDescription:
+        "Help us serve you better by providing detailed information about your concern.",
       viewComplaint: "View Complaint",
       complaintTitle: "Title of Complaint",
       complaintType: "Complaint Type",
       category: "Category",
+      categoryInfrastructure: "Infrastructure",
+      categorySanitation: "Sanitation & Waste",
+      categoryUtilities: "Utilities",
+      categorySecurity: "Security & Safety",
+      categoryHealth: "Health Services",
+      categoryEmergency: "Emergency",
+      categoryCivilDisputes: "Civil Disputes",
+      categoryMinorCriminal: "Minor Crime",
+      categoryOther: "Other",
       description: "Description",
+      photoEvidence: "Photo Evidence (Optional)",
+      photoHelpText:
+        "Photos help us understand and resolve your request faster",
       complainant: "Complainant",
       respondent: "Respondent",
       dateFiled: "Date Filed",
@@ -155,6 +176,18 @@ export const en = {
       urgent: "Urgent",
       assignedTo: "Assigned To",
       resolution: "Resolution",
+      requestDetails: "Request Details",
+      requestDetailsDescription:
+        "Complete information about this community request",
+      submittedAt: "Submitted At",
+      location: "Location",
+      contactInformation: "Contact Information",
+      photoEvidenceLabel: "Photo Evidence",
+      adminNotes: "Admin Notes",
+      requestResolved: "This request has been resolved",
+      requestBeingProcessed: "This request is being processed",
+      requestRejected: "This request has been rejected",
+      priorityLabel: "priority",
     },
     // Reports
     reports: {
@@ -174,12 +207,27 @@ export const en = {
     profile: {
       title: "Profile",
       editProfile: "Edit Profile",
+      editAccount: "Edit Account",
       changePassword: "Change Password",
       currentPassword: "Current Password",
       newPassword: "New Password",
       personalInfo: "Personal Information",
       accountSettings: "Account Settings",
       updatePhoto: "Update Photo",
+      managePersonalInfo:
+        "Manage your personal information and profile settings",
+      manageAccountSettings:
+        "Manage your personal information, profile picture, and account settings",
+      viewCommunityRequests:
+        "View all community requests and their current status",
+      trackRequests:
+        "Track your community requests and stay updated on their progress",
+      dangerZone: "Danger Zone",
+      deleteAccount: "Delete Account",
+      deleteAccountWarning:
+        "Permanently delete your account and all associated data",
+      deleteAccountDescription:
+        "Once you delete your account, there is no going back. All your complaints, data, and account information will be permanently removed.",
     },
     // Admin
     admin: {
@@ -232,10 +280,17 @@ export const en = {
     form: {
       required: "Required",
       optional: "Optional",
-      enterValue: "Enter value",
+      enterValue: "Enter value...",
       selectOption: "Select an option",
-      chooseFile: "Choose file",
+      chooseFile: "Choose a file",
       dragDrop: "Drag and drop file here",
+      titlePlaceholder: "Brief description of your request",
+      categoryPlaceholder: "Select category",
+      descriptionPlaceholder:
+        "Provide as much detail as possible about your request or complaint",
+      addressPlaceholder: "Street address or landmark",
+      contactPlaceholder: "Phone number or email for follow-up",
+      respondentPlaceholder: "Enter the name of the respondent",
     },
   },
 };

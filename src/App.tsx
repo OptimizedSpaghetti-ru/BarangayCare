@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { ThemeProvider } from "./components/theme-provider";
 import { AuthProvider, useAuth } from "./components/auth/auth-context";
 import {
@@ -32,6 +33,7 @@ import {
   MessageSquare,
   Phone,
   User,
+  XCircle,
 } from "lucide-react";
 import { ImageWithFallback } from "./components/figma/ImageWithFallback";
 import { toast } from "sonner";
@@ -57,6 +59,7 @@ interface Complaint {
 // No sample data - only real data will be displayed
 
 function AppContent() {
+  const { t } = useTranslation();
   const { user, loading, isAdmin, isGuest } = useAuth();
   const { complaints, addComplaint, updateComplaint } = useComplaints();
   const [currentView, setCurrentView] = useState("dashboard");
@@ -287,9 +290,9 @@ function AppContent() {
       <Dialog open={showDetailsDialog} onOpenChange={setShowDetailsDialog}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto mx-4">
           <DialogHeader>
-            <DialogTitle>Request Details</DialogTitle>
+            <DialogTitle>{t("complaints.requestDetails")}</DialogTitle>
             <DialogDescription>
-              Complete information about this community request
+              {t("complaints.requestDetailsDescription")}
             </DialogDescription>
           </DialogHeader>
 
@@ -315,7 +318,8 @@ function AppContent() {
                         )}`}
                       />
                       <span className="text-sm text-gray-600">
-                        {selectedComplaint.priority} priority
+                        {selectedComplaint.priority}{" "}
+                        {t("complaints.priorityLabel")}
                       </span>
                     </div>
                   </div>
@@ -323,7 +327,9 @@ function AppContent() {
               </div>
 
               <div className="bg-muted p-4 rounded-lg">
-                <h4 className="font-medium mb-2">Description</h4>
+                <h4 className="font-medium mb-2">
+                  {t("complaints.description")}
+                </h4>
                 <p className="text-foreground">
                   {selectedComplaint.description}
                 </p>
@@ -331,13 +337,15 @@ function AppContent() {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <h4 className="font-medium mb-1">Category</h4>
+                  <h4 className="font-medium mb-1">
+                    {t("complaints.category")}
+                  </h4>
                   <Badge variant="outline">{selectedComplaint.category}</Badge>
                 </div>
                 <div>
                   <h4 className="font-medium mb-2 flex items-center space-x-2">
                     <Clock className="w-4 h-4" />
-                    <span>Submitted At</span>
+                    <span>{t("complaints.submittedAt")}</span>
                   </h4>
                   <p className="text-foreground">
                     {new Date(selectedComplaint.dateSubmitted).toLocaleString(
@@ -357,7 +365,7 @@ function AppContent() {
                   <div>
                     <h4 className="font-medium mb-2 flex items-center space-x-2">
                       <User className="w-4 h-4" />
-                      <span>Respondent</span>
+                      <span>{t("complaints.respondent")}</span>
                     </h4>
                     <p className="text-foreground">
                       {selectedComplaint.respondent}
@@ -369,14 +377,16 @@ function AppContent() {
               <div>
                 <h4 className="font-medium mb-2 flex items-center space-x-2">
                   <MapPin className="w-4 h-4" />
-                  <span>Location</span>
+                  <span>{t("complaints.location")}</span>
                 </h4>
                 <p className="text-foreground">{selectedComplaint.location}</p>
               </div>
 
               {selectedComplaint.photo && (
                 <div>
-                  <h4 className="font-medium mb-2">Photo Evidence</h4>
+                  <h4 className="font-medium mb-2">
+                    {t("complaints.photoEvidenceLabel")}
+                  </h4>
                   <ImageWithFallback
                     src={selectedComplaint.photo}
                     alt="Request evidence"
@@ -388,7 +398,7 @@ function AppContent() {
               <div>
                 <h4 className="font-medium mb-2 flex items-center space-x-2">
                   <Phone className="w-4 h-4" />
-                  <span>Contact Information</span>
+                  <span>{t("complaints.contactInformation")}</span>
                 </h4>
                 <p className="text-foreground">
                   {selectedComplaint.contactInfo}
@@ -398,7 +408,7 @@ function AppContent() {
               {selectedComplaint.adminNotes && (
                 <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg">
                   <h4 className="font-medium mb-2 text-blue-900 dark:text-blue-400">
-                    Admin Notes
+                    {t("complaints.adminNotes")}
                   </h4>
                   <p className="text-blue-800 dark:text-blue-300">
                     {selectedComplaint.adminNotes}
@@ -410,13 +420,17 @@ function AppContent() {
                 <div className="flex items-center space-x-2">
                   {selectedComplaint.status === "resolved" ? (
                     <CheckCircle className="w-5 h-5 text-green-500" />
+                  ) : selectedComplaint.status === "rejected" ? (
+                    <XCircle className="w-5 h-5 text-red-500" />
                   ) : (
                     <Clock className="w-5 h-5 text-yellow-500" />
                   )}
                   <span className="text-sm text-muted-foreground">
                     {selectedComplaint.status === "resolved"
-                      ? "This request has been resolved"
-                      : "This request is being processed"}
+                      ? t("complaints.requestResolved")
+                      : selectedComplaint.status === "rejected"
+                      ? t("complaints.requestRejected")
+                      : t("complaints.requestBeingProcessed")}
                   </span>
                 </div>
               </div>

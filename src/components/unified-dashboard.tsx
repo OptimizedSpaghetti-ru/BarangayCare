@@ -171,8 +171,8 @@ export function UnifiedDashboard({
             </h1>
             <p className="mt-2 opacity-90 text-sm sm:text-base">
               {isAdmin
-                ? "Monitor and manage all community requests and user activities"
-                : "Track your community requests and stay updated on their progress"}
+                ? t("dashboard.adminDescription")
+                : t("dashboard.residentDescription")}
             </p>
           </div>
         </div>
@@ -267,8 +267,8 @@ export function UnifiedDashboard({
           </CardTitle>
           <CardDescription>
             {isAdmin
-              ? "Monitor and manage all community requests"
-              : "View all community requests and their current status"}
+              ? t("dashboard.adminComplaintsDescription")
+              : t("dashboard.residentComplaintsDescription")}
           </CardDescription>
         </CardHeader>
         <CardContent>
