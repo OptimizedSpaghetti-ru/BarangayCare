@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   Card,
   CardContent,
@@ -62,6 +63,7 @@ export function UnifiedDashboard({
   onViewDetails,
   isAdmin = false,
 }: UnifiedDashboardProps) {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -163,8 +165,8 @@ export function UnifiedDashboard({
               <User className="w-6 h-6" />
               <span>
                 {isAdmin
-                  ? "Admin Dashboard - BarangayCARE"
-                  : `Welcome back, ${user?.name}!`}
+                  ? t("admin.title") + " - BarangayCARE"
+                  : `${t("auth.welcomeBack")}, ${user?.name}!`}
               </span>
             </h1>
             <p className="mt-2 opacity-90 text-sm sm:text-base">
@@ -181,7 +183,7 @@ export function UnifiedDashboard({
         <Card>
           <CardHeader className="pb-2 sm:pb-3">
             <CardTitle className="text-xs sm:text-sm text-muted-foreground">
-              Total Requests
+              {t("dashboard.totalResidents")}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -195,7 +197,7 @@ export function UnifiedDashboard({
         <Card>
           <CardHeader className="pb-2 sm:pb-3">
             <CardTitle className="text-xs sm:text-sm text-muted-foreground">
-              Pending
+              {t("complaints.pending")}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -209,7 +211,7 @@ export function UnifiedDashboard({
         <Card>
           <CardHeader className="pb-2 sm:pb-3">
             <CardTitle className="text-xs sm:text-sm text-muted-foreground">
-              In Progress
+              {t("complaints.investigating")}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -223,7 +225,7 @@ export function UnifiedDashboard({
         <Card>
           <CardHeader className="pb-2 sm:pb-3">
             <CardTitle className="text-xs sm:text-sm text-muted-foreground">
-              Resolved
+              {t("complaints.resolved")}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -260,7 +262,7 @@ export function UnifiedDashboard({
           <CardTitle className="flex items-center space-x-2">
             <MessageSquare className="w-5 h-5" />
             <span>
-              {isAdmin ? "All Community Requests" : "Community Requests"}
+              {isAdmin ? t("complaints.title") : t("complaints.title")}
             </span>
           </CardTitle>
           <CardDescription>
@@ -276,7 +278,7 @@ export function UnifiedDashboard({
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
                 <Input
-                  placeholder="Search requests..."
+                  placeholder={t("common.search") + "..."}
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-10"
@@ -286,14 +288,24 @@ export function UnifiedDashboard({
               <div className="flex gap-2">
                 <Select value={statusFilter} onValueChange={setStatusFilter}>
                   <SelectTrigger className="w-full sm:w-40">
-                    <SelectValue placeholder="Status" />
+                    <SelectValue placeholder={t("complaints.status")} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">All Status</SelectItem>
-                    <SelectItem value="pending">Pending</SelectItem>
-                    <SelectItem value="in-progress">In Progress</SelectItem>
-                    <SelectItem value="resolved">Resolved</SelectItem>
-                    <SelectItem value="rejected">Rejected</SelectItem>
+                    <SelectItem value="all">
+                      {t("complaints.status")}
+                    </SelectItem>
+                    <SelectItem value="pending">
+                      {t("complaints.pending")}
+                    </SelectItem>
+                    <SelectItem value="in-progress">
+                      {t("complaints.investigating")}
+                    </SelectItem>
+                    <SelectItem value="resolved">
+                      {t("complaints.resolved")}
+                    </SelectItem>
+                    <SelectItem value="rejected">
+                      {t("complaints.dismissed")}
+                    </SelectItem>
                   </SelectContent>
                 </Select>
 
@@ -302,10 +314,12 @@ export function UnifiedDashboard({
                   onValueChange={setCategoryFilter}
                 >
                   <SelectTrigger className="w-full sm:w-40">
-                    <SelectValue placeholder="Category" />
+                    <SelectValue placeholder={t("complaints.complaintType")} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">All Categories</SelectItem>
+                    <SelectItem value="all">
+                      {t("complaints.complaintType")}
+                    </SelectItem>
                     {categories.map((category) => (
                       <SelectItem key={category} value={category}>
                         {category.charAt(0).toUpperCase() + category.slice(1)}
@@ -407,7 +421,7 @@ export function UnifiedDashboard({
                             className="flex items-center space-x-2"
                           >
                             <Eye className="w-4 h-4" />
-                            <span>View Details</span>
+                            <span>{t("common.view")}</span>
                           </Button>
                         </div>
                       </div>

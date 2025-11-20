@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
@@ -29,6 +30,7 @@ interface LoginFormProps {
 }
 
 export function LoginForm({ onSwitchToSignup }: LoginFormProps) {
+  const { t } = useTranslation();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -137,8 +139,10 @@ export function LoginForm({ onSwitchToSignup }: LoginFormProps) {
   return (
     <Card className="w-full max-w-md mx-auto">
       <CardHeader className="text-center">
-        <CardTitle className="text-2xl">Welcome Back</CardTitle>
-        <CardDescription>Sign in to your BarangayCARE account</CardDescription>
+        <CardTitle className="text-2xl">{t("auth.welcomeBack")}</CardTitle>
+        <CardDescription>
+          {t("auth.signIn")} to your BarangayCARE account
+        </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         {authError && (
@@ -150,7 +154,7 @@ export function LoginForm({ onSwitchToSignup }: LoginFormProps) {
 
         <form onSubmit={handleEmailLogin} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
+            <Label htmlFor="email">{t("auth.email")}</Label>
             <div className="relative">
               <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
               <Input
@@ -161,7 +165,7 @@ export function LoginForm({ onSwitchToSignup }: LoginFormProps) {
                   setEmail(e.target.value);
                   if (authError) setAuthError(null);
                 }}
-                placeholder="Enter your email"
+                placeholder={t("form.enterValue")}
                 className="pl-10"
                 required
               />
@@ -169,7 +173,7 @@ export function LoginForm({ onSwitchToSignup }: LoginFormProps) {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="password">Password</Label>
+            <Label htmlFor="password">{t("auth.password")}</Label>
             <div className="relative">
               <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
               <Input
@@ -180,7 +184,7 @@ export function LoginForm({ onSwitchToSignup }: LoginFormProps) {
                   setPassword(e.target.value);
                   if (authError) setAuthError(null);
                 }}
-                placeholder="Enter your password"
+                placeholder={t("form.enterValue")}
                 className="pl-10 pr-10"
                 required
               />
@@ -201,7 +205,7 @@ export function LoginForm({ onSwitchToSignup }: LoginFormProps) {
           </div>
 
           <Button type="submit" className="w-full" disabled={loading}>
-            {loading ? "Signing in..." : "Sign In"}
+            {loading ? t("common.loading") : t("auth.signIn")}
           </Button>
         </form>
 

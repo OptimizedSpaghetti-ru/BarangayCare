@@ -20,6 +20,7 @@ import { Sheet, SheetContent, SheetTrigger } from "./ui/sheet";
 import { Avatar, AvatarFallback } from "./ui/avatar";
 import { Separator } from "./ui/separator";
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 
 interface HeaderProps {
   currentView: string;
@@ -34,6 +35,7 @@ export function Header({
   isAdmin = false,
   pendingCount = 0,
 }: HeaderProps) {
+  const { t } = useTranslation();
   const { theme, toggleTheme } = useTheme();
   const { user, signOut } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -42,9 +44,9 @@ export function Header({
   const navigationItems = [
     {
       key: "dashboard",
-      label: "Dashboard",
+      label: t("nav.dashboard"),
       icon: Home,
-      shortLabel: "Home",
+      shortLabel: t("nav.dashboard"),
     },
   ];
 
@@ -52,30 +54,30 @@ export function Header({
   if (!isAdmin) {
     navigationItems.push({
       key: "submit",
-      label: "Submit Request",
+      label: t("complaints.fileComplaint"),
       icon: PlusCircle,
-      shortLabel: "Submit",
+      shortLabel: t("common.submit"),
     });
   }
 
   if (isAdmin) {
     navigationItems.push({
       key: "admin",
-      label: "Admin Panel",
+      label: t("nav.admin"),
       icon: Settings,
-      shortLabel: "Admin",
+      shortLabel: t("admin.title"),
     });
     navigationItems.push({
       key: "analytics",
-      label: "Data Analytics",
+      label: t("analytics.title"),
       icon: BarChart3,
-      shortLabel: "Analytics",
+      shortLabel: t("analytics.title"),
     });
     navigationItems.push({
       key: "users",
-      label: "User Management",
+      label: t("admin.userManagement"),
       icon: Users,
-      shortLabel: "Users",
+      shortLabel: t("admin.manageUsers"),
     });
   }
 
@@ -201,7 +203,7 @@ export function Header({
                           size="lg"
                         >
                           <Home className="w-5 h-5" />
-                          <span>Dashboard</span>
+                          <span>{t("nav.dashboard")}</span>
                         </Button>
                         <Button
                           variant="ghost"
@@ -210,7 +212,7 @@ export function Header({
                           size="lg"
                         >
                           <User className="w-5 h-5" />
-                          <span>Profile</span>
+                          <span>{t("nav.profile")}</span>
                         </Button>
                         <Button
                           variant="ghost"
@@ -219,7 +221,7 @@ export function Header({
                           size="lg"
                         >
                           <Settings className="w-5 h-5" />
-                          <span>Settings</span>
+                          <span>{t("nav.settings")}</span>
                         </Button>
                         <Button
                           variant="ghost"
@@ -231,7 +233,7 @@ export function Header({
                           size="lg"
                         >
                           <LogOut className="w-5 h-5" />
-                          <span>Sign Out</span>
+                          <span>{t("auth.logout")}</span>
                         </Button>
                       </>
                     )}
@@ -250,7 +252,7 @@ export function Header({
             {/* Header */}
             <div className="p-6 bg-gradient-to-r from-primary to-accent text-primary-foreground">
               <div className="mb-4">
-                <h2 className="text-lg font-medium">Account</h2>
+                <h2 className="text-lg font-medium">{t("profile.title")}</h2>
               </div>
 
               <div className="flex items-center space-x-3">
@@ -275,7 +277,7 @@ export function Header({
                   className="w-full justify-start space-x-3 h-12"
                 >
                   <Home className="w-5 h-5" />
-                  <span>Dashboard</span>
+                  <span>{t("nav.dashboard")}</span>
                 </Button>
 
                 <Button
@@ -284,7 +286,7 @@ export function Header({
                   className="w-full justify-start space-x-3 h-12"
                 >
                   <User className="w-5 h-5" />
-                  <span>Profile</span>
+                  <span>{t("nav.profile")}</span>
                 </Button>
 
                 <Button
@@ -293,7 +295,7 @@ export function Header({
                   className="w-full justify-start space-x-3 h-12"
                 >
                   <Settings className="w-5 h-5" />
-                  <span>Settings</span>
+                  <span>{t("nav.settings")}</span>
                 </Button>
 
                 {!isAdmin && (
@@ -306,7 +308,7 @@ export function Header({
                       className="w-full justify-start space-x-3 h-12 text-primary"
                     >
                       <PlusCircle className="w-5 h-5" />
-                      <span>Submit Request</span>
+                      <span>{t("complaints.fileComplaint")}</span>
                     </Button>
                   </>
                 )}
@@ -324,7 +326,7 @@ export function Header({
                 className="w-full justify-start space-x-3 h-12 text-destructive hover:text-destructive"
               >
                 <LogOut className="w-5 h-5" />
-                <span>Sign Out</span>
+                <span>{t("auth.logout")}</span>
               </Button>
             </div>
           </div>

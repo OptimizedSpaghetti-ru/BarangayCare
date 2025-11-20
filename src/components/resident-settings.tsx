@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   Card,
   CardContent,
@@ -34,8 +35,10 @@ import {
 import { useTheme } from "./theme-provider";
 import { useAuth } from "./auth/auth-context";
 import { toast } from "sonner@2.0.3";
+import { LanguageToggle } from "./language-toggle";
 
 export function ResidentSettings() {
+  const { t } = useTranslation();
   const { theme, setTheme } = useTheme();
   const { user } = useAuth();
 
@@ -50,7 +53,6 @@ export function ResidentSettings() {
   });
 
   const [preferences, setPreferences] = useState({
-    language: "en",
     timezone: "Asia/Manila",
     defaultLocation: "Barangay Hall",
     autoLocation: true,
@@ -82,7 +84,7 @@ export function ResidentSettings() {
 
   const handleSaveSettings = () => {
     // In a real app, this would save to backend
-    toast.success("Settings saved successfully!");
+    toast.success(t("messages.saveSuccess"));
     setUnsavedChanges(false);
   };
 
@@ -97,7 +99,6 @@ export function ResidentSettings() {
       communityNews: false,
     });
     setPreferences({
-      language: "en",
       timezone: "Asia/Manila",
       defaultLocation: "Barangay Hall",
       autoLocation: true,
@@ -109,7 +110,7 @@ export function ResidentSettings() {
       dataCollection: false,
     });
     setUnsavedChanges(true);
-    toast.success("Settings reset to defaults");
+    toast.success(t("messages.updateSuccess"));
   };
 
   return (
@@ -118,7 +119,7 @@ export function ResidentSettings() {
       <div className="bg-gradient-to-r from-primary to-accent text-primary-foreground p-4 sm:p-6 rounded-lg">
         <h1 className="text-xl sm:text-2xl flex items-center space-x-2">
           <Settings className="w-6 h-6" />
-          <span>Settings</span>
+          <span>{t("settings.title")}</span>
         </h1>
         <p className="mt-2 opacity-90 text-sm sm:text-base">
           Customize your BarangayCARE experience
@@ -130,7 +131,7 @@ export function ResidentSettings() {
         <CardHeader>
           <CardTitle className="flex items-center space-x-2">
             <Palette className="w-5 h-5" />
-            <span>Appearance</span>
+            <span>{t("settings.appearance")}</span>
           </CardTitle>
           <CardDescription>
             Customize how BarangayCARE looks on your device
@@ -138,7 +139,7 @@ export function ResidentSettings() {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
-            <Label>Theme</Label>
+            <Label>{t("settings.theme")}</Label>
             <div className="grid grid-cols-3 gap-2">
               <Button
                 variant={theme === "light" ? "default" : "outline"}
@@ -146,7 +147,7 @@ export function ResidentSettings() {
                 className="flex items-center space-x-2"
               >
                 <Sun className="w-4 h-4" />
-                <span>Light</span>
+                <span>{t("settings.lightMode")}</span>
               </Button>
               <Button
                 variant={theme === "dark" ? "default" : "outline"}
@@ -154,7 +155,7 @@ export function ResidentSettings() {
                 className="flex items-center space-x-2"
               >
                 <Moon className="w-4 h-4" />
-                <span>Dark</span>
+                <span>{t("settings.darkMode")}</span>
               </Button>
               <Button
                 variant={theme === "system" ? "default" : "outline"}
@@ -162,7 +163,7 @@ export function ResidentSettings() {
                 className="flex items-center space-x-2"
               >
                 <Monitor className="w-4 h-4" />
-                <span>System</span>
+                <span>{t("settings.system")}</span>
               </Button>
             </div>
           </div>
@@ -174,7 +175,7 @@ export function ResidentSettings() {
         <CardHeader>
           <CardTitle className="flex items-center space-x-2">
             <Bell className="w-5 h-5" />
-            <span>Notifications</span>
+            <span>{t("settings.notifications")}</span>
           </CardTitle>
           <CardDescription>
             Choose how you want to be notified about updates
@@ -286,7 +287,7 @@ export function ResidentSettings() {
         <CardHeader>
           <CardTitle className="flex items-center space-x-2">
             <Globe className="w-5 h-5" />
-            <span>Preferences</span>
+            <span>{t("settings.general")}</span>
           </CardTitle>
           <CardDescription>
             Set your location, language, and other preferences
@@ -294,24 +295,7 @@ export function ResidentSettings() {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="language">Language</Label>
-              <Select
-                value={preferences.language}
-                onValueChange={(value) =>
-                  handlePreferenceChange("language", value)
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select language" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="en">English</SelectItem>
-                  <SelectItem value="fil">Filipino</SelectItem>
-                  <SelectItem value="tgl">Tagalog</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+            <LanguageToggle />
 
             <div className="space-y-2">
               <Label htmlFor="timezone">Timezone</Label>
@@ -444,11 +428,11 @@ export function ResidentSettings() {
           className="flex items-center space-x-2"
         >
           <Save className="w-4 h-4" />
-          <span>Save Settings</span>
+          <span>{t("common.save")}</span>
         </Button>
 
         <Button variant="outline" onClick={resetSettings}>
-          Reset to Defaults
+          {t("common.reset")}
         </Button>
       </div>
 

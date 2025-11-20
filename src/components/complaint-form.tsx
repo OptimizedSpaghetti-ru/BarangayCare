@@ -1,14 +1,33 @@
 import { useState, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Textarea } from "./ui/textarea";
 import { Label } from "./ui/label";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "./ui/dialog";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "./ui/card";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "./ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "./ui/dialog";
 import { Camera, MapPin, Upload } from "lucide-react";
 import { ImageWithFallback } from "./figma/ImageWithFallback";
-import { toast } from 'sonner@2.0.3';
+import { toast } from "sonner@2.0.3";
 
 interface ComplaintFormProps {
   onSubmit: (complaint: {
@@ -18,14 +37,15 @@ interface ComplaintFormProps {
     location: string;
     photo?: string;
     contactInfo: string;
-    status: 'pending' | 'in-progress' | 'resolved' | 'rejected';
-    priority: 'low' | 'medium' | 'high';
+    status: "pending" | "in-progress" | "resolved" | "rejected";
+    priority: "low" | "medium" | "high";
     coordinates?: { lat: number; lng: number };
     respondent?: string;
   }) => void;
 }
 
 export function ComplaintForm({ onSubmit }: ComplaintFormProps) {
+  const { t } = useTranslation();
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [category, setCategory] = useState("");
@@ -33,16 +53,20 @@ export function ComplaintForm({ onSubmit }: ComplaintFormProps) {
   const [photo, setPhoto] = useState<string | null>(null);
   const [contactInfo, setContactInfo] = useState("");
   const [showMap, setShowMap] = useState(false);
-  const [coordinates, setCoordinates] = useState<{ lat: number; lng: number } | null>(null);
+  const [coordinates, setCoordinates] = useState<{
+    lat: number;
+    lng: number;
+  } | null>(null);
   const [respondent, setRespondent] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
-  
+
   // Check if category requires respondent field
-  const requiresRespondent = category === 'civil-disputes' || category === 'minor-criminal';
+  const requiresRespondent =
+    category === "civil-disputes" || category === "minor-criminal";
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     const complaint = {
       title,
       description,
@@ -50,14 +74,15 @@ export function ComplaintForm({ onSubmit }: ComplaintFormProps) {
       location,
       photo: photo || undefined,
       contactInfo,
-      status: 'pending' as const,
-      priority: category === 'emergency' ? 'high' as const : 'medium' as const,
+      status: "pending" as const,
+      priority:
+        category === "emergency" ? ("high" as const) : ("medium" as const),
       coordinates: coordinates || undefined,
-      respondent: requiresRespondent ? respondent : undefined
+      respondent: requiresRespondent ? respondent : undefined,
     };
-    
+
     onSubmit(complaint);
-    
+
     // Reset form
     setTitle("");
     setDescription("");
@@ -81,7 +106,7 @@ export function ComplaintForm({ onSubmit }: ComplaintFormProps) {
         setPhoto(event.target?.result as string);
       };
       reader.readAsDataURL(file);
-      toast.success('Photo uploaded successfully!');
+      toast.success("Photo uploaded successfully!");
     }
   };
 
@@ -94,36 +119,39 @@ export function ComplaintForm({ onSubmit }: ComplaintFormProps) {
     // In a real implementation, you would reverse geocode to get address
     setLocation(`Latitude: ${lat.toFixed(6)}, Longitude: ${lng.toFixed(6)}`);
     setShowMap(false);
-    toast.success('Location pinned successfully!');
+    toast.success("Location pinned successfully!");
   };
 
   return (
     <div className="max-w-2xl mx-auto">
       <Card>
         <CardHeader className="bg-gradient-to-r from-primary to-accent text-primary-foreground pb-8">
-          <CardTitle className="text-lg sm:text-xl">Submit a Request or Complaint</CardTitle>
+          <CardTitle className="text-lg sm:text-xl">
+            {t("complaints.fileComplaint")}
+          </CardTitle>
           <CardDescription className="text-primary-foreground/90 text-sm sm:text-base">
-            Help us serve you better by providing detailed information about your concern.
+            Help us serve you better by providing detailed information about
+            your concern.
           </CardDescription>
         </CardHeader>
         <CardContent className="mt-6 px-4 sm:px-6 pb-8">
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="space-y-2">
-              <Label htmlFor="title">Request Title</Label>
+              <Label htmlFor="title">{t("complaints.complaintTitle")}</Label>
               <Input
                 id="title"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                placeholder="Brief description of your request"
+                placeholder={t("form.enterValue")}
                 required
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="category">Category</Label>
+              <Label htmlFor="category">{t("complaints.category")}</Label>
               <Select value={category} onValueChange={setCategory} required>
                 <SelectTrigger>
-                  <SelectValue placeholder="Select category" />
+                  <SelectValue placeholder={t("form.selectOption")} />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="infrastructure">Infrastructure</SelectItem>
@@ -141,47 +169,48 @@ export function ComplaintForm({ onSubmit }: ComplaintFormProps) {
 
             {requiresRespondent && (
               <div className="space-y-2">
-                <Label htmlFor="respondent">Respondent Name</Label>
+                <Label htmlFor="respondent">{t("complaints.respondent")}</Label>
                 <Input
                   id="respondent"
                   value={respondent}
                   onChange={(e) => setRespondent(e.target.value)}
-                  placeholder="Enter the name of the respondent"
+                  placeholder={t("form.enterValue")}
                   required
                 />
                 <p className="text-xs text-muted-foreground">
-                  Please provide the name of the person involved in this dispute or offense.
+                  Please provide the name of the person involved in this dispute
+                  or offense.
                 </p>
               </div>
             )}
 
             <div className="space-y-2">
-              <Label htmlFor="description">Detailed Description</Label>
+              <Label htmlFor="description">{t("complaints.description")}</Label>
               <Textarea
                 id="description"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                placeholder="Provide as much detail as possible about your request or complaint"
+                placeholder={t("form.enterValue")}
                 rows={4}
                 required
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="location">Location</Label>
+              <Label htmlFor="location">{t("residents.address")}</Label>
               <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2">
                 <Input
                   id="location"
                   value={location}
                   onChange={(e) => setLocation(e.target.value)}
-                  placeholder="Street address or landmark"
+                  placeholder={t("form.enterValue")}
                   className="flex-1"
                   required
                 />
-                <Button 
-                  type="button" 
-                  variant="outline" 
-                  size="icon" 
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
                   className="self-start sm:self-auto"
                   onClick={handleLocationPin}
                   title="Pin location on map"
@@ -220,7 +249,7 @@ export function ComplaintForm({ onSubmit }: ComplaintFormProps) {
                       className="flex items-center space-x-2"
                     >
                       <Upload className="w-4 h-4" />
-                      <span>Upload Photo</span>
+                      <span>{t("common.upload")}</span>
                     </Button>
                     <p className="text-xs sm:text-sm text-muted-foreground text-center">
                       Photos help us understand and resolve your request faster
@@ -238,18 +267,18 @@ export function ComplaintForm({ onSubmit }: ComplaintFormProps) {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="contact">Contact Information</Label>
+              <Label htmlFor="contact">{t("residents.contactNumber")}</Label>
               <Input
                 id="contact"
                 value={contactInfo}
                 onChange={(e) => setContactInfo(e.target.value)}
-                placeholder="Phone number or email for follow-up"
+                placeholder={t("form.enterValue")}
                 required
               />
             </div>
 
             <Button type="submit" className="w-full" size="lg">
-              Submit Request
+              {t("common.submit")}
             </Button>
           </form>
         </CardContent>
@@ -264,7 +293,7 @@ export function ComplaintForm({ onSubmit }: ComplaintFormProps) {
               Click on the map to pin your exact location
             </DialogDescription>
           </DialogHeader>
-          
+
           <div className="h-96 bg-muted rounded-lg overflow-hidden relative">
             {/* Mock Google Maps Interface */}
             <div className="w-full h-full bg-gradient-to-br from-green-100 to-blue-100 dark:from-green-900 dark:to-blue-900 relative">
@@ -272,60 +301,72 @@ export function ComplaintForm({ onSubmit }: ComplaintFormProps) {
               <div className="absolute inset-0 opacity-20">
                 <svg width="100%" height="100%">
                   <defs>
-                    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
-                      <path d="M 40 0 L 0 0 0 40" fill="none" stroke="currentColor" strokeWidth="1"/>
+                    <pattern
+                      id="grid"
+                      width="40"
+                      height="40"
+                      patternUnits="userSpaceOnUse"
+                    >
+                      <path
+                        d="M 40 0 L 0 0 0 40"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="1"
+                      />
                     </pattern>
                   </defs>
                   <rect width="100%" height="100%" fill="url(#grid)" />
                 </svg>
               </div>
-              
+
               {/* Mock location markers */}
               <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
                 <div className="w-4 h-4 bg-red-500 rounded-full border-2 border-white shadow-lg"></div>
               </div>
-              
+
               {/* Mock roads */}
               <div className="absolute inset-0">
                 <div className="absolute top-1/3 left-0 right-0 h-2 bg-gray-400 opacity-60"></div>
                 <div className="absolute top-0 bottom-0 left-1/2 w-2 bg-gray-400 opacity-60"></div>
               </div>
-              
+
               {/* Mock buildings */}
               <div className="absolute top-1/4 left-1/4 w-8 h-6 bg-gray-600 opacity-40"></div>
               <div className="absolute top-1/3 right-1/3 w-6 h-8 bg-gray-600 opacity-40"></div>
               <div className="absolute bottom-1/3 left-1/3 w-10 h-4 bg-gray-600 opacity-40"></div>
-              
+
               {/* Clickable overlay */}
-              <div 
+              <div
                 className="absolute inset-0 cursor-crosshair"
                 onClick={(e) => {
                   const rect = e.currentTarget.getBoundingClientRect();
                   const x = e.clientX - rect.left;
                   const y = e.clientY - rect.top;
-                  
+
                   // Convert click position to mock coordinates
                   const lat = 14.5995 + (y / rect.height - 0.5) * 0.1;
                   const lng = 120.9842 + (x / rect.width - 0.5) * 0.1;
-                  
+
                   handleMapClick(lat, lng);
                 }}
                 title="Click to pin location"
               />
-              
+
               {coordinates && (
-                <div 
+                <div
                   className="absolute transform -translate-x-1/2 -translate-y-1/2"
                   style={{
-                    left: `${((coordinates.lng - 120.9842) / 0.1 + 0.5) * 100}%`,
-                    top: `${((coordinates.lat - 14.5995) / 0.1 + 0.5) * 100}%`
+                    left: `${
+                      ((coordinates.lng - 120.9842) / 0.1 + 0.5) * 100
+                    }%`,
+                    top: `${((coordinates.lat - 14.5995) / 0.1 + 0.5) * 100}%`,
                   }}
                 >
                   <MapPin className="w-6 h-6 text-red-500 drop-shadow-lg" />
                 </div>
               )}
             </div>
-            
+
             {/* Map controls */}
             <div className="absolute top-4 right-4 flex flex-col space-y-2">
               <Button size="sm" variant="secondary" className="shadow-lg">
@@ -335,15 +376,16 @@ export function ComplaintForm({ onSubmit }: ComplaintFormProps) {
                 −
               </Button>
             </div>
-            
+
             {/* Instructions */}
             <div className="absolute bottom-4 left-4 right-4 bg-background/90 backdrop-blur-sm rounded-lg p-3 text-sm">
               <p className="text-center text-muted-foreground">
-                Click anywhere on the map to pin your location. This helps us respond more accurately to your request.
+                Click anywhere on the map to pin your location. This helps us
+                respond more accurately to your request.
               </p>
             </div>
           </div>
-          
+
           <div className="flex justify-end space-x-2 pt-4">
             <Button variant="outline" onClick={() => setShowMap(false)}>
               Cancel
