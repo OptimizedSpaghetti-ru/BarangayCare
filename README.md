@@ -425,6 +425,4 @@ For support and questions:
 
 ---
 
-**Built with ❤️ for better barangay management**
-
-_Current Branch: Barangaycare-with-fixed-admin_
+Current Branch: Profile Picture
