@@ -17,7 +17,7 @@ import {
 import { useTheme } from "./theme-provider";
 import { useAuth } from "./auth/auth-context";
 import { Sheet, SheetContent, SheetTrigger } from "./ui/sheet";
-import { Avatar, AvatarFallback } from "./ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 import { Separator } from "./ui/separator";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -149,6 +149,12 @@ export function Header({
                   onClick={() => setProfileMenuOpen(true)}
                 >
                   <Avatar className="h-8 w-8">
+                    {user.profilePictureUrl && (
+                      <AvatarImage
+                        src={user.profilePictureUrl}
+                        alt={user.name}
+                      />
+                    )}
                     <AvatarFallback>
                       {user.name.charAt(0).toUpperCase()}
                     </AvatarFallback>
@@ -257,6 +263,9 @@ export function Header({
 
               <div className="flex items-center space-x-3">
                 <Avatar className="h-12 w-12">
+                  {user?.profilePictureUrl && (
+                    <AvatarImage src={user.profilePictureUrl} alt={user.name} />
+                  )}
                   <AvatarFallback className="text-lg">
                     {user?.name.charAt(0).toUpperCase()}
                   </AvatarFallback>

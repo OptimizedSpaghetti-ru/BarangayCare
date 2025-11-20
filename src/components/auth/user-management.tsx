@@ -36,6 +36,7 @@ import {
   AlertTriangle,
   Eye,
 } from "lucide-react";
+import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
 import { getSupabaseClient } from "../../utils/supabase/client";
 import { toast } from "sonner@2.0.3";
 
@@ -44,6 +45,7 @@ interface User {
   email: string;
   name: string;
   phoneNumber?: string;
+  profilePictureUrl?: string;
   createdAt: string;
   updatedAt: string;
   isActive: boolean;
@@ -311,10 +313,23 @@ export function UserManagement() {
                     {filteredUsers.map((user) => (
                       <TableRow key={user.id}>
                         <TableCell>
-                          <div>
-                            <div className="font-medium">{user.name}</div>
-                            <div className="text-sm text-muted-foreground">
-                              {user.email}
+                          <div className="flex items-center space-x-3">
+                            <Avatar className="h-10 w-10">
+                              {user.profilePictureUrl && (
+                                <AvatarImage
+                                  src={user.profilePictureUrl}
+                                  alt={user.name}
+                                />
+                              )}
+                              <AvatarFallback>
+                                {user.name.charAt(0).toUpperCase()}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div>
+                              <div className="font-medium">{user.name}</div>
+                              <div className="text-sm text-muted-foreground">
+                                {user.email}
+                              </div>
                             </div>
                           </div>
                         </TableCell>
@@ -383,16 +398,29 @@ export function UserManagement() {
                   <CardContent className="p-4">
                     <div className="space-y-3">
                       <div className="flex items-start justify-between">
-                        <div className="space-y-1">
-                          <h3 className="font-medium">{user.name}</h3>
-                          <p className="text-sm text-muted-foreground">
-                            {user.email}
-                          </p>
-                          {user.phoneNumber && (
+                        <div className="flex items-start space-x-3 flex-1">
+                          <Avatar className="h-12 w-12">
+                            {user.profilePictureUrl && (
+                              <AvatarImage
+                                src={user.profilePictureUrl}
+                                alt={user.name}
+                              />
+                            )}
+                            <AvatarFallback>
+                              {user.name.charAt(0).toUpperCase()}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="space-y-1 flex-1">
+                            <h3 className="font-medium">{user.name}</h3>
                             <p className="text-sm text-muted-foreground">
-                              {user.phoneNumber}
+                              {user.email}
                             </p>
-                          )}
+                            {user.phoneNumber && (
+                              <p className="text-sm text-muted-foreground">
+                                {user.phoneNumber}
+                              </p>
+                            )}
+                          </div>
                         </div>
                         <Badge
                           variant={user.isActive ? "default" : "secondary"}
@@ -468,6 +496,23 @@ export function UserManagement() {
 
           {selectedUser && (
             <div className="space-y-4">
+              <div className="flex items-center space-x-4 pb-4 border-b">
+                <Avatar className="h-20 w-20">
+                  {selectedUser.profilePictureUrl && (
+                    <AvatarImage
+                      src={selectedUser.profilePictureUrl}
+                      alt={selectedUser.name}
+                    />
+                  )}
+                  <AvatarFallback className="text-2xl">
+                    {selectedUser.name.charAt(0).toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
+                <div>
+                  <h3 className="text-xl font-semibold">{selectedUser.name}</h3>
+                  <p className="text-muted-foreground">{selectedUser.email}</p>
+                </div>
+              </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <span className="font-medium">Name:</span>
