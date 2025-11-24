@@ -22,6 +22,9 @@ import {
   EyeOff,
   AlertTriangle,
   Info,
+  Shield,
+  Check,
+  X,
 } from "lucide-react";
 import { useAuth } from "./auth-context";
 import { toast } from "sonner";
@@ -42,9 +45,129 @@ export function SignupForm({ onSwitchToLogin }: SignupFormProps) {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [emailError, setEmailError] = useState<string | null>(null);
+  const [firstNameError, setFirstNameError] = useState<string | null>(null);
+  const [middleNameError, setMiddleNameError] = useState<string | null>(null);
+  const [lastNameError, setLastNameError] = useState<string | null>(null);
+  const [confirmPasswordError, setConfirmPasswordError] = useState<
+    string | null
+  >(null);
+  const [passwordStrength, setPasswordStrength] = useState<{
+    score: number;
+    label: string;
+    color: string;
+    feedback: string[];
+  }>({ score: 0, label: "", color: "", feedback: [] });
 
   const { signUp, signInWithGoogle, signInWithFacebook, loginAsGuest } =
     useAuth();
+
+  // Validation function for name fields - only letters and spaces allowed
+  const validateNameField = (
+    value: string,
+    fieldName: string
+  ): string | null => {
+    if (!value.trim()) {
+      return null; // Empty is okay for optional fields
+    }
+
+    // Regex to match only letters (including accented characters) and spaces
+    const nameRegex = /^[a-zA-ZÀ-ÿ\s]+$/;
+
+    if (!nameRegex.test(value)) {
+      return `${fieldName} must contain only letters and spaces`;
+    }
+
+    return null;
+  };
+
+  const handleFirstNameChange = (value: string) => {
+    setFirstName(value);
+    if (value) {
+      const error = validateNameField(value, "First name");
+      setFirstNameError(error);
+    } else {
+      setFirstNameError(null);
+    }
+  };
+
+  const handleMiddleNameChange = (value: string) => {
+    setMiddleName(value);
+    const error = validateNameField(value, "Middle name");
+    setMiddleNameError(error);
+  };
+
+  const handleLastNameChange = (value: string) => {
+    setLastName(value);
+    if (value) {
+      const error = validateNameField(value, "Last name");
+      setLastNameError(error);
+    } else {
+      setLastNameError(null);
+    }
+  };
+
+  // Password strength evaluation function
+  const evaluatePasswordStrength = (password: string) => {
+    if (!password) {
+      setPasswordStrength({ score: 0, label: "", color: "", feedback: [] });
+      return;
+    }
+
+    let score = 0;
+    const feedback: string[] = [];
+    const criteria = {
+      length: password.length >= 8,
+      uppercase: /[A-Z]/.test(password),
+      lowercase: /[a-z]/.test(password),
+      number: /[0-9]/.test(password),
+      special: /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password),
+    };
+
+    // Calculate score based on criteria
+    if (criteria.length) score += 20;
+    else feedback.push("At least 8 characters");
+
+    if (criteria.uppercase) score += 20;
+    else feedback.push("At least one uppercase letter");
+
+    if (criteria.lowercase) score += 20;
+    else feedback.push("At least one lowercase letter");
+
+    if (criteria.number) score += 20;
+    else feedback.push("At least one number");
+
+    if (criteria.special) score += 20;
+    else feedback.push("At least one special character (!@#$%^&*)");
+
+    // Bonus for extra length
+    if (password.length >= 12) score += 10;
+    if (password.length >= 16) score += 10;
+
+    // Determine strength level
+    let label = "";
+    let color = "";
+
+    if (score < 40) {
+      label = "Weak";
+      color = "text-red-600 dark:text-red-500";
+    } else if (score < 70) {
+      label = "Medium";
+      color = "text-yellow-600 dark:text-yellow-500";
+    } else if (score < 100) {
+      label = "Strong";
+      color = "text-green-600 dark:text-green-500";
+    } else {
+      label = "Very Strong";
+      color = "text-emerald-600 dark:text-emerald-500";
+    }
+
+    setPasswordStrength({ score, label, color, feedback });
+  };
+
+  const handlePasswordChange = (value: string) => {
+    setPassword(value);
+    evaluatePasswordStrength(value);
+  };
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -54,13 +177,38 @@ export function SignupForm({ onSwitchToLogin }: SignupFormProps) {
       return;
     }
 
+    // Validate name fields before submission
+    const firstNameValidation = validateNameField(firstName, "First name");
+    const middleNameValidation = validateNameField(middleName, "Middle name");
+    const lastNameValidation = validateNameField(lastName, "Last name");
+
+    if (firstNameValidation || middleNameValidation || lastNameValidation) {
+      setFirstNameError(firstNameValidation);
+      setMiddleNameError(middleNameValidation);
+      setLastNameError(lastNameValidation);
+      toast.error("Please fix the validation errors in the name fields");
+      return;
+    }
+
+    // Check password strength - require at least Medium (score >= 70)
+    if (passwordStrength.score < 70) {
+      toast.error("Password is too weak. Please create a stronger password.");
+      return;
+    }
+
     if (password !== confirmPassword) {
+      setConfirmPasswordError(
+        "Passwords do not match. Please make sure both passwords are identical."
+      );
       toast.error("Passwords do not match");
       return;
     }
 
-    if (password.length < 6) {
-      toast.error("Password must be at least 6 characters");
+    // Clear confirm password error if passwords match
+    setConfirmPasswordError(null);
+
+    if (password.length < 8) {
+      toast.error("Password must be at least 8 characters");
       return;
     }
 
@@ -163,12 +311,22 @@ export function SignupForm({ onSwitchToLogin }: SignupFormProps) {
                   id="firstName"
                   type="text"
                   value={firstName}
-                  onChange={(e) => setFirstName(e.target.value)}
+                  onChange={(e) => handleFirstNameChange(e.target.value)}
                   placeholder="First name"
-                  className="pl-10"
+                  className={`pl-10 ${
+                    firstNameError
+                      ? "border-destructive focus-visible:ring-destructive"
+                      : ""
+                  }`}
                   required
                 />
               </div>
+              {firstNameError && (
+                <p className="text-xs text-destructive flex items-center gap-1 mt-1">
+                  <AlertTriangle className="w-3 h-3" />
+                  {firstNameError}
+                </p>
+              )}
             </div>
 
             <div className="space-y-2">
@@ -177,10 +335,21 @@ export function SignupForm({ onSwitchToLogin }: SignupFormProps) {
                 id="lastName"
                 type="text"
                 value={lastName}
-                onChange={(e) => setLastName(e.target.value)}
+                onChange={(e) => handleLastNameChange(e.target.value)}
                 placeholder="Last name"
+                className={
+                  lastNameError
+                    ? "border-destructive focus-visible:ring-destructive"
+                    : ""
+                }
                 required
               />
+              {lastNameError && (
+                <p className="text-xs text-destructive flex items-center gap-1 mt-1">
+                  <AlertTriangle className="w-3 h-3" />
+                  {lastNameError}
+                </p>
+              )}
             </div>
           </div>
 
@@ -190,9 +359,20 @@ export function SignupForm({ onSwitchToLogin }: SignupFormProps) {
               id="middleName"
               type="text"
               value={middleName}
-              onChange={(e) => setMiddleName(e.target.value)}
+              onChange={(e) => handleMiddleNameChange(e.target.value)}
               placeholder="Middle name"
+              className={
+                middleNameError
+                  ? "border-destructive focus-visible:ring-destructive"
+                  : ""
+              }
             />
+            {middleNameError && (
+              <p className="text-xs text-destructive flex items-center gap-1 mt-1">
+                <AlertTriangle className="w-3 h-3" />
+                {middleNameError}
+              </p>
+            )}
           </div>
 
           <div className="space-y-2">
@@ -237,8 +417,8 @@ export function SignupForm({ onSwitchToLogin }: SignupFormProps) {
                 id="password"
                 type={showPassword ? "text" : "password"}
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Create a password (min. 6 characters)"
+                onChange={(e) => handlePasswordChange(e.target.value)}
+                placeholder="Create a strong password"
                 className="pl-10 pr-10"
                 required
               />
@@ -256,6 +436,67 @@ export function SignupForm({ onSwitchToLogin }: SignupFormProps) {
                 )}
               </Button>
             </div>
+
+            {/* Password Strength Indicator */}
+            {password && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-muted-foreground">
+                    Password Strength:
+                  </span>
+                  <span
+                    className={`text-xs font-medium ${passwordStrength.color}`}
+                  >
+                    {passwordStrength.label}
+                  </span>
+                </div>
+
+                {/* Strength Progress Bar */}
+                <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                  <div
+                    className={`h-full transition-all duration-300 ${
+                      passwordStrength.score < 40
+                        ? "bg-red-500"
+                        : passwordStrength.score < 70
+                        ? "bg-yellow-500"
+                        : passwordStrength.score < 100
+                        ? "bg-green-500"
+                        : "bg-emerald-500"
+                    }`}
+                    style={{ width: `${passwordStrength.score}%` }}
+                  />
+                </div>
+
+                {/* Criteria Checklist */}
+                {passwordStrength.feedback.length > 0 && (
+                  <div className="bg-muted/50 p-3 rounded-md space-y-1">
+                    <p className="text-xs font-medium text-muted-foreground mb-2">
+                      Required:
+                    </p>
+                    {passwordStrength.feedback.map((item, index) => (
+                      <div
+                        key={index}
+                        className="flex items-center gap-2 text-xs"
+                      >
+                        <X className="w-3 h-3 text-red-500" />
+                        <span className="text-muted-foreground">{item}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Success Message */}
+                {passwordStrength.score >= 70 && (
+                  <div className="flex items-center gap-2 text-xs text-green-600 dark:text-green-500">
+                    <Check className="w-4 h-4" />
+                    <span>
+                      Great! Your password is{" "}
+                      {passwordStrength.label.toLowerCase()}
+                    </span>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           <div className="space-y-2">
@@ -266,9 +507,16 @@ export function SignupForm({ onSwitchToLogin }: SignupFormProps) {
                 id="confirmPassword"
                 type={showConfirmPassword ? "text" : "password"}
                 value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
+                onChange={(e) => {
+                  setConfirmPassword(e.target.value);
+                  if (confirmPasswordError) setConfirmPasswordError(null);
+                }}
                 placeholder="Confirm your password"
-                className="pl-10 pr-10"
+                className={`pl-10 pr-10 ${
+                  confirmPasswordError
+                    ? "border-destructive focus-visible:ring-destructive"
+                    : ""
+                }`}
                 required
               />
               <Button
@@ -285,9 +533,25 @@ export function SignupForm({ onSwitchToLogin }: SignupFormProps) {
                 )}
               </Button>
             </div>
+            {confirmPasswordError && (
+              <p className="text-xs text-destructive flex items-center gap-1 mt-1">
+                <AlertTriangle className="w-3 h-3" />
+                {confirmPasswordError}
+              </p>
+            )}
           </div>
 
-          <Button type="submit" className="w-full" disabled={loading}>
+          <Button
+            type="submit"
+            className="w-full"
+            disabled={
+              loading ||
+              !!firstNameError ||
+              !!middleNameError ||
+              !!lastNameError ||
+              (password && passwordStrength.score < 70)
+            }
+          >
             {loading ? "Creating Account..." : "Create Account"}
           </Button>
         </form>
