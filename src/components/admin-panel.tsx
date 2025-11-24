@@ -46,6 +46,7 @@ import {
   XCircle,
   CalendarIcon,
   X,
+  Settings,
 } from "lucide-react";
 import { ImageWithFallback } from "./figma/ImageWithFallback";
 import { format, parse, isValid } from "date-fns";
@@ -243,7 +244,10 @@ export function AdminPanel({ complaints, onUpdateComplaint }: AdminPanelProps) {
   return (
     <div className="space-y-6">
       <div className="bg-gradient-to-r from-secondary to-primary text-secondary-foreground p-4 sm:p-6 rounded-lg">
-        <h1 className="text-xl sm:text-2xl">Admin Dashboard</h1>
+        <h1 className="text-xl sm:text-2xl flex items-center gap-2">
+          <Settings className="w-6 h-6" />
+          Admin Panel
+        </h1>
         <p className="mt-2 opacity-90 text-sm sm:text-base">
           Manage community requests and track resolution progress
         </p>
@@ -568,8 +572,8 @@ export function AdminPanel({ complaints, onUpdateComplaint }: AdminPanelProps) {
                               Manage
                             </Button>
                           </DialogTrigger>
-                          <DialogContent className="max-w-2xl">
-                            <DialogHeader>
+                          <DialogContent className="max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
+                            <DialogHeader className="flex-shrink-0">
                               <DialogTitle>Manage Request</DialogTitle>
                               <DialogDescription>
                                 Update status and add administrative notes
@@ -577,7 +581,7 @@ export function AdminPanel({ complaints, onUpdateComplaint }: AdminPanelProps) {
                             </DialogHeader>
 
                             {selectedComplaint && (
-                              <div className="space-y-4">
+                              <div className="space-y-4 overflow-y-auto flex-1 pr-2">
                                 <div>
                                   <h3 className="font-medium">
                                     {selectedComplaint.title}
@@ -642,11 +646,13 @@ export function AdminPanel({ complaints, onUpdateComplaint }: AdminPanelProps) {
                                     <label className="font-medium">
                                       Photo Evidence:
                                     </label>
-                                    <ImageWithFallback
-                                      src={selectedComplaint.photo}
-                                      alt="Request evidence"
-                                      className="mt-2 rounded-lg max-w-md"
-                                    />
+                                    <div className="mt-2 w-full">
+                                      <ImageWithFallback
+                                        src={selectedComplaint.photo}
+                                        alt="Request evidence"
+                                        className="rounded-lg w-full max-w-full h-auto max-h-[400px] object-contain"
+                                      />
+                                    </div>
                                   </div>
                                 )}
 
@@ -923,8 +929,8 @@ export function AdminPanel({ complaints, onUpdateComplaint }: AdminPanelProps) {
                           Manage Request
                         </Button>
                       </DialogTrigger>
-                      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-                        <DialogHeader>
+                      <DialogContent className="max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
+                        <DialogHeader className="flex-shrink-0">
                           <DialogTitle>Manage Request</DialogTitle>
                           <DialogDescription>
                             Update status and add administrative notes
@@ -932,7 +938,7 @@ export function AdminPanel({ complaints, onUpdateComplaint }: AdminPanelProps) {
                         </DialogHeader>
 
                         {selectedComplaint && (
-                          <div className="space-y-4">
+                          <div className="space-y-4 overflow-y-auto flex-1 pr-2">
                             <div>
                               <h3 className="font-medium">
                                 {selectedComplaint.title}
@@ -991,11 +997,13 @@ export function AdminPanel({ complaints, onUpdateComplaint }: AdminPanelProps) {
                                 <label className="font-medium">
                                   Photo Evidence:
                                 </label>
-                                <ImageWithFallback
-                                  src={selectedComplaint.photo}
-                                  alt="Request evidence"
-                                  className="mt-2 rounded-lg max-w-full sm:max-w-md"
-                                />
+                                <div className="mt-2 w-full">
+                                  <ImageWithFallback
+                                    src={selectedComplaint.photo}
+                                    alt="Request evidence"
+                                    className="rounded-lg w-full max-w-full h-auto max-h-[400px] object-contain"
+                                  />
+                                </div>
                               </div>
                             )}
 

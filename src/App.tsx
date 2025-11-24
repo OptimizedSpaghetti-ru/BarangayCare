@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { ThemeProvider } from "./components/theme-provider";
 import { AuthProvider, useAuth } from "./components/auth/auth-context";
@@ -68,6 +68,13 @@ function AppContent() {
     null
   );
   const [showDetailsDialog, setShowDetailsDialog] = useState(false);
+
+  // Redirect admins to Admin Panel after login
+  useEffect(() => {
+    if (user && isAdmin && currentView === "dashboard") {
+      setCurrentView("admin");
+    }
+  }, [user, isAdmin, currentView]);
 
   const handleSubmitComplaint = async (
     newComplaint: Omit<Complaint, "id" | "dateSubmitted">
@@ -256,7 +263,7 @@ function AppContent() {
       />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
-        {currentView === "dashboard" && (
+        {currentView === "dashboard" && !isAdmin && (
           <UnifiedDashboard
             complaints={complaints}
             onViewDetails={handleViewDetails}

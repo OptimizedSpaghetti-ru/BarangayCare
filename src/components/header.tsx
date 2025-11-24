@@ -41,17 +41,16 @@ export function Header({
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
 
-  const navigationItems = [
-    {
+  const navigationItems = [];
+
+  // Only add Dashboard and Submit Request for non-admin users
+  if (!isAdmin) {
+    navigationItems.push({
       key: "dashboard",
       label: t("nav.dashboard"),
       icon: Home,
       shortLabel: t("nav.dashboard"),
-    },
-  ];
-
-  // Only add Submit Request for non-admin users
-  if (!isAdmin) {
+    });
     navigationItems.push({
       key: "submit",
       label: t("complaints.fileComplaint"),
@@ -202,15 +201,17 @@ export function Header({
                     {user && (
                       <>
                         <div className="border-t border-border my-4"></div>
-                        <Button
-                          variant="ghost"
-                          onClick={() => handleNavClick("dashboard")}
-                          className="flex items-center justify-start space-x-3 w-full"
-                          size="lg"
-                        >
-                          <Home className="w-5 h-5" />
-                          <span>{t("nav.dashboard")}</span>
-                        </Button>
+                        {!isAdmin && (
+                          <Button
+                            variant="ghost"
+                            onClick={() => handleNavClick("dashboard")}
+                            className="flex items-center justify-start space-x-3 w-full"
+                            size="lg"
+                          >
+                            <Home className="w-5 h-5" />
+                            <span>{t("nav.dashboard")}</span>
+                          </Button>
+                        )}
                         <Button
                           variant="ghost"
                           onClick={() => handleNavClick("profile")}
@@ -280,14 +281,16 @@ export function Header({
             {/* Navigation Items */}
             <div className="flex-1 p-4">
               <nav className="space-y-2">
-                <Button
-                  variant="ghost"
-                  onClick={() => handleNavClick("dashboard")}
-                  className="w-full justify-start space-x-3 h-12"
-                >
-                  <Home className="w-5 h-5" />
-                  <span>{t("nav.dashboard")}</span>
-                </Button>
+                {!isAdmin && (
+                  <Button
+                    variant="ghost"
+                    onClick={() => handleNavClick("dashboard")}
+                    className="w-full justify-start space-x-3 h-12"
+                  >
+                    <Home className="w-5 h-5" />
+                    <span>{t("nav.dashboard")}</span>
+                  </Button>
+                )}
 
                 <Button
                   variant="ghost"

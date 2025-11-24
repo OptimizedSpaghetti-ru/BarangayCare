@@ -38,7 +38,7 @@ A comprehensive barangay management system built with React, TypeScript, and Sup
 - 📈 **Data Analytics** - Visualize complaint trends and statistics
 - 👥 **User Management** - Manage resident accounts and permissions
 - 🔄 **Real-time Updates** - Instant synchronization across all devices
-- 🎨 **Admin Dashboard** - Centralized control panel for all operations
+- 🎛️ **Admin Panel** - Centralized control panel for all operations
 
 ### General Features
 
