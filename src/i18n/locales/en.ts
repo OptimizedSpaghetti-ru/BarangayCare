@@ -158,7 +158,7 @@ export const en = {
       categoryMinorCriminal: "Minor Crime",
       categoryOther: "Other",
       description: "Description",
-      photoEvidence: "Photo Evidence (Optional)",
+      photoEvidence: "Photo Evidence",
       photoHelpText:
         "Photos help us understand and resolve your request faster",
       complainant: "Complainant",

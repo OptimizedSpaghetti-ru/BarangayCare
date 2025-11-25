@@ -64,8 +64,34 @@ export function ComplaintForm({ onSubmit }: ComplaintFormProps) {
   const requiresRespondent =
     category === "civil-disputes" || category === "minor-criminal";
 
+  // Validation: Check if all required fields are filled
+  const isFormValid = () => {
+    const baseFieldsFilled =
+      title.trim() !== "" &&
+      description.trim() !== "" &&
+      category !== "" &&
+      location.trim() !== "" &&
+      contactInfo.trim() !== "" &&
+      photo !== null; // Photo is now mandatory
+
+    // If category requires respondent, check if it's filled
+    if (requiresRespondent) {
+      return baseFieldsFilled && respondent.trim() !== "";
+    }
+
+    return baseFieldsFilled;
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Validate all required fields before submission
+    if (!isFormValid()) {
+      toast.error(
+        "Please fill in all required fields including uploading a photo."
+      );
+      return;
+    }
 
     const complaint = {
       title,
@@ -238,7 +264,7 @@ export function ComplaintForm({ onSubmit }: ComplaintFormProps) {
             </div>
 
             <div className="space-y-2">
-              <Label>{t("complaints.photoEvidence")}</Label>
+              <Label>{t("complaints.photoEvidence")} *</Label>
               <div className="border-2 border-dashed border-border rounded-lg p-4 sm:p-6 text-center">
                 {photo ? (
                   <div className="space-y-2">
@@ -269,7 +295,7 @@ export function ComplaintForm({ onSubmit }: ComplaintFormProps) {
                       <span>{t("common.upload")}</span>
                     </Button>
                     <p className="text-xs sm:text-sm text-muted-foreground text-center">
-                      {t("complaints.photoHelpText")}
+                      {t("complaints.photoHelpText")} (Required)
                     </p>
                     <input
                       ref={fileInputRef}
@@ -294,7 +320,12 @@ export function ComplaintForm({ onSubmit }: ComplaintFormProps) {
               />
             </div>
 
-            <Button type="submit" className="w-full" size="lg">
+            <Button
+              type="submit"
+              className="w-full"
+              size="lg"
+              disabled={!isFormValid()}
+            >
               {t("common.submit")}
             </Button>
           </form>
