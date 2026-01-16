@@ -24,6 +24,13 @@ interface AuthContextType {
     name: string,
     phoneNumber?: string
   ) => Promise<{ error?: string }>;
+  signUpWithIdVerification: (
+    email: string,
+    password: string,
+    name: string,
+    phoneNumber?: string,
+    idFile?: File
+  ) => Promise<{ error?: string }>;
   signIn: (email: string, password: string) => Promise<{ error?: string }>;
   signInWithGoogle: () => Promise<{ error?: string }>;
   signInWithFacebook: () => Promise<{ error?: string }>;
@@ -175,6 +182,103 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return await signIn(email, password);
     } catch (error) {
       console.error("Signup error:", error);
+      return { error: "Network error during signup" };
+    }
+  };
+
+  const signUpWithIdVerification = async (
+    email: string,
+    password: string,
+    name: string,
+    phoneNumber?: string,
+    idFile?: File
+  ) => {
+    try {
+      if (!idFile) {
+        return { error: "ID document is required for address verification" };
+      }
+
+      // First, create a temporary upload to validate the ID before creating the account
+      // Upload ID to Supabase Storage (verification_ids bucket)
+      const fileExt = idFile.name.split(".").pop();
+      const fileName = `pending_${Date.now()}_${Math.random()
+        .toString(36)
+        .substring(7)}.${fileExt}`;
+      const filePath = `pending/${fileName}`;
+
+      console.log("Uploading ID for verification:", filePath);
+
+      // Upload to Supabase Storage
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from("verification_ids")
+        .upload(filePath, idFile, {
+          cacheControl: "3600",
+          upsert: false,
+        });
+
+      if (uploadError) {
+        console.error("ID upload error:", uploadError);
+        if (uploadError.message.includes("Bucket not found")) {
+          return {
+            error: "Verification storage not configured. Please contact admin.",
+          };
+        }
+        return { error: `ID upload failed: ${uploadError.message}` };
+      }
+
+      console.log("ID uploaded successfully:", uploadData);
+
+      // Get the public URL or path for the uploaded ID
+      const {
+        data: { publicUrl },
+      } = supabase.storage.from("verification_ids").getPublicUrl(filePath);
+
+      // Now create the user account with ID verification
+      const response = await fetch(
+        `${serverUrl}/auth/signup-with-verification`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${publicAnonKey}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            email,
+            password,
+            name,
+            phoneNumber,
+            idDocumentUrl: publicUrl,
+            idDocumentPath: filePath,
+          }),
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        // Clean up the uploaded ID if signup fails
+        console.log("Signup failed, cleaning up uploaded ID");
+        await supabase.storage.from("verification_ids").remove([filePath]);
+        return { error: data.error || "Failed to create account" };
+      }
+
+      // Move the ID from pending to verified folder linked to user
+      if (data.user?.id) {
+        const newFilePath = `verified/${data.user.id}/${fileName}`;
+        const { error: moveError } = await supabase.storage
+          .from("verification_ids")
+          .move(filePath, newFilePath);
+
+        if (moveError) {
+          console.error("Failed to move ID to verified folder:", moveError);
+          // Not a critical error, continue with signup
+        }
+      }
+
+      // Sign in after successful signup
+      return await signIn(email, password);
+    } catch (error) {
+      console.error("Signup with verification error:", error);
       return { error: "Network error during signup" };
     }
   };
@@ -455,6 +559,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     isAdmin,
     isGuest,
     signUp,
+    signUpWithIdVerification,
     signIn,
     signInWithGoogle,
     signInWithFacebook,

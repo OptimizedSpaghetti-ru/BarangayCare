@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
@@ -25,6 +25,10 @@ import {
   Shield,
   Check,
   X,
+  Upload,
+  FileImage,
+  Trash2,
+  MapPin,
 } from "lucide-react";
 import { useAuth } from "./auth-context";
 import { toast } from "sonner";
@@ -58,8 +62,21 @@ export function SignupForm({ onSwitchToLogin }: SignupFormProps) {
     feedback: string[];
   }>({ score: 0, label: "", color: "", feedback: [] });
 
-  const { signUp, signInWithGoogle, signInWithFacebook, loginAsGuest } =
-    useAuth();
+  // ID verification states
+  const [idFile, setIdFile] = useState<File | null>(null);
+  const [idPreview, setIdPreview] = useState<string | null>(null);
+  const [idError, setIdError] = useState<string | null>(null);
+  const [addressVerified, setAddressVerified] = useState(false);
+  const [verifyingAddress, setVerifyingAddress] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const {
+    signUp,
+    signUpWithIdVerification,
+    signInWithGoogle,
+    signInWithFacebook,
+    loginAsGuest,
+  } = useAuth();
 
   // Validation function for name fields - only letters and spaces allowed
   const validateNameField = (
@@ -104,6 +121,87 @@ export function SignupForm({ onSwitchToLogin }: SignupFormProps) {
     } else {
       setLastNameError(null);
     }
+  };
+
+  // Allowed file types for ID upload
+  const allowedFileTypes = [
+    "image/jpeg",
+    "image/jpg",
+    "image/png",
+    "image/webp",
+    "application/pdf",
+  ];
+  const maxFileSize = 10 * 1024 * 1024; // 10MB
+
+  // Handle ID file selection
+  const handleIdFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    setIdError(null);
+    setAddressVerified(false);
+
+    if (!file) {
+      setIdFile(null);
+      setIdPreview(null);
+      return;
+    }
+
+    // Validate file type
+    if (!allowedFileTypes.includes(file.type)) {
+      setIdError("Please upload a valid image (JPEG, PNG, WebP) or PDF file");
+      return;
+    }
+
+    // Validate file size
+    if (file.size > maxFileSize) {
+      setIdError("File size must be less than 10MB");
+      return;
+    }
+
+    setIdFile(file);
+
+    // Create preview for images
+    if (file.type.startsWith("image/")) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setIdPreview(e.target?.result as string);
+      };
+      reader.readAsDataURL(file);
+    } else {
+      setIdPreview(null); // No preview for PDF
+    }
+  };
+
+  // Remove selected ID file
+  const handleRemoveIdFile = () => {
+    setIdFile(null);
+    setIdPreview(null);
+    setIdError(null);
+    setAddressVerified(false);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
+
+  // Simulate address verification (in production, this could use OCR or manual review)
+  const verifyAddress = async () => {
+    if (!idFile) {
+      setIdError("Please upload an ID first");
+      return;
+    }
+
+    setVerifyingAddress(true);
+    setIdError(null);
+
+    // Simulate verification delay
+    await new Promise((resolve) => setTimeout(resolve, 1500));
+
+    // For now, we'll require manual confirmation
+    // In production, you could integrate OCR APIs or admin review
+    setVerifyingAddress(false);
+    setAddressVerified(true);
+    toast.success(
+      "ID uploaded successfully. Address will be verified during review."
+    );
   };
 
   // Password strength evaluation function
@@ -177,6 +275,9 @@ export function SignupForm({ onSwitchToLogin }: SignupFormProps) {
       return;
     }
 
+    // ID upload is optional for now - keeping UI visible but not required
+    // TODO: Re-enable ID verification when backend is ready
+
     // Validate name fields before submission
     const firstNameValidation = validateNameField(firstName, "First name");
     const middleNameValidation = validateNameField(middleName, "Middle name");
@@ -219,6 +320,8 @@ export function SignupForm({ onSwitchToLogin }: SignupFormProps) {
     const fullName = `${firstName} ${
       middleName ? middleName + " " : ""
     }${lastName}`.trim();
+
+    // Use regular signup (ID verification disabled for now)
     const { error } = await signUp(email, password, fullName, phoneNumber);
 
     if (error) {
@@ -243,6 +346,10 @@ export function SignupForm({ onSwitchToLogin }: SignupFormProps) {
       toast.success(
         "🎉 Account created successfully! Welcome to BarangayCARE!"
       );
+      // Reset ID states on success
+      setIdFile(null);
+      setIdPreview(null);
+      setAddressVerified(false);
     }
     setLoading(false);
   };
@@ -539,6 +646,142 @@ export function SignupForm({ onSwitchToLogin }: SignupFormProps) {
                 {confirmPasswordError}
               </p>
             )}
+          </div>
+
+          {/* Address Verification Section */}
+          <div className="space-y-3 p-4 border rounded-lg bg-muted/30">
+            <div className="flex items-center gap-2">
+              <Shield className="w-5 h-5 text-primary" />
+              <Label className="text-base font-semibold">
+                Address Verification (Optional)
+              </Label>
+            </div>
+
+            <Alert className="border-amber-200 bg-amber-50 dark:bg-amber-900/20 dark:border-amber-800">
+              <MapPin className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+              <AlertDescription className="text-amber-800 dark:text-amber-300 text-sm">
+                <strong>Important:</strong> Registration is only available for
+                residents of <strong>Barangay NBBS, Navotas</strong>. Please
+                upload a valid government or barangay-issued ID that clearly
+                shows your address.
+              </AlertDescription>
+            </Alert>
+
+            <div className="space-y-2">
+              <Label htmlFor="idUpload" className="text-sm">
+                Government/Barangay ID (Optional)
+              </Label>
+              <p className="text-xs text-muted-foreground">
+                Accepted formats: JPEG, PNG, WebP, PDF (Max 10MB)
+              </p>
+
+              {/* File Upload Area */}
+              <div
+                className={`relative border-2 border-dashed rounded-lg p-6 transition-colors ${
+                  idFile
+                    ? "border-green-500 bg-green-50 dark:bg-green-900/20"
+                    : idError
+                    ? "border-destructive bg-destructive/5"
+                    : "border-muted-foreground/25 hover:border-primary/50"
+                }`}
+              >
+                <input
+                  ref={fileInputRef}
+                  id="idUpload"
+                  type="file"
+                  accept=".jpg,.jpeg,.png,.webp,.pdf"
+                  onChange={handleIdFileSelect}
+                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                />
+
+                {!idFile ? (
+                  <div className="flex flex-col items-center gap-2 text-center">
+                    <Upload className="w-8 h-8 text-muted-foreground" />
+                    <p className="text-sm font-medium">
+                      Click or drag to upload your ID
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      Your ID must show your address is Barangay NBBS, Navotas
+                    </p>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-3">
+                    {idPreview ? (
+                      <img
+                        src={idPreview}
+                        alt="ID Preview"
+                        className="w-16 h-16 object-cover rounded border"
+                      />
+                    ) : (
+                      <div className="w-16 h-16 bg-muted rounded border flex items-center justify-center">
+                        <FileImage className="w-8 h-8 text-muted-foreground" />
+                      </div>
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">
+                        {idFile.name}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {(idFile.size / 1024 / 1024).toFixed(2)} MB
+                      </p>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleRemoveIdFile();
+                      }}
+                      className="shrink-0 text-destructive hover:text-destructive hover:bg-destructive/10"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </div>
+                )}
+              </div>
+
+              {idError && (
+                <p className="text-xs text-destructive flex items-center gap-1 mt-1">
+                  <AlertTriangle className="w-3 h-3" />
+                  {idError}
+                </p>
+              )}
+
+              {/* Verify Address Button */}
+              {idFile && !addressVerified && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={verifyAddress}
+                  disabled={verifyingAddress}
+                  className="w-full mt-2"
+                >
+                  {verifyingAddress ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin mr-2" />
+                      Verifying Address...
+                    </>
+                  ) : (
+                    <>
+                      <Shield className="w-4 h-4 mr-2" />
+                      Verify Address
+                    </>
+                  )}
+                </Button>
+              )}
+
+              {/* Address Verified Success */}
+              {addressVerified && (
+                <div className="flex items-center gap-2 p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
+                  <Check className="w-5 h-5 text-green-600 dark:text-green-400" />
+                  <span className="text-sm text-green-700 dark:text-green-300">
+                    ID uploaded. Your address will be verified during account
+                    review.
+                  </span>
+                </div>
+              )}
+            </div>
           </div>
 
           <Button

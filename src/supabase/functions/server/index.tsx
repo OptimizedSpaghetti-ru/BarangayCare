@@ -126,6 +126,103 @@ app.post("/make-server-fc40ab2c/auth/signup", async (c) => {
   }
 });
 
+// User signup with ID verification endpoint
+app.post("/make-server-fc40ab2c/auth/signup-with-verification", async (c) => {
+  try {
+    const {
+      email,
+      password,
+      name,
+      phoneNumber,
+      idDocumentUrl,
+      idDocumentPath,
+    } = await c.req.json();
+
+    if (!email || !password || !name) {
+      return c.json({ error: "Email, password, and name are required" }, 400);
+    }
+
+    if (!idDocumentUrl || !idDocumentPath) {
+      return c.json(
+        {
+          error:
+            "ID document is required for address verification. Please upload a valid government or barangay-issued ID.",
+        },
+        400
+      );
+    }
+
+    // Note: In a production environment, you would integrate with an OCR service
+    // to automatically verify the address on the ID. For now, we'll store the ID
+    // for manual review by administrators.
+
+    // The verification status will be set to 'pending' until an admin reviews the ID
+    const verificationStatus = "pending";
+
+    const { data, error } = await supabase.auth.admin.createUser({
+      email,
+      password,
+      user_metadata: {
+        name,
+        phone_number: phoneNumber || "",
+        created_at: new Date().toISOString(),
+        address_verification_status: verificationStatus,
+        id_document_url: idDocumentUrl,
+        required_address: "Barangay NBBS, Navotas",
+      },
+      // Automatically confirm the user's email since an email server hasn't been configured.
+      email_confirm: true,
+    });
+
+    if (error) {
+      console.log(
+        `Signup with verification error for ${email}: ${error.message}`
+      );
+      return c.json({ error: error.message }, 400);
+    }
+
+    // Store user profile data in users table with verification info
+    if (data.user) {
+      const { error: insertError } = await supabase.from("users").insert({
+        id: data.user.id,
+        email: data.user.email,
+        name,
+        phone_number: phoneNumber || null,
+        is_active: true,
+        address_verification_status: verificationStatus,
+        id_document_url: idDocumentUrl,
+        id_document_path: idDocumentPath,
+        required_barangay: "Barangay NBBS, Navotas",
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      });
+
+      if (insertError) {
+        console.log(
+          `Error storing user profile with verification: ${insertError.message}`
+        );
+        // Rollback: delete the auth user if profile creation fails
+        await supabase.auth.admin.deleteUser(data.user.id);
+        return c.json({ error: "Failed to create user profile" }, 500);
+      }
+    }
+
+    return c.json({
+      message:
+        "User created successfully. Your address verification is pending review.",
+      user: {
+        id: data.user.id,
+        email: data.user.email,
+        name: data.user.user_metadata?.name,
+        addressVerificationStatus: verificationStatus,
+      },
+    });
+  } catch (error) {
+    console.log(`Signup with verification error: ${error}`);
+    return c.json({ error: "Internal server error during signup" }, 500);
+  }
+});
+
 // Get user profile
 app.get("/make-server-fc40ab2c/auth/profile", async (c) => {
   try {
@@ -511,6 +608,148 @@ app.delete("/make-server-fc40ab2c/admin/users/:userId", async (c) => {
   } catch (error) {
     console.log(`Admin delete user error: ${error}`);
     return c.json({ error: "Internal server error while deleting user" }, 500);
+  }
+});
+
+// Admin: Verify user address
+app.put(
+  "/make-server-fc40ab2c/admin/users/:userId/verify-address",
+  async (c) => {
+    try {
+      const { error } = await verifyAdmin(c.req.raw);
+      if (error) {
+        return c.json({ error }, error === "Admin access required" ? 403 : 401);
+      }
+
+      const userId = c.req.param("userId");
+      const { status, rejectionReason } = await c.req.json();
+
+      if (!status || !["verified", "rejected", "pending"].includes(status)) {
+        return c.json(
+          {
+            error:
+              "Invalid verification status. Must be 'verified', 'rejected', or 'pending'",
+          },
+          400
+        );
+      }
+
+      // If rejecting, require a reason
+      if (status === "rejected" && !rejectionReason) {
+        return c.json(
+          { error: "Rejection reason is required when rejecting a user" },
+          400
+        );
+      }
+
+      const updateData: {
+        address_verification_status: string;
+        address_verified_at?: string;
+        address_rejection_reason?: string | null;
+        updated_at: string;
+        is_active: boolean;
+      } = {
+        address_verification_status: status,
+        updated_at: new Date().toISOString(),
+        is_active: status !== "rejected", // Deactivate account if rejected
+      };
+
+      if (status === "verified") {
+        updateData.address_verified_at = new Date().toISOString();
+        updateData.address_rejection_reason = null;
+      } else if (status === "rejected") {
+        updateData.address_rejection_reason =
+          rejectionReason ||
+          "Address on ID does not match Barangay NBBS, Navotas";
+      }
+
+      const { data: updatedProfile, error: updateError } = await supabase
+        .from("users")
+        .update(updateData)
+        .eq("id", userId)
+        .select()
+        .single();
+
+      if (updateError) {
+        console.log(`Error updating user verification: ${updateError.message}`);
+        return c.json({ error: "Failed to update verification status" }, 500);
+      }
+
+      // Also update user metadata
+      await supabase.auth.admin.updateUserById(userId, {
+        user_metadata: {
+          address_verification_status: status,
+          address_verified_at:
+            status === "verified" ? new Date().toISOString() : undefined,
+          address_rejection_reason:
+            status === "rejected" ? rejectionReason : undefined,
+        },
+      });
+
+      return c.json({
+        message:
+          status === "verified"
+            ? "User address verified successfully"
+            : status === "rejected"
+            ? "User registration rejected"
+            : "Verification status updated",
+        profile: {
+          id: updatedProfile.id,
+          email: updatedProfile.email,
+          name: updatedProfile.name,
+          addressVerificationStatus: updatedProfile.address_verification_status,
+          isActive: updatedProfile.is_active,
+        },
+      });
+    } catch (error) {
+      console.log(`Admin verify address error: ${error}`);
+      return c.json(
+        { error: "Internal server error while verifying address" },
+        500
+      );
+    }
+  }
+);
+
+// Admin: Get pending verifications
+app.get("/make-server-fc40ab2c/admin/pending-verifications", async (c) => {
+  try {
+    const { error } = await verifyAdmin(c.req.raw);
+    if (error) {
+      return c.json({ error }, error === "Admin access required" ? 403 : 401);
+    }
+
+    const { data: pendingUsers, error: fetchError } = await supabase
+      .from("users")
+      .select("*")
+      .eq("address_verification_status", "pending")
+      .order("created_at", { ascending: false });
+
+    if (fetchError) {
+      console.log(
+        `Error fetching pending verifications: ${fetchError.message}`
+      );
+      return c.json({ error: "Failed to fetch pending verifications" }, 500);
+    }
+
+    const users = pendingUsers.map((profile) => ({
+      id: profile.id,
+      email: profile.email,
+      name: profile.name,
+      phoneNumber: profile.phone_number,
+      idDocumentUrl: profile.id_document_url,
+      addressVerificationStatus: profile.address_verification_status,
+      requiredBarangay: profile.required_barangay,
+      createdAt: profile.created_at,
+    }));
+
+    return c.json({ pendingVerifications: users });
+  } catch (error) {
+    console.log(`Admin get pending verifications error: ${error}`);
+    return c.json(
+      { error: "Internal server error while fetching pending verifications" },
+      500
+    );
   }
 });
 
