@@ -275,8 +275,12 @@ export function SignupForm({ onSwitchToLogin }: SignupFormProps) {
       return;
     }
 
-    // ID upload is optional for now - keeping UI visible but not required
-    // TODO: Re-enable ID verification when backend is ready
+    // Validate ID upload - required for registration
+    if (!idFile) {
+      setIdError("Please upload a valid government or barangay-issued ID");
+      toast.error("ID verification is required. Please upload your ID.");
+      return;
+    }
 
     // Validate name fields before submission
     const firstNameValidation = validateNameField(firstName, "First name");
@@ -653,7 +657,7 @@ export function SignupForm({ onSwitchToLogin }: SignupFormProps) {
             <div className="flex items-center gap-2">
               <Shield className="w-5 h-5 text-primary" />
               <Label className="text-base font-semibold">
-                Address Verification (Optional)
+                Address Verification *
               </Label>
             </div>
 
@@ -669,61 +673,99 @@ export function SignupForm({ onSwitchToLogin }: SignupFormProps) {
 
             <div className="space-y-2">
               <Label htmlFor="idUpload" className="text-sm">
-                Government/Barangay ID (Optional)
+                Government/Barangay ID *
               </Label>
               <p className="text-xs text-muted-foreground">
                 Accepted formats: JPEG, PNG, WebP, PDF (Max 10MB)
               </p>
 
-              {/* File Upload Area */}
+              {/* File Upload Area - Custom Clean UI */}
               <div
-                className={`relative border-2 border-dashed rounded-lg p-6 transition-colors ${
+                className={`relative border-2 border-dashed rounded-lg p-6 transition-colors cursor-pointer ${
                   idFile
                     ? "border-green-500 bg-green-50 dark:bg-green-900/20"
                     : idError
                     ? "border-destructive bg-destructive/5"
-                    : "border-muted-foreground/25 hover:border-primary/50"
+                    : "border-muted-foreground/25 hover:border-primary/50 hover:bg-primary/5"
                 }`}
+                onClick={() => !idFile && fileInputRef.current?.click()}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  const file = e.dataTransfer.files?.[0];
+                  if (file && fileInputRef.current) {
+                    const dataTransfer = new DataTransfer();
+                    dataTransfer.items.add(file);
+                    fileInputRef.current.files = dataTransfer.files;
+                    handleIdFileSelect({ target: { files: dataTransfer.files } } as React.ChangeEvent<HTMLInputElement>);
+                  }
+                }}
               >
+                {/* Hidden file input */}
                 <input
                   ref={fileInputRef}
                   id="idUpload"
                   type="file"
                   accept=".jpg,.jpeg,.png,.webp,.pdf"
                   onChange={handleIdFileSelect}
-                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                  className="hidden"
                 />
 
                 {!idFile ? (
-                  <div className="flex flex-col items-center gap-2 text-center">
-                    <Upload className="w-8 h-8 text-muted-foreground" />
-                    <p className="text-sm font-medium">
-                      Click or drag to upload your ID
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      Your ID must show your address is Barangay NBBS, Navotas
-                    </p>
+                  <div className="flex flex-col items-center gap-3 text-center">
+                    <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
+                      <Upload className="w-6 h-6 text-primary" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-foreground">
+                        Click to upload or drag and drop
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Your ID must show your address is Barangay NBBS, Navotas
+                      </p>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="mt-1"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        fileInputRef.current?.click();
+                      }}
+                    >
+                      <Upload className="w-4 h-4 mr-2" />
+                      Select File
+                    </Button>
                   </div>
                 ) : (
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-4">
                     {idPreview ? (
                       <img
                         src={idPreview}
                         alt="ID Preview"
-                        className="w-16 h-16 object-cover rounded border"
+                        className="w-20 h-20 object-cover rounded-lg border shadow-sm"
                       />
                     ) : (
-                      <div className="w-16 h-16 bg-muted rounded border flex items-center justify-center">
-                        <FileImage className="w-8 h-8 text-muted-foreground" />
+                      <div className="w-20 h-20 bg-muted rounded-lg border flex items-center justify-center">
+                        <FileImage className="w-10 h-10 text-muted-foreground" />
                       </div>
                     )}
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium truncate">
+                      <p className="text-sm font-medium truncate text-foreground">
                         {idFile.name}
                       </p>
-                      <p className="text-xs text-muted-foreground">
+                      <p className="text-xs text-muted-foreground mt-0.5">
                         {(idFile.size / 1024 / 1024).toFixed(2)} MB
                       </p>
+                      <div className="flex items-center gap-1 mt-1">
+                        <Check className="w-3 h-3 text-green-600" />
+                        <span className="text-xs text-green-600">File uploaded</span>
+                      </div>
                     </div>
                     <Button
                       type="button"
@@ -789,6 +831,7 @@ export function SignupForm({ onSwitchToLogin }: SignupFormProps) {
             className="w-full"
             disabled={
               loading ||
+              !idFile ||
               !!firstNameError ||
               !!middleNameError ||
               !!lastNameError ||
@@ -796,6 +839,7 @@ export function SignupForm({ onSwitchToLogin }: SignupFormProps) {
             }
           >
             {loading ? "Creating Account..." : "Create Account"}
+          </Button>
           </Button>
         </form>
 
