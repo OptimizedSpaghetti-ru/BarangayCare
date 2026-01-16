@@ -701,7 +701,9 @@ export function SignupForm({ onSwitchToLogin }: SignupFormProps) {
                     const dataTransfer = new DataTransfer();
                     dataTransfer.items.add(file);
                     fileInputRef.current.files = dataTransfer.files;
-                    handleIdFileSelect({ target: { files: dataTransfer.files } } as React.ChangeEvent<HTMLInputElement>);
+                    handleIdFileSelect({
+                      target: { files: dataTransfer.files },
+                    } as React.ChangeEvent<HTMLInputElement>);
                   }
                 }}
               >
@@ -764,7 +766,9 @@ export function SignupForm({ onSwitchToLogin }: SignupFormProps) {
                       </p>
                       <div className="flex items-center gap-1 mt-1">
                         <Check className="w-3 h-3 text-green-600" />
-                        <span className="text-xs text-green-600">File uploaded</span>
+                        <span className="text-xs text-green-600">
+                          File uploaded
+                        </span>
                       </div>
                     </div>
                     <Button
@@ -839,7 +843,6 @@ export function SignupForm({ onSwitchToLogin }: SignupFormProps) {
             }
           >
             {loading ? "Creating Account..." : "Create Account"}
-          </Button>
           </Button>
         </form>
 
