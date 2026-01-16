@@ -45,6 +45,9 @@ interface Complaint {
   dateSubmitted: string;
   priority: "low" | "medium" | "high";
   adminNotes?: string;
+  respondent?: string;
+  userId?: string;
+  userName?: string;
 }
 
 interface DataAnalyticsProps {
@@ -166,28 +169,169 @@ export function DataAnalytics({ complaints }: DataAnalyticsProps) {
   };
 
   const handleExportData = () => {
-    const csvData = categoryData.map((cat) => ({
-      Category:
-        categoryLabels[cat.category as keyof typeof categoryLabels] ||
-        cat.category,
-      "Total Complaints": cat.count,
-      Percentage: `${cat.percentage}%`,
-      Resolved: cat.resolved,
-      Pending: cat.pending,
-      "In Progress": cat.inProgress,
-      Rejected: cat.rejected,
-    }));
+    // Filter complaints based on time period (same logic as generateAnalytics)
+    const now = new Date();
+    let filteredComplaints = complaints;
 
-    const csvContent = [
-      Object.keys(csvData[0]).join(","),
-      ...csvData.map((row) => Object.values(row).join(",")),
-    ].join("\n");
+    if (timePeriod === "weekly") {
+      const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+      filteredComplaints = complaints.filter(
+        (c) => new Date(c.dateSubmitted) >= oneWeekAgo
+      );
+    } else if (timePeriod === "monthly") {
+      const oneMonthAgo = new Date(
+        now.getFullYear(),
+        now.getMonth() - 1,
+        now.getDate()
+      );
+      filteredComplaints = complaints.filter(
+        (c) => new Date(c.dateSubmitted) >= oneMonthAgo
+      );
+    } else if (timePeriod === "yearly") {
+      const oneYearAgo = new Date(
+        now.getFullYear() - 1,
+        now.getMonth(),
+        now.getDate()
+      );
+      filteredComplaints = complaints.filter(
+        (c) => new Date(c.dateSubmitted) >= oneYearAgo
+      );
+    }
 
-    const blob = new Blob([csvContent], { type: "text/csv" });
+    // Helper function to escape CSV values (handles commas, quotes, newlines)
+    const escapeCSVValue = (value: string | undefined | null): string => {
+      if (value === undefined || value === null) return "";
+      const stringValue = String(value);
+      // If the value contains comma, quote, or newline, wrap in quotes and escape internal quotes
+      if (
+        stringValue.includes(",") ||
+        stringValue.includes('"') ||
+        stringValue.includes("\n") ||
+        stringValue.includes("\r")
+      ) {
+        return `"${stringValue.replace(/"/g, '""')}"`;
+      }
+      return stringValue;
+    };
+
+    // Format status for display
+    const formatStatus = (status: string): string => {
+      switch (status) {
+        case "pending":
+          return "Pending";
+        case "in-progress":
+          return "In Progress";
+        case "resolved":
+          return "Resolved";
+        case "rejected":
+          return "Rejected";
+        default:
+          return status;
+      }
+    };
+
+    // Format priority for display
+    const formatPriority = (priority: string): string => {
+      switch (priority) {
+        case "low":
+          return "Low";
+        case "medium":
+          return "Medium";
+        case "high":
+          return "High";
+        default:
+          return priority;
+      }
+    };
+
+    // Format date for display
+    const formatDate = (dateString: string): string => {
+      try {
+        const date = new Date(dateString);
+        return date.toLocaleDateString("en-US", {
+          year: "numeric",
+          month: "short",
+          day: "numeric",
+          hour: "2-digit",
+          minute: "2-digit",
+        });
+      } catch {
+        return dateString;
+      }
+    };
+
+    // Determine action status based on complaint status
+    const getActionStatus = (status: string, adminNotes?: string): string => {
+      switch (status) {
+        case "pending":
+          return "Awaiting Review";
+        case "in-progress":
+          return adminNotes ? "Being Processed" : "Under Investigation";
+        case "resolved":
+          return "Completed";
+        case "rejected":
+          return "Closed - Rejected";
+        default:
+          return "No Action";
+      }
+    };
+
+    // Define CSV headers
+    const headers = [
+      "Request",
+      "Complainant",
+      "Category",
+      "Location",
+      "Status",
+      "Priority",
+      "Date",
+      "Actions",
+    ];
+
+    // Generate row data for each complaint
+    const rows = filteredComplaints.map((complaint) => {
+      // Determine complainant name - prioritize userName, then contactInfo
+      // Show "Anonymous" for guest submissions or missing data
+      let complainant = "Anonymous";
+
+      if (complaint.userName && complaint.userName.trim() !== "") {
+        complainant = complaint.userName;
+      } else if (
+        complaint.contactInfo &&
+        complaint.contactInfo.trim() !== "" &&
+        complaint.contactInfo !== "Anonymous" &&
+        complaint.contactInfo !== "Guest User"
+      ) {
+        complainant = complaint.contactInfo;
+      }
+
+      return [
+        escapeCSVValue(complaint.title),
+        escapeCSVValue(complainant),
+        escapeCSVValue(
+          categoryLabels[complaint.category as keyof typeof categoryLabels] ||
+            complaint.category
+        ),
+        escapeCSVValue(complaint.location),
+        escapeCSVValue(formatStatus(complaint.status)),
+        escapeCSVValue(formatPriority(complaint.priority)),
+        escapeCSVValue(formatDate(complaint.dateSubmitted)),
+        escapeCSVValue(getActionStatus(complaint.status, complaint.adminNotes)),
+      ].join(",");
+    });
+
+    // Combine headers and rows
+    const csvContent = [headers.join(","), ...rows].join("\n");
+
+    // Add BOM for Excel to properly recognize UTF-8 encoding
+    const BOM = "\uFEFF";
+    const blob = new Blob([BOM + csvContent], {
+      type: "text/csv;charset=utf-8",
+    });
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `barangay-analytics-${timePeriod}-${
+    a.download = `barangay-complaints-${timePeriod}-${
       new Date().toISOString().split("T")[0]
     }.csv`;
     a.click();
