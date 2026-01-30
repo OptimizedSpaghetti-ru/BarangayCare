@@ -84,7 +84,7 @@ export function AdminPanel({ complaints, onUpdateComplaint }: AdminPanelProps) {
   const [manualEndDate, setManualEndDate] = useState("");
   const [datePopoverOpen, setDatePopoverOpen] = useState(false);
   const [selectedComplaint, setSelectedComplaint] = useState<Complaint | null>(
-    null
+    null,
   );
   const [adminNotes, setAdminNotes] = useState("");
   const [selectedPriority, setSelectedPriority] = useState<
@@ -189,7 +189,7 @@ export function AdminPanel({ complaints, onUpdateComplaint }: AdminPanelProps) {
 
   const handlePriorityUpdate = (
     complaintId: string,
-    newPriority: "low" | "medium" | "high"
+    newPriority: "low" | "medium" | "high",
   ) => {
     onUpdateComplaint(complaintId, { priority: newPriority });
     // Update the selected complaint to reflect the change immediately
@@ -255,7 +255,12 @@ export function AdminPanel({ complaints, onUpdateComplaint }: AdminPanelProps) {
 
       {/* Statistics Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
-        <Card>
+        <Card
+          className={`cursor-pointer transition-all duration-300 hover:bg-primary/5 hover:border-primary/50 active:scale-95 ${
+            statusFilter === "all" ? "ring-2 ring-primary bg-primary/10" : ""
+          }`}
+          onClick={() => setStatusFilter("all")}
+        >
           <CardHeader className="pb-2 sm:pb-3">
             <CardTitle className="text-xs sm:text-sm">Total</CardTitle>
           </CardHeader>
@@ -266,7 +271,14 @@ export function AdminPanel({ complaints, onUpdateComplaint }: AdminPanelProps) {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card
+          className={`cursor-pointer transition-all duration-300 hover:bg-yellow-500/5 hover:border-yellow-500/50 active:scale-95 ${
+            statusFilter === "pending"
+              ? "ring-2 ring-yellow-500 bg-yellow-500/10"
+              : ""
+          }`}
+          onClick={() => setStatusFilter("pending")}
+        >
           <CardHeader className="pb-2 sm:pb-3">
             <CardTitle className="text-xs sm:text-sm">Pending</CardTitle>
           </CardHeader>
@@ -277,7 +289,14 @@ export function AdminPanel({ complaints, onUpdateComplaint }: AdminPanelProps) {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card
+          className={`cursor-pointer transition-all duration-300 hover:bg-blue-500/5 hover:border-blue-500/50 active:scale-95 ${
+            statusFilter === "in-progress"
+              ? "ring-2 ring-blue-500 bg-blue-500/10"
+              : ""
+          }`}
+          onClick={() => setStatusFilter("in-progress")}
+        >
           <CardHeader className="pb-2 sm:pb-3">
             <CardTitle className="text-xs sm:text-sm">In Progress</CardTitle>
           </CardHeader>
@@ -288,7 +307,14 @@ export function AdminPanel({ complaints, onUpdateComplaint }: AdminPanelProps) {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card
+          className={`cursor-pointer transition-all duration-300 hover:bg-green-500/5 hover:border-green-500/50 active:scale-95 ${
+            statusFilter === "resolved"
+              ? "ring-2 ring-green-500 bg-green-500/10"
+              : ""
+          }`}
+          onClick={() => setStatusFilter("resolved")}
+        >
           <CardHeader className="pb-2 sm:pb-3">
             <CardTitle className="text-xs sm:text-sm">Resolved</CardTitle>
           </CardHeader>
@@ -299,7 +325,14 @@ export function AdminPanel({ complaints, onUpdateComplaint }: AdminPanelProps) {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card
+          className={`cursor-pointer transition-all duration-300 hover:bg-red-500/5 hover:border-red-500/50 active:scale-95 ${
+            statusFilter === "rejected"
+              ? "ring-2 ring-red-500 bg-red-500/10"
+              : ""
+          }`}
+          onClick={() => setStatusFilter("rejected")}
+        >
           <CardHeader className="pb-2 sm:pb-3">
             <CardTitle className="text-xs sm:text-sm">Rejected</CardTitle>
           </CardHeader>
@@ -454,11 +487,11 @@ export function AdminPanel({ complaints, onUpdateComplaint }: AdminPanelProps) {
                         {dateRange.to
                           ? `Showing requests from ${format(
                               dateRange.from,
-                              "MMM dd"
+                              "MMM dd",
                             )} to ${format(dateRange.to, "MMM dd, yyyy")}`
                           : `Showing requests on ${format(
                               dateRange.from,
-                              "MMM dd, yyyy"
+                              "MMM dd, yyyy",
                             )}`}
                       </p>
                       <Button
@@ -523,7 +556,7 @@ export function AdminPanel({ complaints, onUpdateComplaint }: AdminPanelProps) {
                       <TableCell>
                         <Badge
                           className={`${getStatusColor(
-                            complaint.status
+                            complaint.status,
                           )} border-0`}
                         >
                           <div className="flex items-center space-x-1">
@@ -535,7 +568,7 @@ export function AdminPanel({ complaints, onUpdateComplaint }: AdminPanelProps) {
                       <TableCell>
                         <div
                           className={`w-3 h-3 rounded-full ${getPriorityColor(
-                            complaint.priority
+                            complaint.priority,
                           )}`}
                         />
                       </TableCell>
@@ -543,12 +576,12 @@ export function AdminPanel({ complaints, onUpdateComplaint }: AdminPanelProps) {
                         <div className="text-xs">
                           <div>
                             {new Date(
-                              complaint.dateSubmitted
+                              complaint.dateSubmitted,
                             ).toLocaleDateString()}
                           </div>
                           <div className="text-muted-foreground">
                             {new Date(
-                              complaint.dateSubmitted
+                              complaint.dateSubmitted,
                             ).toLocaleTimeString("en-US", {
                               hour: "numeric",
                               minute: "2-digit",
@@ -621,7 +654,7 @@ export function AdminPanel({ complaints, onUpdateComplaint }: AdminPanelProps) {
                                       Submitted At:
                                     </span>{" "}
                                     {new Date(
-                                      selectedComplaint.dateSubmitted
+                                      selectedComplaint.dateSubmitted,
                                     ).toLocaleString("en-US", {
                                       month: "short",
                                       day: "numeric",
@@ -671,7 +704,7 @@ export function AdminPanel({ complaints, onUpdateComplaint }: AdminPanelProps) {
                                       onClick={() =>
                                         handleStatusUpdate(
                                           selectedComplaint.id,
-                                          "pending"
+                                          "pending",
                                         )
                                       }
                                       className={
@@ -693,7 +726,7 @@ export function AdminPanel({ complaints, onUpdateComplaint }: AdminPanelProps) {
                                       onClick={() =>
                                         handleStatusUpdate(
                                           selectedComplaint.id,
-                                          "in-progress"
+                                          "in-progress",
                                         )
                                       }
                                       className={
@@ -715,7 +748,7 @@ export function AdminPanel({ complaints, onUpdateComplaint }: AdminPanelProps) {
                                       onClick={() =>
                                         handleStatusUpdate(
                                           selectedComplaint.id,
-                                          "resolved"
+                                          "resolved",
                                         )
                                       }
                                       className={
@@ -736,7 +769,7 @@ export function AdminPanel({ complaints, onUpdateComplaint }: AdminPanelProps) {
                                       onClick={() =>
                                         handleStatusUpdate(
                                           selectedComplaint.id,
-                                          "rejected"
+                                          "rejected",
                                         )
                                       }
                                       className={
@@ -765,7 +798,7 @@ export function AdminPanel({ complaints, onUpdateComplaint }: AdminPanelProps) {
                                       onClick={() =>
                                         handlePriorityUpdate(
                                           selectedComplaint.id,
-                                          "low"
+                                          "low",
                                         )
                                       }
                                       className={
@@ -786,7 +819,7 @@ export function AdminPanel({ complaints, onUpdateComplaint }: AdminPanelProps) {
                                       onClick={() =>
                                         handlePriorityUpdate(
                                           selectedComplaint.id,
-                                          "medium"
+                                          "medium",
                                         )
                                       }
                                       className={
@@ -807,7 +840,7 @@ export function AdminPanel({ complaints, onUpdateComplaint }: AdminPanelProps) {
                                       onClick={() =>
                                         handlePriorityUpdate(
                                           selectedComplaint.id,
-                                          "high"
+                                          "high",
                                         )
                                       }
                                       className={
@@ -860,7 +893,7 @@ export function AdminPanel({ complaints, onUpdateComplaint }: AdminPanelProps) {
                         <div className="flex items-center space-x-2 mb-1">
                           <div
                             className={`w-3 h-3 rounded-full ${getPriorityColor(
-                              complaint.priority
+                              complaint.priority,
                             )}`}
                           />
                           <h3 className="font-medium truncate">
@@ -879,7 +912,7 @@ export function AdminPanel({ complaints, onUpdateComplaint }: AdminPanelProps) {
                       </Badge>
                       <Badge
                         className={`${getStatusColor(
-                          complaint.status
+                          complaint.status,
                         )} border-0 text-xs`}
                       >
                         <div className="flex items-center space-x-1">
@@ -909,7 +942,7 @@ export function AdminPanel({ complaints, onUpdateComplaint }: AdminPanelProps) {
                             hour: "numeric",
                             minute: "2-digit",
                             hour12: true,
-                          }
+                          },
                         )}
                       </p>
                     </div>
@@ -972,7 +1005,7 @@ export function AdminPanel({ complaints, onUpdateComplaint }: AdminPanelProps) {
                                   Submitted At:
                                 </span>{" "}
                                 {new Date(
-                                  selectedComplaint.dateSubmitted
+                                  selectedComplaint.dateSubmitted,
                                 ).toLocaleString("en-US", {
                                   month: "short",
                                   day: "numeric",
@@ -1022,7 +1055,7 @@ export function AdminPanel({ complaints, onUpdateComplaint }: AdminPanelProps) {
                                   onClick={() =>
                                     handleStatusUpdate(
                                       selectedComplaint.id,
-                                      "pending"
+                                      "pending",
                                     )
                                   }
                                   className={
@@ -1043,7 +1076,7 @@ export function AdminPanel({ complaints, onUpdateComplaint }: AdminPanelProps) {
                                   onClick={() =>
                                     handleStatusUpdate(
                                       selectedComplaint.id,
-                                      "in-progress"
+                                      "in-progress",
                                     )
                                   }
                                   className={
@@ -1064,7 +1097,7 @@ export function AdminPanel({ complaints, onUpdateComplaint }: AdminPanelProps) {
                                   onClick={() =>
                                     handleStatusUpdate(
                                       selectedComplaint.id,
-                                      "resolved"
+                                      "resolved",
                                     )
                                   }
                                   className={
@@ -1085,7 +1118,7 @@ export function AdminPanel({ complaints, onUpdateComplaint }: AdminPanelProps) {
                                   onClick={() =>
                                     handleStatusUpdate(
                                       selectedComplaint.id,
-                                      "rejected"
+                                      "rejected",
                                     )
                                   }
                                   className={
@@ -1114,7 +1147,7 @@ export function AdminPanel({ complaints, onUpdateComplaint }: AdminPanelProps) {
                                   onClick={() =>
                                     handlePriorityUpdate(
                                       selectedComplaint.id,
-                                      "low"
+                                      "low",
                                     )
                                   }
                                   className={
@@ -1135,7 +1168,7 @@ export function AdminPanel({ complaints, onUpdateComplaint }: AdminPanelProps) {
                                   onClick={() =>
                                     handlePriorityUpdate(
                                       selectedComplaint.id,
-                                      "medium"
+                                      "medium",
                                     )
                                   }
                                   className={
@@ -1156,7 +1189,7 @@ export function AdminPanel({ complaints, onUpdateComplaint }: AdminPanelProps) {
                                   onClick={() =>
                                     handlePriorityUpdate(
                                       selectedComplaint.id,
-                                      "high"
+                                      "high",
                                     )
                                   }
                                   className={
