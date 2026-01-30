@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import { getSupabaseClient } from "../utils/supabase/client";
 import { toast } from "sonner@2.0.3";
+import { useAuth } from "./auth/auth-context";
 
 interface Complaint {
   id: string;
@@ -23,26 +24,33 @@ interface ComplaintContextType {
   complaints: Complaint[];
   loading: boolean;
   addComplaint: (
-    complaint: Omit<Complaint, "id" | "dateSubmitted">
+    complaint: Omit<Complaint, "id" | "dateSubmitted">,
   ) => Promise<{ error?: string }>;
   updateComplaint: (
     id: string,
-    updates: Partial<Complaint>
+    updates: Partial<Complaint>,
   ) => Promise<{ error?: string }>;
   fetchComplaints: () => Promise<void>;
 }
 
 const ComplaintContext = createContext<ComplaintContextType | undefined>(
-  undefined
+  undefined,
 );
 
 export function ComplaintProvider({ children }: { children: React.ReactNode }) {
   const [complaints, setComplaints] = useState<Complaint[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const { user, isAdmin, loading: authLoading } = useAuth();
   const supabase = getSupabaseClient();
 
+  // Fetch complaints whenever auth state changes (login/logout)
   useEffect(() => {
+    // Wait for auth to finish loading before fetching complaints
+    if (authLoading) {
+      return;
+    }
+
     fetchComplaints();
 
     // Set up real-time subscription for complaints
@@ -59,7 +67,7 @@ export function ComplaintProvider({ children }: { children: React.ReactNode }) {
           console.log("Real-time update received:", payload);
           // Refetch complaints when any change occurs
           fetchComplaints();
-        }
+        },
       )
       .subscribe();
 
@@ -67,7 +75,7 @@ export function ComplaintProvider({ children }: { children: React.ReactNode }) {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, []);
+  }, [user, isAdmin, authLoading]);
 
   const fetchComplaints = async () => {
     try {
@@ -131,7 +139,7 @@ export function ComplaintProvider({ children }: { children: React.ReactNode }) {
   };
 
   const addComplaint = async (
-    complaintData: Omit<Complaint, "id" | "dateSubmitted">
+    complaintData: Omit<Complaint, "id" | "dateSubmitted">,
   ) => {
     try {
       const {
@@ -301,7 +309,7 @@ export function ComplaintProvider({ children }: { children: React.ReactNode }) {
               ...updates,
               dateSubmitted: data.date_submitted, // Keep the database timestamp
             }
-          : complaint
+          : complaint,
       );
 
       setComplaints(updatedComplaints);
