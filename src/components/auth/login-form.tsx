@@ -12,16 +12,7 @@ import {
 } from "../ui/card";
 import { Separator } from "../ui/separator";
 import { Alert, AlertDescription } from "../ui/alert";
-import {
-  Mail,
-  Lock,
-  Chrome,
-  Facebook,
-  Eye,
-  EyeOff,
-  AlertTriangle,
-  Info,
-} from "lucide-react";
+import { Mail, Lock, Eye, EyeOff, AlertTriangle, Info } from "lucide-react";
 import { useAuth } from "./auth-context";
 import { toast } from "sonner";
 
@@ -37,8 +28,7 @@ export function LoginForm({ onSwitchToSignup }: LoginFormProps) {
   const [loading, setLoading] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
 
-  const { signIn, signInWithGoogle, signInWithFacebook, loginAsGuest } =
-    useAuth();
+  const { signIn, loginAsGuest } = useAuth();
 
   const handleEmailLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -59,30 +49,30 @@ export function LoginForm({ onSwitchToSignup }: LoginFormProps) {
         error.toLowerCase().includes("invalid credentials")
       ) {
         setAuthError(
-          "Invalid email or password. Please check your credentials and try again."
+          "Invalid email or password. Please check your credentials and try again.",
         );
         toast.error(
-          `❌ Invalid email or password. Please check your credentials and try again.`
+          `❌ Invalid email or password. Please check your credentials and try again.`,
         );
       } else if (
         error.toLowerCase().includes("not found") ||
         error.toLowerCase().includes("does not exist")
       ) {
         setAuthError(
-          `No account found for "${email}". Please sign up first or check your email address.`
+          `No account found for "${email}". Please sign up first or check your email address.`,
         );
         toast.error(
-          `⚠️ No account found for "${email}". Please sign up first or check your email address.`
+          `⚠️ No account found for "${email}". Please sign up first or check your email address.`,
         );
       } else if (
         error.toLowerCase().includes("disabled") ||
         error.toLowerCase().includes("suspended")
       ) {
         setAuthError(
-          "Your account has been disabled. Please contact support for assistance."
+          "Your account has been disabled. Please contact support for assistance.",
         );
         toast.error(
-          "⚠️ Your account has been disabled. Please contact support for assistance."
+          "⚠️ Your account has been disabled. Please contact support for assistance.",
         );
       } else {
         setAuthError(error);
@@ -90,48 +80,6 @@ export function LoginForm({ onSwitchToSignup }: LoginFormProps) {
       }
     } else {
       toast.success("🎉 Welcome back to BarangayCARE!");
-    }
-    setLoading(false);
-  };
-
-  const handleGoogleLogin = async () => {
-    setLoading(true);
-    const { error } = await signInWithGoogle();
-
-    if (error) {
-      if (
-        error.toLowerCase().includes("not found") ||
-        error.toLowerCase().includes("does not exist")
-      ) {
-        toast.error(
-          "⚠️ No account found with this Google account. Please sign up first."
-        );
-      } else if (error.toLowerCase().includes("popup")) {
-        toast.error("❌ Popup was closed. Please try again.");
-      } else {
-        toast.error(error);
-      }
-    }
-    setLoading(false);
-  };
-
-  const handleFacebookLogin = async () => {
-    setLoading(true);
-    const { error } = await signInWithFacebook();
-
-    if (error) {
-      if (
-        error.toLowerCase().includes("not found") ||
-        error.toLowerCase().includes("does not exist")
-      ) {
-        toast.error(
-          "⚠️ No account found with this Facebook account. Please sign up first."
-        );
-      } else if (error.toLowerCase().includes("popup")) {
-        toast.error("❌ Popup was closed. Please try again.");
-      } else {
-        toast.error(error);
-      }
     }
     setLoading(false);
   };
@@ -208,38 +156,6 @@ export function LoginForm({ onSwitchToSignup }: LoginFormProps) {
             {loading ? t("common.loading") : t("auth.signIn")}
           </Button>
         </form>
-
-        <div className="relative">
-          <div className="absolute inset-0 flex items-center">
-            <Separator className="w-full" />
-          </div>
-          <div className="relative flex justify-center text-xs uppercase">
-            <span className="bg-background px-2 text-muted-foreground">
-              Or continue with
-            </span>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-2 gap-3">
-          <Button
-            variant="outline"
-            onClick={handleGoogleLogin}
-            disabled={loading}
-            className="flex items-center space-x-2"
-          >
-            <Chrome className="w-4 h-4" />
-            <span>Google</span>
-          </Button>
-          <Button
-            variant="outline"
-            onClick={handleFacebookLogin}
-            disabled={loading}
-            className="flex items-center space-x-2"
-          >
-            <Facebook className="w-4 h-4" />
-            <span>Facebook</span>
-          </Button>
-        </div>
 
         <div className="relative">
           <div className="absolute inset-0 flex items-center">

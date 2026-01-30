@@ -16,8 +16,6 @@ import {
   Lock,
   User,
   Phone,
-  Chrome,
-  Facebook,
   Eye,
   EyeOff,
   AlertTriangle,
@@ -70,18 +68,12 @@ export function SignupForm({ onSwitchToLogin }: SignupFormProps) {
   const [verifyingAddress, setVerifyingAddress] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const {
-    signUp,
-    signUpWithIdVerification,
-    signInWithGoogle,
-    signInWithFacebook,
-    loginAsGuest,
-  } = useAuth();
+  const { signUp, signUpWithIdVerification, loginAsGuest } = useAuth();
 
   // Validation function for name fields - only letters and spaces allowed
   const validateNameField = (
     value: string,
-    fieldName: string
+    fieldName: string,
   ): string | null => {
     if (!value.trim()) {
       return null; // Empty is okay for optional fields
@@ -200,7 +192,7 @@ export function SignupForm({ onSwitchToLogin }: SignupFormProps) {
     setVerifyingAddress(false);
     setAddressVerified(true);
     toast.success(
-      "ID uploaded successfully. Address will be verified during review."
+      "ID uploaded successfully. Address will be verified during review.",
     );
   };
 
@@ -303,7 +295,7 @@ export function SignupForm({ onSwitchToLogin }: SignupFormProps) {
 
     if (password !== confirmPassword) {
       setConfirmPasswordError(
-        "Passwords do not match. Please make sure both passwords are identical."
+        "Passwords do not match. Please make sure both passwords are identical.",
       );
       toast.error("Passwords do not match");
       return;
@@ -335,10 +327,10 @@ export function SignupForm({ onSwitchToLogin }: SignupFormProps) {
         error.toLowerCase().includes("exists")
       ) {
         setEmailError(
-          `This email address is already registered. Please sign in instead or use a different email.`
+          `This email address is already registered. Please sign in instead or use a different email.`,
         );
         toast.error(
-          `⚠️ Account already exists! The email "${email}" is already registered. Please sign in instead or use a different email address.`
+          `⚠️ Account already exists! The email "${email}" is already registered. Please sign in instead or use a different email address.`,
         );
       } else if (error.toLowerCase().includes("invalid email")) {
         setEmailError("Please enter a valid email address");
@@ -348,50 +340,12 @@ export function SignupForm({ onSwitchToLogin }: SignupFormProps) {
       }
     } else {
       toast.success(
-        "🎉 Account created successfully! Welcome to BarangayCARE!"
+        "🎉 Account created successfully! Welcome to BarangayCARE!",
       );
       // Reset ID states on success
       setIdFile(null);
       setIdPreview(null);
       setAddressVerified(false);
-    }
-    setLoading(false);
-  };
-
-  const handleGoogleSignup = async () => {
-    setLoading(true);
-    const { error } = await signInWithGoogle();
-
-    if (error) {
-      if (
-        error.toLowerCase().includes("already") ||
-        error.toLowerCase().includes("exists")
-      ) {
-        toast.error(
-          "⚠️ This Google account is already registered! Please sign in instead."
-        );
-      } else {
-        toast.error(error);
-      }
-    }
-    setLoading(false);
-  };
-
-  const handleFacebookSignup = async () => {
-    setLoading(true);
-    const { error } = await signInWithFacebook();
-
-    if (error) {
-      if (
-        error.toLowerCase().includes("already") ||
-        error.toLowerCase().includes("exists")
-      ) {
-        toast.error(
-          "⚠️ This Facebook account is already registered! Please sign in instead."
-        );
-      } else {
-        toast.error(error);
-      }
     }
     setLoading(false);
   };
@@ -569,10 +523,10 @@ export function SignupForm({ onSwitchToLogin }: SignupFormProps) {
                       passwordStrength.score < 40
                         ? "bg-red-500"
                         : passwordStrength.score < 70
-                        ? "bg-yellow-500"
-                        : passwordStrength.score < 100
-                        ? "bg-green-500"
-                        : "bg-emerald-500"
+                          ? "bg-yellow-500"
+                          : passwordStrength.score < 100
+                            ? "bg-green-500"
+                            : "bg-emerald-500"
                     }`}
                     style={{ width: `${passwordStrength.score}%` }}
                   />
@@ -685,8 +639,8 @@ export function SignupForm({ onSwitchToLogin }: SignupFormProps) {
                   idFile
                     ? "border-green-500 bg-green-50 dark:bg-green-900/20"
                     : idError
-                    ? "border-destructive bg-destructive/5"
-                    : "border-muted-foreground/25 hover:border-primary/50 hover:bg-primary/5"
+                      ? "border-destructive bg-destructive/5"
+                      : "border-muted-foreground/25 hover:border-primary/50 hover:bg-primary/5"
                 }`}
                 onClick={() => !idFile && fileInputRef.current?.click()}
                 onDragOver={(e) => {
@@ -845,38 +799,6 @@ export function SignupForm({ onSwitchToLogin }: SignupFormProps) {
             {loading ? "Creating Account..." : "Create Account"}
           </Button>
         </form>
-
-        <div className="relative">
-          <div className="absolute inset-0 flex items-center">
-            <Separator className="w-full" />
-          </div>
-          <div className="relative flex justify-center text-xs uppercase">
-            <span className="bg-background px-2 text-muted-foreground">
-              Or continue with
-            </span>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-2 gap-3">
-          <Button
-            variant="outline"
-            onClick={handleGoogleSignup}
-            disabled={loading}
-            className="flex items-center space-x-2"
-          >
-            <Chrome className="w-4 h-4" />
-            <span>Google</span>
-          </Button>
-          <Button
-            variant="outline"
-            onClick={handleFacebookSignup}
-            disabled={loading}
-            className="flex items-center space-x-2"
-          >
-            <Facebook className="w-4 h-4" />
-            <span>Facebook</span>
-          </Button>
-        </div>
 
         <div className="relative">
           <div className="absolute inset-0 flex items-center">
