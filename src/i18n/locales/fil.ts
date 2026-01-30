@@ -90,7 +90,7 @@ export const fil = {
     dashboard: {
       title: "Dashboard",
       overview: "Pangkalahatang Tingin",
-      totalResidents: "Kabuuang Residente",
+      totalResidents: "Kabuuang Reklamo",
       pendingClearance: "Nakabinbing Clearance",
       activeOfficials: "Aktibong mga Opisyal",
       recentActivity: "Kamakailang Aktibidad",

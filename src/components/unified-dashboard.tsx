@@ -180,7 +180,12 @@ export function UnifiedDashboard({
 
       {/* Statistics Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
-        <Card>
+        <Card
+          className={`cursor-pointer transition-all duration-300 hover:bg-primary/5 hover:border-primary/50 active:scale-95 ${
+            statusFilter === "all" ? "ring-2 ring-primary bg-primary/10" : ""
+          }`}
+          onClick={() => setStatusFilter("all")}
+        >
           <CardHeader className="pb-2 sm:pb-3">
             <CardTitle className="text-xs sm:text-sm text-muted-foreground">
               {t("dashboard.totalResidents")}
@@ -194,7 +199,14 @@ export function UnifiedDashboard({
           </CardContent>
         </Card>
 
-        <Card>
+        <Card
+          className={`cursor-pointer transition-all duration-300 hover:bg-yellow-500/5 hover:border-yellow-500/50 active:scale-95 ${
+            statusFilter === "pending"
+              ? "ring-2 ring-yellow-500 bg-yellow-500/10"
+              : ""
+          }`}
+          onClick={() => setStatusFilter("pending")}
+        >
           <CardHeader className="pb-2 sm:pb-3">
             <CardTitle className="text-xs sm:text-sm text-muted-foreground">
               {t("complaints.pending")}
@@ -208,7 +220,14 @@ export function UnifiedDashboard({
           </CardContent>
         </Card>
 
-        <Card>
+        <Card
+          className={`cursor-pointer transition-all duration-300 hover:bg-blue-500/5 hover:border-blue-500/50 active:scale-95 ${
+            statusFilter === "in-progress"
+              ? "ring-2 ring-blue-500 bg-blue-500/10"
+              : ""
+          }`}
+          onClick={() => setStatusFilter("in-progress")}
+        >
           <CardHeader className="pb-2 sm:pb-3">
             <CardTitle className="text-xs sm:text-sm text-muted-foreground">
               {t("complaints.investigating")}
@@ -222,7 +241,14 @@ export function UnifiedDashboard({
           </CardContent>
         </Card>
 
-        <Card>
+        <Card
+          className={`cursor-pointer transition-all duration-300 hover:bg-green-500/5 hover:border-green-500/50 active:scale-95 ${
+            statusFilter === "resolved"
+              ? "ring-2 ring-green-500 bg-green-500/10"
+              : ""
+          }`}
+          onClick={() => setStatusFilter("resolved")}
+        >
           <CardHeader className="pb-2 sm:pb-3">
             <CardTitle className="text-xs sm:text-sm text-muted-foreground">
               {t("complaints.resolved")}
@@ -362,12 +388,12 @@ export function UnifiedDashboard({
                             <div className="flex items-center space-x-2 flex-shrink-0">
                               <div
                                 className={`w-3 h-3 rounded-full ${getPriorityColor(
-                                  complaint.priority
+                                  complaint.priority,
                                 )}`}
                               />
                               <Badge
                                 className={`${getStatusColor(
-                                  complaint.status
+                                  complaint.status,
                                 )} border-0 flex items-center space-x-1`}
                               >
                                 {getStatusIcon(complaint.status)}

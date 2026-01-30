@@ -90,7 +90,7 @@ export const en = {
     dashboard: {
       title: "Dashboard",
       overview: "Overview",
-      totalResidents: "Total Residents",
+      totalResidents: "Total Complaints",
       pendingClearance: "Pending Clearance",
       activeOfficials: "Active Officials",
       recentActivity: "Recent Activity",
