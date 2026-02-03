@@ -369,7 +369,7 @@ export function SignupForm({ onSwitchToLogin }: SignupFormProps) {
         <form onSubmit={handleSignup} className="space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="firstName">First Name *</Label>
+              <Label htmlFor="firstName">First Name</Label>
               <div className="relative">
                 <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
                 <Input
@@ -395,7 +395,7 @@ export function SignupForm({ onSwitchToLogin }: SignupFormProps) {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="lastName">Last Name *</Label>
+              <Label htmlFor="lastName">Last Name</Label>
               <Input
                 id="lastName"
                 type="text"
@@ -419,7 +419,7 @@ export function SignupForm({ onSwitchToLogin }: SignupFormProps) {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="middleName">Middle Name (Optional)</Label>
+            <Label htmlFor="middleName">Middle Name</Label>
             <Input
               id="middleName"
               type="text"
@@ -441,7 +441,7 @@ export function SignupForm({ onSwitchToLogin }: SignupFormProps) {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="email">Email *</Label>
+            <Label htmlFor="email">Email</Label>
             <div className="relative">
               <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
               <Input
@@ -460,7 +460,7 @@ export function SignupForm({ onSwitchToLogin }: SignupFormProps) {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="phone">Phone Number (Optional)</Label>
+            <Label htmlFor="phone">Phone Number</Label>
             <div className="relative">
               <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
               <Input
@@ -475,7 +475,7 @@ export function SignupForm({ onSwitchToLogin }: SignupFormProps) {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="password">Password *</Label>
+            <Label htmlFor="password">Password</Label>
             <div className="relative">
               <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
               <Input
@@ -565,7 +565,7 @@ export function SignupForm({ onSwitchToLogin }: SignupFormProps) {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="confirmPassword">Confirm Password *</Label>
+            <Label htmlFor="confirmPassword">Confirm Password</Label>
             <div className="relative">
               <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
               <Input
@@ -611,7 +611,7 @@ export function SignupForm({ onSwitchToLogin }: SignupFormProps) {
             <div className="flex items-center gap-2">
               <Shield className="w-5 h-5 text-primary" />
               <Label className="text-base font-semibold">
-                Address Verification *
+                Address Verification
               </Label>
             </div>
 
@@ -619,7 +619,7 @@ export function SignupForm({ onSwitchToLogin }: SignupFormProps) {
               <MapPin className="h-4 w-4 text-amber-600 dark:text-amber-400" />
               <AlertDescription className="text-amber-800 dark:text-amber-300 text-sm">
                 <strong>Important:</strong> Registration is only available for
-                residents of <strong>Barangay Marulas, Valenzuela</strong>.
+                residents of <strong>Barangay Marulas, Valenzuela</strong>
                 Please upload a valid government or barangay-issued ID that
                 clearly shows your address.
               </AlertDescription>
@@ -627,7 +627,7 @@ export function SignupForm({ onSwitchToLogin }: SignupFormProps) {
 
             <div className="space-y-2">
               <Label htmlFor="idUpload" className="text-sm">
-                Government/Barangay ID *
+                Government/Barangay ID
               </Label>
               <p className="text-xs text-muted-foreground">
                 Accepted formats: JPEG, PNG, WebP, PDF (Max 10MB)
