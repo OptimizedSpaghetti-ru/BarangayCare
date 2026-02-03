@@ -619,9 +619,9 @@ export function SignupForm({ onSwitchToLogin }: SignupFormProps) {
               <MapPin className="h-4 w-4 text-amber-600 dark:text-amber-400" />
               <AlertDescription className="text-amber-800 dark:text-amber-300 text-sm">
                 <strong>Important:</strong> Registration is only available for
-                residents of <strong>Barangay NBBS, Navotas</strong>. Please
-                upload a valid government or barangay-issued ID that clearly
-                shows your address.
+                residents of <strong>Barangay Marulas, Valenzuela</strong>.
+                Please upload a valid government or barangay-issued ID that
+                clearly shows your address.
               </AlertDescription>
             </Alert>
 
@@ -681,7 +681,8 @@ export function SignupForm({ onSwitchToLogin }: SignupFormProps) {
                         Click to upload or drag and drop
                       </p>
                       <p className="text-xs text-muted-foreground mt-1">
-                        Your ID must show your address is Barangay NBBS, Navotas
+                        Your ID must show your address is Barangay Marulas,
+                        Valenzuela
                       </p>
                     </div>
                     <Button
@@ -817,14 +818,6 @@ export function SignupForm({ onSwitchToLogin }: SignupFormProps) {
         >
           Continue as Guest
         </Button>
-
-        <Alert className="border-blue-200 bg-blue-50 dark:bg-blue-900/20 dark:border-blue-800">
-          <Info className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-          <AlertDescription className="text-blue-800 dark:text-blue-300">
-            Guest mode allows you to submit complaints anonymously, but you
-            won't be able to track or view them later.
-          </AlertDescription>
-        </Alert>
 
         <div className="text-center text-sm">
           <span className="text-muted-foreground">

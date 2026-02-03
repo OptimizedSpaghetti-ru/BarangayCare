@@ -12,14 +12,14 @@ app.use(
     origin: "*",
     allowHeaders: ["*"],
     allowMethods: ["*"],
-  })
+  }),
 );
 app.use("*", logger(console.log));
 
 // Initialize Supabase client
 const supabase = createClient(
   Deno.env.get("SUPABASE_URL")!,
-  Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+  Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
 );
 
 // Helper function to verify admin access
@@ -148,13 +148,9 @@ app.post("/make-server-fc40ab2c/auth/signup-with-verification", async (c) => {
           error:
             "ID document is required for address verification. Please upload a valid government or barangay-issued ID.",
         },
-        400
+        400,
       );
     }
-
-    // Note: In a production environment, you would integrate with an OCR service
-    // to automatically verify the address on the ID. For now, we'll store the ID
-    // for manual review by administrators.
 
     // The verification status will be set to 'pending' until an admin reviews the ID
     const verificationStatus = "pending";
@@ -176,7 +172,7 @@ app.post("/make-server-fc40ab2c/auth/signup-with-verification", async (c) => {
 
     if (error) {
       console.log(
-        `Signup with verification error for ${email}: ${error.message}`
+        `Signup with verification error for ${email}: ${error.message}`,
       );
       return c.json({ error: error.message }, 400);
     }
@@ -199,7 +195,7 @@ app.post("/make-server-fc40ab2c/auth/signup-with-verification", async (c) => {
 
       if (insertError) {
         console.log(
-          `Error storing user profile with verification: ${insertError.message}`
+          `Error storing user profile with verification: ${insertError.message}`,
         );
         // Rollback: delete the auth user if profile creation fails
         await supabase.auth.admin.deleteUser(data.user.id);
@@ -231,7 +227,7 @@ app.get("/make-server-fc40ab2c/auth/profile", async (c) => {
       console.log(`Auth verification failed: ${error}`);
       return c.json(
         { error },
-        error === "No access token provided" ? 401 : 401
+        error === "No access token provided" ? 401 : 401,
       );
     }
 
@@ -245,13 +241,13 @@ app.get("/make-server-fc40ab2c/auth/profile", async (c) => {
 
     if (fetchError) {
       console.log(
-        `Profile fetch error: ${fetchError.message}, Code: ${fetchError.code}`
+        `Profile fetch error: ${fetchError.message}, Code: ${fetchError.code}`,
       );
 
       // If profile doesn't exist (PGRST116 is "not found" error)
       if (fetchError.code === "PGRST116" || !profile) {
         console.log(
-          `Profile not found, creating new profile for user: ${user.id}`
+          `Profile not found, creating new profile for user: ${user.id}`,
         );
 
         // Create profile from Supabase user data
@@ -275,11 +271,11 @@ app.get("/make-server-fc40ab2c/auth/profile", async (c) => {
           console.log(
             `Error creating profile: ${
               insertError.message
-            }, Details: ${JSON.stringify(insertError)}`
+            }, Details: ${JSON.stringify(insertError)}`,
           );
           return c.json(
             { error: `Failed to create user profile: ${insertError.message}` },
-            500
+            500,
           );
         }
 
@@ -330,7 +326,7 @@ app.get("/make-server-fc40ab2c/auth/profile", async (c) => {
       {
         error: `Internal server error while fetching profile: ${errorMessage}`,
       },
-      500
+      500,
     );
   }
 });
@@ -342,7 +338,7 @@ app.put("/make-server-fc40ab2c/auth/profile", async (c) => {
     if (error) {
       return c.json(
         { error },
-        error === "No access token provided" ? 401 : 401
+        error === "No access token provided" ? 401 : 401,
       );
     }
 
@@ -428,7 +424,7 @@ app.put("/make-server-fc40ab2c/auth/profile", async (c) => {
     console.log(`Update profile error: ${error}`);
     return c.json(
       { error: "Internal server error while updating profile" },
-      500
+      500,
     );
   }
 });
@@ -480,7 +476,7 @@ app.put("/make-server-fc40ab2c/auth/profile/picture", async (c) => {
     console.log(`Update profile picture error: ${error}`);
     return c.json(
       { error: "Internal server error while updating profile picture" },
-      500
+      500,
     );
   }
 });
@@ -492,7 +488,7 @@ app.delete("/make-server-fc40ab2c/auth/profile", async (c) => {
     if (error) {
       return c.json(
         { error },
-        error === "No access token provided" ? 401 : 401
+        error === "No access token provided" ? 401 : 401,
       );
     }
 
@@ -504,7 +500,7 @@ app.delete("/make-server-fc40ab2c/auth/profile", async (c) => {
     console.log(`Delete account error: ${error}`);
     return c.json(
       { error: "Internal server error while deleting account" },
-      500
+      500,
     );
   }
 });
@@ -630,7 +626,7 @@ app.put(
             error:
               "Invalid verification status. Must be 'verified', 'rejected', or 'pending'",
           },
-          400
+          400,
         );
       }
 
@@ -638,7 +634,7 @@ app.put(
       if (status === "rejected" && !rejectionReason) {
         return c.json(
           { error: "Rejection reason is required when rejecting a user" },
-          400
+          400,
         );
       }
 
@@ -691,8 +687,8 @@ app.put(
           status === "verified"
             ? "User address verified successfully"
             : status === "rejected"
-            ? "User registration rejected"
-            : "Verification status updated",
+              ? "User registration rejected"
+              : "Verification status updated",
         profile: {
           id: updatedProfile.id,
           email: updatedProfile.email,
@@ -705,10 +701,10 @@ app.put(
       console.log(`Admin verify address error: ${error}`);
       return c.json(
         { error: "Internal server error while verifying address" },
-        500
+        500,
       );
     }
-  }
+  },
 );
 
 // Admin: Get pending verifications
@@ -727,7 +723,7 @@ app.get("/make-server-fc40ab2c/admin/pending-verifications", async (c) => {
 
     if (fetchError) {
       console.log(
-        `Error fetching pending verifications: ${fetchError.message}`
+        `Error fetching pending verifications: ${fetchError.message}`,
       );
       return c.json({ error: "Failed to fetch pending verifications" }, 500);
     }
@@ -748,7 +744,7 @@ app.get("/make-server-fc40ab2c/admin/pending-verifications", async (c) => {
     console.log(`Admin get pending verifications error: ${error}`);
     return c.json(
       { error: "Internal server error while fetching pending verifications" },
-      500
+      500,
     );
   }
 });

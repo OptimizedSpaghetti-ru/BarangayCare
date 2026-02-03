@@ -175,14 +175,6 @@ export function LoginForm({ onSwitchToSignup }: LoginFormProps) {
           Continue as Guest
         </Button>
 
-        <Alert className="border-blue-200 bg-blue-50 dark:bg-blue-900/20 dark:border-blue-800">
-          <Info className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-          <AlertDescription className="text-blue-800 dark:text-blue-300">
-            Guest mode allows you to submit complaints anonymously, but you
-            won't be able to track or view them later.
-          </AlertDescription>
-        </Alert>
-
         <div className="text-center text-sm">
           <span className="text-muted-foreground">Don't have an account? </span>
           <Button

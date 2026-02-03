@@ -4,7 +4,7 @@ This guide explains how to set up the address verification feature for BarangayC
 
 ## Overview
 
-The address verification feature requires users to upload a valid government or barangay-issued ID during registration. The ID must show that the user's address is **Barangay NBBS, Navotas**.
+The address verification feature requires users to upload a valid government or barangay-issued ID during registration. The ID must show that the user's address is
 
 ## Database Setup
 
@@ -16,7 +16,7 @@ ALTER TABLE users
 ADD COLUMN IF NOT EXISTS address_verification_status VARCHAR(20) DEFAULT 'pending',
 ADD COLUMN IF NOT EXISTS id_document_url TEXT,
 ADD COLUMN IF NOT EXISTS id_document_path TEXT,
-ADD COLUMN IF NOT EXISTS required_barangay VARCHAR(255) DEFAULT 'Barangay NBBS, Navotas',
+ADD COLUMN IF NOT EXISTS required_barangay VARCHAR(255) DEFAULT 'Barangay Marulas, valenzuela',
 ADD COLUMN IF NOT EXISTS address_verified_at TIMESTAMP WITH TIME ZONE,
 ADD COLUMN IF NOT EXISTS address_rejection_reason TEXT;
 
@@ -76,7 +76,7 @@ The service role key (used by the server) already has full access to storage.
 
 1. Admin views pending verifications at `/admin/pending-verifications`
 2. Admin reviews the uploaded ID document
-3. Admin verifies that the address shows "Barangay NBBS, Navotas"
+3. Admin verifies that the address shows "Barangay Marulas, Valenzuela"
 4. Admin approves or rejects the verification
 5. If rejected, the user account is deactivated
 
@@ -114,7 +114,7 @@ PUT /admin/users/:userId/verify-address
 // or
 {
   "status": "rejected",
-  "rejectionReason": "ID address does not show Barangay NBBS, Navotas"
+  "rejectionReason": "ID address does not show Barangay Marulas"
 }
 ```
 
@@ -145,7 +145,7 @@ PUT /admin/users/:userId/verify-address
 | "ID document is required for address verification"          | User didn't upload an ID    |
 | "Please upload a valid image (JPEG, PNG, WebP) or PDF file" | Invalid file format         |
 | "File size must be less than 10MB"                          | File too large              |
-| "Address on ID does not match Barangay NBBS, Navotas"       | Address verification failed |
+| "Address on ID does not match Barangay Marulas"             | Address verification failed |
 
 ## Security Considerations
 
