@@ -18,6 +18,9 @@ interface Complaint {
   respondent?: string;
   userId?: string;
   userName?: string;
+  latitude?: number;
+  longitude?: number;
+  coordinates?: { lat: number; lng: number };
 }
 
 interface ComplaintContextType {
@@ -127,6 +130,12 @@ export function ComplaintProvider({ children }: { children: React.ReactNode }) {
         respondent: complaint.respondent,
         userId: complaint.user_id,
         userName: complaint.user_name,
+        latitude: complaint.latitude ?? undefined,
+        longitude: complaint.longitude ?? undefined,
+        coordinates:
+          complaint.latitude && complaint.longitude
+            ? { lat: complaint.latitude, lng: complaint.longitude }
+            : undefined,
       }));
 
       setComplaints(transformedComplaints);
@@ -190,7 +199,7 @@ export function ComplaintProvider({ children }: { children: React.ReactNode }) {
       }
 
       // Transform data from camelCase to snake_case for database
-      const dbComplaint = {
+      const dbComplaint: Record<string, any> = {
         title: complaintData.title,
         description: complaintData.description,
         category: complaintData.category,
@@ -205,6 +214,14 @@ export function ComplaintProvider({ children }: { children: React.ReactNode }) {
         user_name: userName,
         date_submitted: new Date().toISOString(),
       };
+
+      // Save coordinates if provided
+      if (complaintData.latitude !== undefined) dbComplaint.latitude = complaintData.latitude;
+      if (complaintData.longitude !== undefined) dbComplaint.longitude = complaintData.longitude;
+      if (complaintData.coordinates) {
+        dbComplaint.latitude = complaintData.coordinates.lat;
+        dbComplaint.longitude = complaintData.coordinates.lng;
+      }
 
       console.log("📝 Attempting to insert complaint:", {
         user_id: userId,
@@ -248,6 +265,12 @@ export function ComplaintProvider({ children }: { children: React.ReactNode }) {
         respondent: data.respondent,
         userId: data.user_id,
         userName: data.user_name,
+        latitude: data.latitude ?? undefined,
+        longitude: data.longitude ?? undefined,
+        coordinates:
+          data.latitude && data.longitude
+            ? { lat: data.latitude, lng: data.longitude }
+            : undefined,
       };
 
       setComplaints([newComplaint, ...complaints]);
@@ -287,6 +310,12 @@ export function ComplaintProvider({ children }: { children: React.ReactNode }) {
         dbUpdates.admin_notes = updates.adminNotes;
       if (updates.respondent !== undefined)
         dbUpdates.respondent = updates.respondent;
+      if (updates.latitude !== undefined) dbUpdates.latitude = updates.latitude;
+      if (updates.longitude !== undefined) dbUpdates.longitude = updates.longitude;
+      if (updates.coordinates) {
+        dbUpdates.latitude = updates.coordinates.lat;
+        dbUpdates.longitude = updates.coordinates.lng;
+      }
 
       const { data, error } = await supabase
         .from("complaints")

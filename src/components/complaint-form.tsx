@@ -25,8 +25,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from "./ui/dialog";
+import { Badge } from "./ui/badge";
 import { Camera, MapPin, Upload } from "lucide-react";
 import { ImageWithFallback } from "./figma/ImageWithFallback";
+import { MapPicker } from "./map-picker";
 import { toast } from "sonner@2.0.3";
 
 interface ComplaintFormProps {
@@ -136,16 +138,11 @@ export function ComplaintForm({ onSubmit }: ComplaintFormProps) {
     }
   };
 
-  const handleLocationPin = () => {
-    setShowMap(true);
-  };
-
-  const handleMapClick = (lat: number, lng: number) => {
-    setCoordinates({ lat, lng });
-    // In a real implementation, you would reverse geocode to get address
-    setLocation(`Latitude: ${lat.toFixed(6)}, Longitude: ${lng.toFixed(6)}`);
+  const handleLocationSelect = (result: { lat: number; lng: number; address: string }) => {
+    setCoordinates({ lat: result.lat, lng: result.lng });
+    setLocation(result.address || `${result.lat.toFixed(6)}, ${result.lng.toFixed(6)}`);
     setShowMap(false);
-    toast.success("Location pinned successfully!");
+    toast.success("📍 Location pinned successfully!");
   };
 
   return (
@@ -242,20 +239,30 @@ export function ComplaintForm({ onSubmit }: ComplaintFormProps) {
             <div className="space-y-2">
               <Label htmlFor="location">{t("residents.address")}</Label>
               <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2">
-                <Input
-                  id="location"
-                  value={location}
-                  onChange={(e) => setLocation(e.target.value)}
-                  placeholder={t("form.addressPlaceholder")}
-                  className="flex-1"
-                  required
-                />
+                <div className="flex-1 relative">
+                  <Input
+                    id="location"
+                    value={location}
+                    onChange={(e) => setLocation(e.target.value)}
+                    placeholder={t("form.addressPlaceholder")}
+                    className="flex-1"
+                    required
+                  />
+                  {coordinates && (
+                    <Badge
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-xs bg-green-500 text-white hover:bg-green-600 border-0 pointer-events-none"
+                    >
+                      <MapPin className="w-3 h-3 mr-1" />
+                      Pinned
+                    </Badge>
+                  )}
+                </div>
                 <Button
                   type="button"
                   variant="outline"
                   size="icon"
                   className="self-start sm:self-auto"
-                  onClick={handleLocationPin}
+                  onClick={() => setShowMap(true)}
                   title="Pin location on map"
                 >
                   <MapPin className="w-4 h-4" />
@@ -332,118 +339,24 @@ export function ComplaintForm({ onSubmit }: ComplaintFormProps) {
         </CardContent>
       </Card>
 
-      {/* Google Maps Location Picker Modal */}
+      {/* Leaflet Location Picker Dialog */}
       <Dialog open={showMap} onOpenChange={setShowMap}>
-        <DialogContent className="max-w-4xl max-h-[80vh] overflow-hidden">
+        <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Pin Your Location</DialogTitle>
+            <DialogTitle className="flex items-center gap-2">
+              <MapPin className="w-5 h-5 text-primary" />
+              Pin Your Location
+            </DialogTitle>
             <DialogDescription>
-              Click on the map to pin your exact location
+              Click anywhere within the <strong>Barangay Marulas</strong> boundary to pin your exact location. Drag the marker to adjust.
             </DialogDescription>
           </DialogHeader>
 
-          <div className="h-96 bg-muted rounded-lg overflow-hidden relative">
-            {/* Mock Google Maps Interface */}
-            <div className="w-full h-full bg-gradient-to-br from-green-100 to-blue-100 dark:from-green-900 dark:to-blue-900 relative">
-              {/* Mock map grid */}
-              <div className="absolute inset-0 opacity-20">
-                <svg width="100%" height="100%">
-                  <defs>
-                    <pattern
-                      id="grid"
-                      width="40"
-                      height="40"
-                      patternUnits="userSpaceOnUse"
-                    >
-                      <path
-                        d="M 40 0 L 0 0 0 40"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="1"
-                      />
-                    </pattern>
-                  </defs>
-                  <rect width="100%" height="100%" fill="url(#grid)" />
-                </svg>
-              </div>
-
-              {/* Mock location markers */}
-              <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
-                <div className="w-4 h-4 bg-red-500 rounded-full border-2 border-white shadow-lg"></div>
-              </div>
-
-              {/* Mock roads */}
-              <div className="absolute inset-0">
-                <div className="absolute top-1/3 left-0 right-0 h-2 bg-gray-400 opacity-60"></div>
-                <div className="absolute top-0 bottom-0 left-1/2 w-2 bg-gray-400 opacity-60"></div>
-              </div>
-
-              {/* Mock buildings */}
-              <div className="absolute top-1/4 left-1/4 w-8 h-6 bg-gray-600 opacity-40"></div>
-              <div className="absolute top-1/3 right-1/3 w-6 h-8 bg-gray-600 opacity-40"></div>
-              <div className="absolute bottom-1/3 left-1/3 w-10 h-4 bg-gray-600 opacity-40"></div>
-
-              {/* Clickable overlay */}
-              <div
-                className="absolute inset-0 cursor-crosshair"
-                onClick={(e) => {
-                  const rect = e.currentTarget.getBoundingClientRect();
-                  const x = e.clientX - rect.left;
-                  const y = e.clientY - rect.top;
-
-                  // Convert click position to mock coordinates
-                  const lat = 14.5995 + (y / rect.height - 0.5) * 0.1;
-                  const lng = 120.9842 + (x / rect.width - 0.5) * 0.1;
-
-                  handleMapClick(lat, lng);
-                }}
-                title="Click to pin location"
-              />
-
-              {coordinates && (
-                <div
-                  className="absolute transform -translate-x-1/2 -translate-y-1/2"
-                  style={{
-                    left: `${
-                      ((coordinates.lng - 120.9842) / 0.1 + 0.5) * 100
-                    }%`,
-                    top: `${((coordinates.lat - 14.5995) / 0.1 + 0.5) * 100}%`,
-                  }}
-                >
-                  <MapPin className="w-6 h-6 text-red-500 drop-shadow-lg" />
-                </div>
-              )}
-            </div>
-
-            {/* Map controls */}
-            <div className="absolute top-4 right-4 flex flex-col space-y-2">
-              <Button size="sm" variant="secondary" className="shadow-lg">
-                +
-              </Button>
-              <Button size="sm" variant="secondary" className="shadow-lg">
-                −
-              </Button>
-            </div>
-
-            {/* Instructions */}
-            <div className="absolute bottom-4 left-4 right-4 bg-background/90 backdrop-blur-sm rounded-lg p-3 text-sm">
-              <p className="text-center text-muted-foreground">
-                Click anywhere on the map to pin your location. This helps us
-                respond more accurately to your request.
-              </p>
-            </div>
-          </div>
-
-          <div className="flex justify-end space-x-2 pt-4">
-            <Button variant="outline" onClick={() => setShowMap(false)}>
-              Cancel
-            </Button>
-            {coordinates && (
-              <Button onClick={() => setShowMap(false)}>
-                Use This Location
-              </Button>
-            )}
-          </div>
+          <MapPicker
+            initialCoordinates={coordinates}
+            onLocationSelect={handleLocationSelect}
+            onClose={() => setShowMap(false)}
+          />
         </DialogContent>
       </Dialog>
     </div>

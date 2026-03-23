@@ -39,3 +39,20 @@ COMMENT ON COLUMN users.id_document_path IS 'Storage path of the uploaded ID doc
 COMMENT ON COLUMN users.required_barangay IS 'The barangay required for registration';
 COMMENT ON COLUMN users.address_verified_at IS 'Timestamp when address was verified by admin';
 COMMENT ON COLUMN users.address_rejection_reason IS 'Reason for rejection if ID verification failed';
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- Migration: Add GPS coordinate columns to complaints table
+-- Stores precise Leaflet map pin coordinates captured during complaint submission.
+-- Run this block in the Supabase SQL Editor.
+-- ─────────────────────────────────────────────────────────────────────────────
+ALTER TABLE complaints
+  ADD COLUMN IF NOT EXISTS latitude  DOUBLE PRECISION,
+  ADD COLUMN IF NOT EXISTS longitude DOUBLE PRECISION;
+
+-- Index for fast bounding-box queries used by the heatmap
+CREATE INDEX IF NOT EXISTS idx_complaints_coords
+  ON complaints (latitude, longitude)
+  WHERE latitude IS NOT NULL AND longitude IS NOT NULL;
+
+COMMENT ON COLUMN complaints.latitude  IS 'WGS84 latitude of the complaint location (pinned via Leaflet map)';
+COMMENT ON COLUMN complaints.longitude IS 'WGS84 longitude of the complaint location (pinned via Leaflet map)';
