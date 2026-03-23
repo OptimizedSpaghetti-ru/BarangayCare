@@ -11,6 +11,10 @@ interface User {
   createdAt: string;
   updatedAt: string;
   isActive: boolean;
+  accountStatus?: string; // 'pending' | 'approved' | 'rejected'
+  addressVerificationStatus?: string; // 'pending' | 'verified' | 'rejected'
+  idDocumentUrl?: string;
+  addressRejectionReason?: string;
 }
 
 interface AuthContextType {
@@ -22,16 +26,20 @@ interface AuthContextType {
     email: string,
     password: string,
     name: string,
-    phoneNumber?: string
-  ) => Promise<{ error?: string }>;
+    phoneNumber?: string,
+    idFile?: File
+  ) => Promise<{ error?: string; pending?: boolean }>;
   signUpWithIdVerification: (
     email: string,
     password: string,
     name: string,
     phoneNumber?: string,
     idFile?: File
-  ) => Promise<{ error?: string }>;
-  signIn: (email: string, password: string) => Promise<{ error?: string }>;
+  ) => Promise<{ error?: string; pending?: boolean }>;
+  signIn: (
+    email: string,
+    password: string
+  ) => Promise<{ error?: string; accountStatus?: string }>;
   signInWithGoogle: () => Promise<{ error?: string }>;
   signInWithFacebook: () => Promise<{ error?: string }>;
   loginAsGuest: () => void;
@@ -62,7 +70,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const initializeAuth = async () => {
       try {
-        // Check for guest mode in localStorage
         const guestMode = localStorage.getItem("guestMode") === "true";
         if (guestMode) {
           setIsGuest(true);
@@ -70,7 +77,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           return;
         }
 
-        // Get the current session
         const {
           data: { session },
         } = await supabase.auth.getSession();
@@ -78,11 +84,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (!mounted) return;
 
         if (session?.access_token) {
-          // Fetch user profile
-          const profileUrl = `${serverUrl}/auth/profile`;
-          console.log("Fetching profile from:", profileUrl);
-
-          const response = await fetch(profileUrl, {
+          const response = await fetch(`${serverUrl}/auth/profile`, {
             headers: {
               Authorization: `Bearer ${session.access_token}`,
               "Content-Type": "application/json",
@@ -91,18 +93,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
           if (!mounted) return;
 
-          console.log("Profile response status:", response.status);
-
           if (response.ok) {
             const { profile } = await response.json();
-            console.log("Profile loaded successfully");
-            setUser(profile);
-            // Check if user has admin role in metadata
-            const adminRole = session.user?.user_metadata?.role === "admin";
-            setIsAdmin(adminRole);
+            // Only set user if account is approved
+            if (
+              !profile.accountStatus ||
+              profile.accountStatus === "approved"
+            ) {
+              setUser(profile);
+              const adminRole =
+                session.user?.user_metadata?.role === "admin";
+              setIsAdmin(adminRole);
+            } else {
+              // Account is pending or rejected — sign them out silently
+              await supabase.auth.signOut();
+              setUser(null);
+              setIsAdmin(false);
+            }
           } else {
-            const errorText = await response.text();
-            console.error("Profile fetch failed:", response.status, errorText);
             setUser(null);
             setIsAdmin(false);
           }
@@ -122,10 +130,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     };
 
-    // Initialize auth
     initializeAuth();
 
-    // Listen for auth changes (login/logout events)
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
@@ -139,10 +145,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         if (response.ok) {
           const { profile } = await response.json();
-          setUser(profile);
-          // Check if user has admin role in metadata
-          const adminRole = session.user?.user_metadata?.role === "admin";
-          setIsAdmin(adminRole);
+          if (!profile.accountStatus || profile.accountStatus === "approved") {
+            setUser(profile);
+            const adminRole = session.user?.user_metadata?.role === "admin";
+            setIsAdmin(adminRole);
+          } else {
+            // Pending/rejected — don't allow login
+            await supabase.auth.signOut();
+            setUser(null);
+            setIsAdmin(false);
+          }
         }
       } else if (event === "SIGNED_OUT") {
         setUser(null);
@@ -156,84 +168,53 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
+  // Helper: convert a File to base64 string (for server-side upload via service role)
+  const fileToBase64 = (file: File): Promise<string> =>
+    new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => {
+        const dataUrl = reader.result as string;
+        // Strip the "data:<mime>;base64," prefix to get raw base64
+        resolve(dataUrl.split(",")[1]);
+      };
+      reader.onerror = reject;
+    });
+
+  // signUp — always uses the ID verification flow when idFile is provided
   const signUp = async (
     email: string,
     password: string,
     name: string,
-    phoneNumber?: string
-  ) => {
-    try {
-      const response = await fetch(`${serverUrl}/auth/signup`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${publicAnonKey}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ email, password, name, phoneNumber }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        return { error: data.error || "Failed to create account" };
-      }
-
-      // Sign in after successful signup
-      return await signIn(email, password);
-    } catch (error) {
-      console.error("Signup error:", error);
-      return { error: "Network error during signup" };
-    }
+    phoneNumber?: string,
+    idFile?: File
+  ): Promise<{ error?: string; pending?: boolean }> => {
+    return signUpWithIdVerification(email, password, name, phoneNumber, idFile);
   };
 
+  // signUpWithIdVerification — sends file as base64 to the server which uploads
+  // using the service role key (bypasses RLS on the verification_ids bucket)
   const signUpWithIdVerification = async (
     email: string,
     password: string,
     name: string,
     phoneNumber?: string,
     idFile?: File
-  ) => {
+  ): Promise<{ error?: string; pending?: boolean }> => {
     try {
       if (!idFile) {
-        return { error: "ID document is required for address verification" };
+        return { error: "ID document is required for registration" };
       }
 
-      // First, create a temporary upload to validate the ID before creating the account
-      // Upload ID to Supabase Storage (verification_ids bucket)
-      const fileExt = idFile.name.split(".").pop();
-      const fileName = `pending_${Date.now()}_${Math.random()
-        .toString(36)
-        .substring(7)}.${fileExt}`;
-      const filePath = `pending/${fileName}`;
-
-      console.log("Uploading ID for verification:", filePath);
-
-      // Upload to Supabase Storage
-      const { data: uploadData, error: uploadError } = await supabase.storage
-        .from("verification_ids")
-        .upload(filePath, idFile, {
-          cacheControl: "3600",
-          upsert: false,
-        });
-
-      if (uploadError) {
-        console.error("ID upload error:", uploadError);
-        if (uploadError.message.includes("Bucket not found")) {
-          return {
-            error: "Verification storage not configured. Please contact admin.",
-          };
-        }
-        return { error: `ID upload failed: ${uploadError.message}` };
+      // Convert file to base64 so the server can upload it with service role key
+      // (client cannot upload to a private bucket without an existing session)
+      let idDocumentBase64: string;
+      try {
+        idDocumentBase64 = await fileToBase64(idFile);
+      } catch {
+        return { error: "Failed to read ID file. Please try again." };
       }
 
-      console.log("ID uploaded successfully:", uploadData);
-
-      // Get the public URL or path for the uploaded ID
-      const {
-        data: { publicUrl },
-      } = supabase.storage.from("verification_ids").getPublicUrl(filePath);
-
-      // Now create the user account with ID verification
       const response = await fetch(
         `${serverUrl}/auth/signup-with-verification`,
         {
@@ -247,8 +228,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             password,
             name,
             phoneNumber,
-            idDocumentUrl: publicUrl,
-            idDocumentPath: filePath,
+            idDocumentBase64,
+            idDocumentFileName: idFile.name,
+            idDocumentMimeType: idFile.type,
           }),
         }
       );
@@ -256,34 +238,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const data = await response.json();
 
       if (!response.ok) {
-        // Clean up the uploaded ID if signup fails
-        console.log("Signup failed, cleaning up uploaded ID");
-        await supabase.storage.from("verification_ids").remove([filePath]);
         return { error: data.error || "Failed to create account" };
       }
 
-      // Move the ID from pending to verified folder linked to user
-      if (data.user?.id) {
-        const newFilePath = `verified/${data.user.id}/${fileName}`;
-        const { error: moveError } = await supabase.storage
-          .from("verification_ids")
-          .move(filePath, newFilePath);
-
-        if (moveError) {
-          console.error("Failed to move ID to verified folder:", moveError);
-          // Not a critical error, continue with signup
-        }
-      }
-
-      // Sign in after successful signup
-      return await signIn(email, password);
+      // Do NOT sign in — account is pending admin approval
+      return { pending: true };
     } catch (error) {
       console.error("Signup with verification error:", error);
       return { error: "Network error during signup" };
     }
   };
 
-  const signIn = async (email: string, password: string) => {
+  // signIn — checks account status after authentication
+  const signIn = async (
+    email: string,
+    password: string
+  ): Promise<{ error?: string; accountStatus?: string }> => {
     try {
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
@@ -304,7 +274,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         if (response.ok) {
           const { profile } = await response.json();
+          const accountStatus = profile.accountStatus || "approved";
+
+          if (accountStatus === "pending") {
+            // Sign them back out — they can't access the app yet
+            await supabase.auth.signOut();
+            return { error: "pending", accountStatus: "pending" };
+          }
+
+          if (accountStatus === "rejected") {
+            await supabase.auth.signOut();
+            const reason = profile.addressRejectionReason;
+            return {
+              error: "rejected",
+              accountStatus: "rejected",
+            };
+          }
+
           setUser(profile);
+          const adminRole =
+            data.session.user?.user_metadata?.role === "admin";
+          setIsAdmin(adminRole);
         }
       }
 
@@ -317,7 +307,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signInWithGoogle = async () => {
     try {
-      // Do not forget to complete setup at https://supabase.com/docs/guides/auth/social-login/auth-google
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
       });
@@ -335,7 +324,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signInWithFacebook = async () => {
     try {
-      // Do not forget to complete setup at https://supabase.com/docs/guides/auth/social-login/auth-facebook
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "facebook",
       });
@@ -360,10 +348,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signOut = async () => {
     try {
-      // Clear guest mode
       localStorage.removeItem("guestMode");
       setIsGuest(false);
-
       await supabase.auth.signOut();
       setUser(null);
     } catch (error) {
@@ -409,29 +395,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         data: { session },
       } = await supabase.auth.getSession();
       if (!session?.access_token || !user) {
-        console.error("Upload failed: Not authenticated");
         return { error: "Not authenticated" };
       }
 
-      console.log("Starting profile picture upload for user:", user.id);
-
-      // Create unique filename with user ID and timestamp
       const fileExt = file.name.split(".").pop();
       const fileName = `${user.id}_${Date.now()}.${fileExt}`;
       const filePath = `${fileName}`;
 
-      console.log("Uploading to path:", filePath);
-
-      // Upload to Supabase Storage
-      const { data: uploadData, error: uploadError } = await supabase.storage
+      const { error: uploadError } = await supabase.storage
         .from("profile_pictures")
-        .upload(filePath, file, {
-          cacheControl: "3600",
-          upsert: false,
-        });
+        .upload(filePath, file, { cacheControl: "3600", upsert: false });
 
       if (uploadError) {
-        console.error("Upload error details:", uploadError);
         if (uploadError.message.includes("Bucket not found")) {
           return {
             error: "Storage bucket not configured. Please contact admin.",
@@ -439,22 +414,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
         if (uploadError.message.includes("Policy")) {
           return {
-            error: "Storage permissions not configured. Please contact admin.",
+            error:
+              "Storage permissions not configured. Please contact admin.",
           };
         }
         return { error: `Upload failed: ${uploadError.message}` };
       }
 
-      console.log("Upload successful:", uploadData);
-
-      // Get public URL
       const {
         data: { publicUrl },
       } = supabase.storage.from("profile_pictures").getPublicUrl(filePath);
 
-      console.log("Public URL generated:", publicUrl);
-
-      // Update profile with new picture URL via API
       const response = await fetch(`${serverUrl}/auth/profile/picture`, {
         method: "PUT",
         headers: {
@@ -466,28 +436,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       if (!response.ok) {
         const data = await response.json();
-        console.error("Profile update failed:", data);
-        // Try to clean up uploaded file if profile update fails
         await supabase.storage.from("profile_pictures").remove([filePath]);
         return { error: data.error || "Failed to update profile picture" };
       }
 
       const data = await response.json();
-      console.log("Profile updated successfully:", data);
 
-      // Delete old profile picture if it exists
       if (user.profilePictureUrl) {
         try {
           const oldPath = user.profilePictureUrl
             .split("/profile_pictures/")
             .pop();
           if (oldPath) {
-            console.log("Removing old profile picture:", oldPath);
             await supabase.storage.from("profile_pictures").remove([oldPath]);
           }
         } catch (err) {
           console.error("Failed to remove old profile picture:", err);
-          // Don't fail the upload if we can't delete the old image
         }
       }
 
@@ -546,7 +510,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (response.ok) {
         const { profile } = await response.json();
         setUser(profile);
-        // Check if user has admin role in metadata
         const adminRole = session.user?.user_metadata?.role === "admin";
         setIsAdmin(adminRole);
       }

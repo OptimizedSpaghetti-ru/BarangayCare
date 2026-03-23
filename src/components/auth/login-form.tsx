@@ -12,7 +12,15 @@ import {
 } from "../ui/card";
 import { Separator } from "../ui/separator";
 import { Alert, AlertDescription } from "../ui/alert";
-import { Mail, Lock, Eye, EyeOff, AlertTriangle, Info } from "lucide-react";
+import {
+  Mail,
+  Lock,
+  Eye,
+  EyeOff,
+  AlertTriangle,
+  Clock,
+  XCircle,
+} from "lucide-react";
 import { useAuth } from "./auth-context";
 import { toast } from "sonner";
 
@@ -27,6 +35,9 @@ export function LoginForm({ onSwitchToSignup }: LoginFormProps) {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
+  const [accountStatus, setAccountStatus] = useState<
+    "pending" | "rejected" | null
+  >(null);
 
   const { signIn, loginAsGuest } = useAuth();
 
@@ -39,14 +50,23 @@ export function LoginForm({ onSwitchToSignup }: LoginFormProps) {
 
     setLoading(true);
     setAuthError(null);
-    const { error } = await signIn(email, password);
+    setAccountStatus(null);
 
-    if (error) {
-      // Handle specific error cases
-      if (
-        error.toLowerCase().includes("invalid login") ||
-        error.toLowerCase().includes("wrong password") ||
-        error.toLowerCase().includes("invalid credentials")
+    const result = await signIn(email, password);
+
+    if (result.error) {
+      if (result.error === "pending") {
+        // Account awaiting admin approval
+        setAccountStatus("pending");
+        setAuthError("pending");
+      } else if (result.error === "rejected") {
+        // Account was rejected
+        setAccountStatus("rejected");
+        setAuthError("rejected");
+      } else if (
+        result.error.toLowerCase().includes("invalid login") ||
+        result.error.toLowerCase().includes("wrong password") ||
+        result.error.toLowerCase().includes("invalid credentials")
       ) {
         setAuthError(
           "Invalid email or password. Please check your credentials and try again.",
@@ -55,8 +75,8 @@ export function LoginForm({ onSwitchToSignup }: LoginFormProps) {
           `❌ Invalid email or password. Please check your credentials and try again.`,
         );
       } else if (
-        error.toLowerCase().includes("not found") ||
-        error.toLowerCase().includes("does not exist")
+        result.error.toLowerCase().includes("not found") ||
+        result.error.toLowerCase().includes("does not exist")
       ) {
         setAuthError(
           `No account found for "${email}". Please sign up first or check your email address.`,
@@ -65,8 +85,8 @@ export function LoginForm({ onSwitchToSignup }: LoginFormProps) {
           `⚠️ No account found for "${email}". Please sign up first or check your email address.`,
         );
       } else if (
-        error.toLowerCase().includes("disabled") ||
-        error.toLowerCase().includes("suspended")
+        result.error.toLowerCase().includes("disabled") ||
+        result.error.toLowerCase().includes("suspended")
       ) {
         setAuthError(
           "Your account has been disabled. Please contact support for assistance.",
@@ -75,8 +95,8 @@ export function LoginForm({ onSwitchToSignup }: LoginFormProps) {
           "⚠️ Your account has been disabled. Please contact support for assistance.",
         );
       } else {
-        setAuthError(error);
-        toast.error(error);
+        setAuthError(result.error);
+        toast.error(result.error);
       }
     } else {
       toast.success("🎉 Welcome back to BarangayCARE!");
@@ -93,12 +113,46 @@ export function LoginForm({ onSwitchToSignup }: LoginFormProps) {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        {authError && (
-          <Alert className="border-destructive/50 text-destructive dark:border-destructive [&>svg]:text-destructive">
-            <AlertTriangle className="h-4 w-4" />
-            <AlertDescription>{authError}</AlertDescription>
+        {/* Pending Approval Alert */}
+        {accountStatus === "pending" && (
+          <Alert className="border-amber-200 bg-amber-50 dark:bg-amber-900/20 dark:border-amber-800">
+            <Clock className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+            <AlertDescription className="text-amber-800 dark:text-amber-300 text-sm">
+              <strong>Account Pending Approval</strong>
+              <p className="mt-1">
+                Your account is awaiting admin review. An admin will verify your
+                submitted ID and confirm your address is within{" "}
+                <strong>Barangay Marulas, Valenzuela City</strong>. You will be
+                able to log in once approved.
+              </p>
+            </AlertDescription>
           </Alert>
         )}
+
+        {/* Rejected Account Alert */}
+        {accountStatus === "rejected" && (
+          <Alert className="border-destructive/50 bg-destructive/5 dark:border-destructive">
+            <XCircle className="h-4 w-4 text-destructive" />
+            <AlertDescription className="text-destructive text-sm">
+              <strong>Registration Rejected</strong>
+              <p className="mt-1">
+                Your registration was not approved. The address shown on your ID
+                must be within <strong>Barangay Marulas, Valenzuela City</strong>
+                . Please contact the barangay office for assistance.
+              </p>
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {/* Generic Auth Error */}
+        {authError &&
+          authError !== "pending" &&
+          authError !== "rejected" && (
+            <Alert className="border-destructive/50 text-destructive dark:border-destructive [&>svg]:text-destructive">
+              <AlertTriangle className="h-4 w-4" />
+              <AlertDescription>{authError}</AlertDescription>
+            </Alert>
+          )}
 
         <form onSubmit={handleEmailLogin} className="space-y-4">
           <div className="space-y-2">
@@ -111,7 +165,10 @@ export function LoginForm({ onSwitchToSignup }: LoginFormProps) {
                 value={email}
                 onChange={(e) => {
                   setEmail(e.target.value);
-                  if (authError) setAuthError(null);
+                  if (authError) {
+                    setAuthError(null);
+                    setAccountStatus(null);
+                  }
                 }}
                 placeholder="Enter your email"
                 className="pl-10"
@@ -130,7 +187,10 @@ export function LoginForm({ onSwitchToSignup }: LoginFormProps) {
                 value={password}
                 onChange={(e) => {
                   setPassword(e.target.value);
-                  if (authError) setAuthError(null);
+                  if (authError) {
+                    setAuthError(null);
+                    setAccountStatus(null);
+                  }
                 }}
                 placeholder="Enter your password"
                 className="pl-10 pr-10"

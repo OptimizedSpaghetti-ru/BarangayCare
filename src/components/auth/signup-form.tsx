@@ -19,7 +19,6 @@ import {
   Eye,
   EyeOff,
   AlertTriangle,
-  Info,
   Shield,
   Check,
   X,
@@ -27,6 +26,7 @@ import {
   FileImage,
   Trash2,
   MapPin,
+  Clock,
 } from "lucide-react";
 import { useAuth } from "./auth-context";
 import { toast } from "sonner";
@@ -60,15 +60,16 @@ export function SignupForm({ onSwitchToLogin }: SignupFormProps) {
     feedback: string[];
   }>({ score: 0, label: "", color: "", feedback: [] });
 
+  // Pending approval state (shown after successful registration)
+  const [registrationPending, setRegistrationPending] = useState(false);
+
   // ID verification states
   const [idFile, setIdFile] = useState<File | null>(null);
   const [idPreview, setIdPreview] = useState<string | null>(null);
   const [idError, setIdError] = useState<string | null>(null);
-  const [addressVerified, setAddressVerified] = useState(false);
-  const [verifyingAddress, setVerifyingAddress] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const { signUp, signUpWithIdVerification, loginAsGuest } = useAuth();
+  const { signUpWithIdVerification, loginAsGuest } = useAuth();
 
   // Validation function for name fields - only letters and spaces allowed
   const validateNameField = (
@@ -76,24 +77,19 @@ export function SignupForm({ onSwitchToLogin }: SignupFormProps) {
     fieldName: string,
   ): string | null => {
     if (!value.trim()) {
-      return null; // Empty is okay for optional fields
+      return null;
     }
-
-    // Regex to match only letters (including accented characters) and spaces
     const nameRegex = /^[a-zA-ZÀ-ÿ\s]+$/;
-
     if (!nameRegex.test(value)) {
       return `${fieldName} must contain only letters and spaces`;
     }
-
     return null;
   };
 
   const handleFirstNameChange = (value: string) => {
     setFirstName(value);
     if (value) {
-      const error = validateNameField(value, "First name");
-      setFirstNameError(error);
+      setFirstNameError(validateNameField(value, "First name"));
     } else {
       setFirstNameError(null);
     }
@@ -101,21 +97,18 @@ export function SignupForm({ onSwitchToLogin }: SignupFormProps) {
 
   const handleMiddleNameChange = (value: string) => {
     setMiddleName(value);
-    const error = validateNameField(value, "Middle name");
-    setMiddleNameError(error);
+    setMiddleNameError(validateNameField(value, "Middle name"));
   };
 
   const handleLastNameChange = (value: string) => {
     setLastName(value);
     if (value) {
-      const error = validateNameField(value, "Last name");
-      setLastNameError(error);
+      setLastNameError(validateNameField(value, "Last name"));
     } else {
       setLastNameError(null);
     }
   };
 
-  // Allowed file types for ID upload
   const allowedFileTypes = [
     "image/jpeg",
     "image/jpg",
@@ -125,11 +118,9 @@ export function SignupForm({ onSwitchToLogin }: SignupFormProps) {
   ];
   const maxFileSize = 10 * 1024 * 1024; // 10MB
 
-  // Handle ID file selection
   const handleIdFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     setIdError(null);
-    setAddressVerified(false);
 
     if (!file) {
       setIdFile(null);
@@ -137,13 +128,11 @@ export function SignupForm({ onSwitchToLogin }: SignupFormProps) {
       return;
     }
 
-    // Validate file type
     if (!allowedFileTypes.includes(file.type)) {
       setIdError("Please upload a valid image (JPEG, PNG, WebP) or PDF file");
       return;
     }
 
-    // Validate file size
     if (file.size > maxFileSize) {
       setIdError("File size must be less than 10MB");
       return;
@@ -151,7 +140,6 @@ export function SignupForm({ onSwitchToLogin }: SignupFormProps) {
 
     setIdFile(file);
 
-    // Create preview for images
     if (file.type.startsWith("image/")) {
       const reader = new FileReader();
       reader.onload = (e) => {
@@ -159,44 +147,19 @@ export function SignupForm({ onSwitchToLogin }: SignupFormProps) {
       };
       reader.readAsDataURL(file);
     } else {
-      setIdPreview(null); // No preview for PDF
+      setIdPreview(null);
     }
   };
 
-  // Remove selected ID file
   const handleRemoveIdFile = () => {
     setIdFile(null);
     setIdPreview(null);
     setIdError(null);
-    setAddressVerified(false);
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
   };
 
-  // Simulate address verification (in production, this could use OCR or manual review)
-  const verifyAddress = async () => {
-    if (!idFile) {
-      setIdError("Please upload an ID first");
-      return;
-    }
-
-    setVerifyingAddress(true);
-    setIdError(null);
-
-    // Simulate verification delay
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-
-    // For now, we'll require manual confirmation
-    // In production, you could integrate OCR APIs or admin review
-    setVerifyingAddress(false);
-    setAddressVerified(true);
-    toast.success(
-      "ID uploaded successfully. Address will be verified during review.",
-    );
-  };
-
-  // Password strength evaluation function
   const evaluatePasswordStrength = (password: string) => {
     if (!password) {
       setPasswordStrength({ score: 0, label: "", color: "", feedback: [] });
@@ -213,30 +176,21 @@ export function SignupForm({ onSwitchToLogin }: SignupFormProps) {
       special: /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password),
     };
 
-    // Calculate score based on criteria
     if (criteria.length) score += 20;
     else feedback.push("At least 8 characters");
-
     if (criteria.uppercase) score += 20;
     else feedback.push("At least one uppercase letter");
-
     if (criteria.lowercase) score += 20;
     else feedback.push("At least one lowercase letter");
-
     if (criteria.number) score += 20;
     else feedback.push("At least one number");
-
     if (criteria.special) score += 20;
     else feedback.push("At least one special character (!@#$%^&*)");
-
-    // Bonus for extra length
     if (password.length >= 12) score += 10;
     if (password.length >= 16) score += 10;
 
-    // Determine strength level
     let label = "";
     let color = "";
-
     if (score < 40) {
       label = "Weak";
       color = "text-red-600 dark:text-red-500";
@@ -267,14 +221,12 @@ export function SignupForm({ onSwitchToLogin }: SignupFormProps) {
       return;
     }
 
-    // Validate ID upload - required for registration
     if (!idFile) {
       setIdError("Please upload a valid government or barangay-issued ID");
       toast.error("ID verification is required. Please upload your ID.");
       return;
     }
 
-    // Validate name fields before submission
     const firstNameValidation = validateNameField(firstName, "First name");
     const middleNameValidation = validateNameField(middleName, "Middle name");
     const lastNameValidation = validateNameField(lastName, "Last name");
@@ -287,7 +239,6 @@ export function SignupForm({ onSwitchToLogin }: SignupFormProps) {
       return;
     }
 
-    // Check password strength - require at least Medium (score >= 70)
     if (passwordStrength.score < 70) {
       toast.error("Password is too weak. Please create a stronger password.");
       return;
@@ -301,7 +252,6 @@ export function SignupForm({ onSwitchToLogin }: SignupFormProps) {
       return;
     }
 
-    // Clear confirm password error if passwords match
     setConfirmPasswordError(null);
 
     if (password.length < 8) {
@@ -312,16 +262,19 @@ export function SignupForm({ onSwitchToLogin }: SignupFormProps) {
     setLoading(true);
     setEmailError(null);
 
-    // Combine name fields
     const fullName = `${firstName} ${
       middleName ? middleName + " " : ""
     }${lastName}`.trim();
 
-    // Use regular signup (ID verification disabled for now)
-    const { error } = await signUp(email, password, fullName, phoneNumber);
+    const { error, pending } = await signUpWithIdVerification(
+      email,
+      password,
+      fullName,
+      phoneNumber,
+      idFile,
+    );
 
     if (error) {
-      // Handle specific error cases
       if (
         error.toLowerCase().includes("already") ||
         error.toLowerCase().includes("exists")
@@ -330,7 +283,7 @@ export function SignupForm({ onSwitchToLogin }: SignupFormProps) {
           `This email address is already registered. Please sign in instead or use a different email.`,
         );
         toast.error(
-          `⚠️ Account already exists! The email "${email}" is already registered. Please sign in instead or use a different email address.`,
+          `⚠️ Account already exists! The email "${email}" is already registered. Please sign in instead.`,
         );
       } else if (error.toLowerCase().includes("invalid email")) {
         setEmailError("Please enter a valid email address");
@@ -338,18 +291,68 @@ export function SignupForm({ onSwitchToLogin }: SignupFormProps) {
       } else {
         toast.error(error);
       }
-    } else {
+    } else if (pending) {
+      // Registration submitted — show the pending approval screen
+      setRegistrationPending(true);
       toast.success(
-        "🎉 Account created successfully! Welcome to BarangayCARE!",
+        "🎉 Registration submitted! Your account is pending admin approval.",
       );
-      // Reset ID states on success
-      setIdFile(null);
-      setIdPreview(null);
-      setAddressVerified(false);
     }
+
     setLoading(false);
   };
 
+  // ── Pending Approval Screen ──────────────────────────────────────────────────
+  if (registrationPending) {
+    return (
+      <Card className="w-full max-w-md mx-auto">
+        <CardHeader className="text-center">
+          <div className="w-16 h-16 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center mx-auto mb-4">
+            <Clock className="w-8 h-8 text-amber-600 dark:text-amber-400" />
+          </div>
+          <CardTitle className="text-2xl">Registration Submitted</CardTitle>
+          <CardDescription>
+            Your account is pending admin approval
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <Alert className="border-amber-200 bg-amber-50 dark:bg-amber-900/20 dark:border-amber-800">
+            <Clock className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+            <AlertDescription className="text-amber-800 dark:text-amber-300 text-sm">
+              <strong>What happens next?</strong>
+              <ul className="mt-2 space-y-1 list-disc list-inside">
+                <li>An admin will review your submitted ID</li>
+                <li>
+                  Your address will be verified against{" "}
+                  <strong>Barangay Marulas, Valenzuela City</strong>
+                </li>
+                <li>
+                  You will be able to log in once your account is approved
+                </li>
+              </ul>
+            </AlertDescription>
+          </Alert>
+
+          <div className="flex items-center gap-3 p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
+            <Check className="w-5 h-5 text-green-600 dark:text-green-400 shrink-0" />
+            <p className="text-sm text-green-800 dark:text-green-300">
+              Your ID document has been uploaded and is awaiting review.
+            </p>
+          </div>
+
+          <Button
+            variant="outline"
+            onClick={onSwitchToLogin}
+            className="w-full"
+          >
+            Back to Sign In
+          </Button>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // ── Registration Form ────────────────────────────────────────────────────────
   return (
     <Card className="w-full max-w-md mx-auto">
       <CardHeader className="text-center">
@@ -425,7 +428,7 @@ export function SignupForm({ onSwitchToLogin }: SignupFormProps) {
               type="text"
               value={middleName}
               onChange={(e) => handleMiddleNameChange(e.target.value)}
-              placeholder="Middle name"
+              placeholder="Middle name (optional)"
               className={
                 middleNameError
                   ? "border-destructive focus-visible:ring-destructive"
@@ -502,7 +505,6 @@ export function SignupForm({ onSwitchToLogin }: SignupFormProps) {
               </Button>
             </div>
 
-            {/* Password Strength Indicator */}
             {password && (
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
@@ -515,8 +517,6 @@ export function SignupForm({ onSwitchToLogin }: SignupFormProps) {
                     {passwordStrength.label}
                   </span>
                 </div>
-
-                {/* Strength Progress Bar */}
                 <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
                   <div
                     className={`h-full transition-all duration-300 ${
@@ -528,11 +528,9 @@ export function SignupForm({ onSwitchToLogin }: SignupFormProps) {
                             ? "bg-green-500"
                             : "bg-emerald-500"
                     }`}
-                    style={{ width: `${passwordStrength.score}%` }}
+                    style={{ width: `${Math.min(passwordStrength.score, 100)}%` }}
                   />
                 </div>
-
-                {/* Criteria Checklist */}
                 {passwordStrength.feedback.length > 0 && (
                   <div className="bg-muted/50 p-3 rounded-md space-y-1">
                     <p className="text-xs font-medium text-muted-foreground mb-2">
@@ -549,8 +547,6 @@ export function SignupForm({ onSwitchToLogin }: SignupFormProps) {
                     ))}
                   </div>
                 )}
-
-                {/* Success Message */}
                 {passwordStrength.score >= 70 && (
                   <div className="flex items-center gap-2 text-xs text-green-600 dark:text-green-500">
                     <Check className="w-4 h-4" />
@@ -606,12 +602,12 @@ export function SignupForm({ onSwitchToLogin }: SignupFormProps) {
             )}
           </div>
 
-          {/* Address Verification Section */}
+          {/* ID Upload Section */}
           <div className="space-y-3 p-4 border rounded-lg bg-muted/30">
             <div className="flex items-center gap-2">
               <Shield className="w-5 h-5 text-primary" />
               <Label className="text-base font-semibold">
-                Address Verification
+                ID Verification <span className="text-destructive">*</span>
               </Label>
             </div>
 
@@ -619,21 +615,22 @@ export function SignupForm({ onSwitchToLogin }: SignupFormProps) {
               <MapPin className="h-4 w-4 text-amber-600 dark:text-amber-400" />
               <AlertDescription className="text-amber-800 dark:text-amber-300 text-sm">
                 <strong>Important:</strong> Registration is only available for
-                residents of <strong>Barangay Marulas, Valenzuela</strong>
-                Please upload a valid government or barangay-issued ID that
-                clearly shows your address.
+                residents of{" "}
+                <strong>Barangay Marulas, Valenzuela City.</strong> Upload a
+                valid government or barangay-issued ID that clearly shows your
+                address. An admin will review your ID before approving your
+                account.
               </AlertDescription>
             </Alert>
 
             <div className="space-y-2">
               <Label htmlFor="idUpload" className="text-sm">
-                Government/Barangay ID
+                Government / Barangay ID
               </Label>
               <p className="text-xs text-muted-foreground">
                 Accepted formats: JPEG, PNG, WebP, PDF (Max 10MB)
               </p>
 
-              {/* File Upload Area - Custom Clean UI */}
               <div
                 className={`relative border-2 border-dashed rounded-lg p-6 transition-colors cursor-pointer ${
                   idFile
@@ -661,7 +658,6 @@ export function SignupForm({ onSwitchToLogin }: SignupFormProps) {
                   }
                 }}
               >
-                {/* Hidden file input */}
                 <input
                   ref={fileInputRef}
                   id="idUpload"
@@ -681,8 +677,8 @@ export function SignupForm({ onSwitchToLogin }: SignupFormProps) {
                         Click to upload or drag and drop
                       </p>
                       <p className="text-xs text-muted-foreground mt-1">
-                        Your ID must show your address is Barangay Marulas,
-                        Valenzuela
+                        Your ID must show your address is within Barangay
+                        Marulas, Valenzuela City
                       </p>
                     </div>
                     <Button
@@ -722,7 +718,7 @@ export function SignupForm({ onSwitchToLogin }: SignupFormProps) {
                       <div className="flex items-center gap-1 mt-1">
                         <Check className="w-3 h-3 text-green-600" />
                         <span className="text-xs text-green-600">
-                          File uploaded
+                          Ready for upload
                         </span>
                       </div>
                     </div>
@@ -748,40 +744,6 @@ export function SignupForm({ onSwitchToLogin }: SignupFormProps) {
                   {idError}
                 </p>
               )}
-
-              {/* Verify Address Button */}
-              {idFile && !addressVerified && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={verifyAddress}
-                  disabled={verifyingAddress}
-                  className="w-full mt-2"
-                >
-                  {verifyingAddress ? (
-                    <>
-                      <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin mr-2" />
-                      Verifying Address...
-                    </>
-                  ) : (
-                    <>
-                      <Shield className="w-4 h-4 mr-2" />
-                      Verify Address
-                    </>
-                  )}
-                </Button>
-              )}
-
-              {/* Address Verified Success */}
-              {addressVerified && (
-                <div className="flex items-center gap-2 p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
-                  <Check className="w-5 h-5 text-green-600 dark:text-green-400" />
-                  <span className="text-sm text-green-700 dark:text-green-300">
-                    ID uploaded. Your address will be verified during account
-                    review.
-                  </span>
-                </div>
-              )}
             </div>
           </div>
 
@@ -794,10 +756,17 @@ export function SignupForm({ onSwitchToLogin }: SignupFormProps) {
               !!firstNameError ||
               !!middleNameError ||
               !!lastNameError ||
-              (password && passwordStrength.score < 70)
+              (!!password && passwordStrength.score < 70)
             }
           >
-            {loading ? "Creating Account..." : "Create Account"}
+            {loading ? (
+              <>
+                <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin mr-2" />
+                Submitting Registration...
+              </>
+            ) : (
+              "Submit Registration"
+            )}
           </Button>
         </form>
 

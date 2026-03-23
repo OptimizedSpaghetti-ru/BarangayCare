@@ -249,6 +249,7 @@ function AppContent() {
             <SignupForm onSwitchToLogin={() => setAuthView("login")} />
           )}
         </div>
+        <Toaster />
       </div>
     );
   }
