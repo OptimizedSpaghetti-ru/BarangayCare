@@ -157,15 +157,11 @@ export function ComplaintProvider({ children }: { children: React.ReactNode }) {
       const user = session?.user;
       const isGuestMode = localStorage.getItem("guestMode") === "true";
 
-      console.log("🔍 Guest Submission Debug:", {
-        hasUser: !!user,
-        isGuestMode,
-        guestModeFromStorage: localStorage.getItem("guestMode"),
-      });
+
 
       // Allow guest submissions
       if (!user && !isGuestMode) {
-        console.error("❌ Not logged in and not in guest mode");
+
         return { error: "You must be logged in to submit a complaint" };
       }
 
@@ -173,7 +169,6 @@ export function ComplaintProvider({ children }: { children: React.ReactNode }) {
       let userId = null;
 
       if (isGuestMode) {
-        console.log("👤 Processing as guest user...");
         // Get the next anonymous number
         const { data: lastGuest } = await supabase
           .from("complaints")
@@ -223,11 +218,7 @@ export function ComplaintProvider({ children }: { children: React.ReactNode }) {
         dbComplaint.longitude = complaintData.coordinates.lng;
       }
 
-      console.log("📝 Attempting to insert complaint:", {
-        user_id: userId,
-        user_name: userName,
-        isGuest: isGuestMode,
-      });
+
 
       const { data, error } = await supabase
         .from("complaints")
@@ -236,18 +227,10 @@ export function ComplaintProvider({ children }: { children: React.ReactNode }) {
         .single();
 
       if (error) {
-        console.error("❌ Database error:", error);
-        console.error("Error details:", {
-          message: error.message,
-          code: error.code,
-          details: error.details,
-          hint: error.hint,
-        });
         toast.error(`Failed to submit complaint: ${error.message}`);
         return { error: "Failed to submit complaint" };
       }
 
-      console.log("✅ Complaint submitted successfully:", data);
 
       // Transform response back to camelCase
       const newComplaint: Complaint = {

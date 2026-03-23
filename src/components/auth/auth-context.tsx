@@ -36,6 +36,21 @@ interface AuthContextType {
     phoneNumber?: string,
     idFile?: File
   ) => Promise<{ error?: string; pending?: boolean }>;
+  /** Step 1: send a 6-digit OTP to the email via Supabase */
+  sendOtp: (email: string) => Promise<{ error?: string }>;
+  /** Step 2: verify the OTP — returns the session access token on success */
+  verifyEmailOtp: (
+    email: string,
+    token: string
+  ) => Promise<{ accessToken?: string; error?: string }>;
+  /** Step 3: complete profile creation after OTP verification */
+  completeProfile: (
+    accessToken: string,
+    name: string,
+    password: string,
+    phoneNumber: string | undefined,
+    idFile: File
+  ) => Promise<{ error?: string; pending?: boolean }>;
   signIn: (
     email: string,
     password: string
@@ -192,8 +207,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return signUpWithIdVerification(email, password, name, phoneNumber, idFile);
   };
 
-  // signUpWithIdVerification — sends file as base64 to the server which uploads
-  // using the service role key (bypasses RLS on the verification_ids bucket)
+  // signUpWithIdVerification — legacy direct-signup path (no OTP)
   const signUpWithIdVerification = async (
     email: string,
     password: string,
@@ -205,47 +219,89 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (!idFile) {
         return { error: "ID document is required for registration" };
       }
-
-      // Convert file to base64 so the server can upload it with service role key
-      // (client cannot upload to a private bucket without an existing session)
       let idDocumentBase64: string;
       try {
         idDocumentBase64 = await fileToBase64(idFile);
       } catch {
         return { error: "Failed to read ID file. Please try again." };
       }
-
-      const response = await fetch(
-        `${serverUrl}/auth/signup-with-verification`,
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${publicAnonKey}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            email,
-            password,
-            name,
-            phoneNumber,
-            idDocumentBase64,
-            idDocumentFileName: idFile.name,
-            idDocumentMimeType: idFile.type,
-          }),
-        }
-      );
-
+      const response = await fetch(`${serverUrl}/auth/signup-with-verification`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${publicAnonKey}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password, name, phoneNumber, idDocumentBase64, idDocumentFileName: idFile.name, idDocumentMimeType: idFile.type }),
+      });
       const data = await response.json();
-
-      if (!response.ok) {
-        return { error: data.error || "Failed to create account" };
-      }
-
-      // Do NOT sign in — account is pending admin approval
+      if (!response.ok) return { error: data.error || "Failed to create account" };
       return { pending: true };
     } catch (error) {
       console.error("Signup with verification error:", error);
       return { error: "Network error during signup" };
+    }
+  };
+
+  // ── OTP Registration Flow ─────────────────────────────────────────────────
+
+  /** Step 1: Send 6-digit OTP to the user's email via Supabase Auth */
+  const sendOtp = async (email: string): Promise<{ error?: string }> => {
+    const { error } = await supabase.auth.signInWithOtp({
+      email,
+      options: { shouldCreateUser: true },
+    });
+    if (error) return { error: error.message };
+    return {};
+  };
+
+  /** Step 2: Verify the 6-digit OTP. Returns the OTP session access token. */
+  const verifyEmailOtp = async (
+    email: string,
+    token: string
+  ): Promise<{ accessToken?: string; error?: string }> => {
+    const { data, error } = await supabase.auth.verifyOtp({
+      email,
+      token,
+      type: "email",
+    });
+    if (error) return { error: error.message };
+    // Sign out immediately — we only needed the OTP session to get the token
+    // The user won't have a persistent session until admin-approved login
+    const accessToken = data.session?.access_token;
+    await supabase.auth.signOut();
+    if (!accessToken) return { error: "OTP verified but no session received" };
+    return { accessToken };
+  };
+
+  /** Step 3: Create profile + upload ID using the OTP session token */
+  const completeProfile = async (
+    accessToken: string,
+    name: string,
+    password: string,
+    phoneNumber: string | undefined,
+    idFile: File
+  ): Promise<{ error?: string; pending?: boolean }> => {
+    try {
+      if (!idFile) return { error: "ID document is required" };
+      let idDocumentBase64: string;
+      try {
+        idDocumentBase64 = await fileToBase64(idFile);
+      } catch {
+        return { error: "Failed to read ID file. Please try again." };
+      }
+      const response = await fetch(`${serverUrl}/auth/complete-profile`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name, password, phoneNumber,
+          idDocumentBase64,
+          idDocumentFileName: idFile.name,
+          idDocumentMimeType: idFile.type,
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok) return { error: data.error || "Failed to complete registration" };
+      return { pending: true };
+    } catch (error) {
+      console.error("Complete profile error:", error);
+      return { error: "Network error during registration" };
     }
   };
 
@@ -289,6 +345,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               error: "rejected",
               accountStatus: "rejected",
             };
+          }
+
+          // Block users who haven't completed email OTP verification
+          if (profile.emailVerified === false || profile.email_verified === false) {
+            await supabase.auth.signOut();
+            return { error: "unverified", accountStatus: "unverified" };
           }
 
           setUser(profile);
@@ -523,6 +585,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     isGuest,
     signUp,
     signUpWithIdVerification,
+    sendOtp,
+    verifyEmailOtp,
+    completeProfile,
     signIn,
     signInWithGoogle,
     signInWithFacebook,

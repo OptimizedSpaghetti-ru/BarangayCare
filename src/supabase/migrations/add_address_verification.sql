@@ -56,3 +56,18 @@ CREATE INDEX IF NOT EXISTS idx_complaints_coords
 
 COMMENT ON COLUMN complaints.latitude  IS 'WGS84 latitude of the complaint location (pinned via Leaflet map)';
 COMMENT ON COLUMN complaints.longitude IS 'WGS84 longitude of the complaint location (pinned via Leaflet map)';
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- Migration: Add email verification column to users table
+-- Used by the OTP email verification step during account creation.
+-- ─────────────────────────────────────────────────────────────────────────────
+ALTER TABLE users
+  ADD COLUMN IF NOT EXISTS email_verified BOOLEAN DEFAULT false;
+
+-- Mark existing approved users as already verified (legacy data)
+UPDATE users SET email_verified = true WHERE account_status = 'approved';
+
+CREATE INDEX IF NOT EXISTS idx_users_email_verified
+  ON users (email_verified);
+
+COMMENT ON COLUMN users.email_verified IS 'True after user verifies their email via OTP during registration';

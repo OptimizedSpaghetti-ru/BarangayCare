@@ -36,7 +36,7 @@ export function LoginForm({ onSwitchToSignup }: LoginFormProps) {
   const [loading, setLoading] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
   const [accountStatus, setAccountStatus] = useState<
-    "pending" | "rejected" | null
+    "pending" | "rejected" | "unverified" | null
   >(null);
 
   const { signIn, loginAsGuest } = useAuth();
@@ -63,6 +63,10 @@ export function LoginForm({ onSwitchToSignup }: LoginFormProps) {
         // Account was rejected
         setAccountStatus("rejected");
         setAuthError("rejected");
+      } else if (result.error === "unverified") {
+        // Email not verified via OTP
+        setAccountStatus("unverified");
+        setAuthError("unverified");
       } else if (
         result.error.toLowerCase().includes("invalid login") ||
         result.error.toLowerCase().includes("wrong password") ||
@@ -124,6 +128,21 @@ export function LoginForm({ onSwitchToSignup }: LoginFormProps) {
                 submitted ID and confirm your address is within{" "}
                 <strong>Barangay Marulas, Valenzuela City</strong>. You will be
                 able to log in once approved.
+              </p>
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {/* Unverified Email Alert */}
+        {accountStatus === "unverified" && (
+          <Alert className="border-amber-200 bg-amber-50 dark:bg-amber-900/20 dark:border-amber-800">
+            <Mail className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+            <AlertDescription className="text-amber-800 dark:text-amber-300 text-sm">
+              <strong>Email Not Verified</strong>
+              <p className="mt-1">
+                Please verify your email address before logging in.
+                If you haven't completed registration, go back to the signup page
+                and complete the email verification step.
               </p>
             </AlertDescription>
           </Alert>

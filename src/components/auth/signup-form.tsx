@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
@@ -27,6 +27,8 @@ import {
   Trash2,
   MapPin,
   Clock,
+  ArrowLeft,
+  RefreshCw,
 } from "lucide-react";
 import { useAuth } from "./auth-context";
 import { toast } from "sonner";
@@ -60,8 +62,16 @@ export function SignupForm({ onSwitchToLogin }: SignupFormProps) {
     feedback: string[];
   }>({ score: 0, label: "", color: "", feedback: [] });
 
-  // Pending approval state (shown after successful registration)
-  const [registrationPending, setRegistrationPending] = useState(false);
+  // Flow step: 'form' | 'otp' | 'pending'
+  const [step, setStep] = useState<'form' | 'otp' | 'pending'>('form');
+
+  // OTP verification states
+  const [otpDigits, setOtpDigits] = useState<string[]>(['', '', '', '', '', '']);
+  const [otpError, setOtpError] = useState<string | null>(null);
+  const [otpLoading, setOtpLoading] = useState(false);
+  const [cooldown, setCooldown] = useState(0);
+  const [otpAccessToken, setOtpAccessToken] = useState<string | null>(null);
+  const otpInputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
   // ID verification states
   const [idFile, setIdFile] = useState<File | null>(null);
@@ -69,7 +79,14 @@ export function SignupForm({ onSwitchToLogin }: SignupFormProps) {
   const [idError, setIdError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const { signUpWithIdVerification, loginAsGuest } = useAuth();
+  const { sendOtp, verifyEmailOtp, completeProfile, loginAsGuest } = useAuth();
+
+  // Cooldown timer for resend
+  useEffect(() => {
+    if (cooldown <= 0) return;
+    const timer = setTimeout(() => setCooldown((c) => c - 1), 1000);
+    return () => clearTimeout(timer);
+  }, [cooldown]);
 
   // Validation function for name fields - only letters and spaces allowed
   const validateNameField = (
@@ -246,7 +263,7 @@ export function SignupForm({ onSwitchToLogin }: SignupFormProps) {
 
     if (password !== confirmPassword) {
       setConfirmPasswordError(
-        "Passwords do not match. Please make sure both passwords are identical.",
+        "Passwords do not match. Please make sure both fields are identical.",
       );
       toast.error("Passwords do not match");
       return;
@@ -262,17 +279,8 @@ export function SignupForm({ onSwitchToLogin }: SignupFormProps) {
     setLoading(true);
     setEmailError(null);
 
-    const fullName = `${firstName} ${
-      middleName ? middleName + " " : ""
-    }${lastName}`.trim();
-
-    const { error, pending } = await signUpWithIdVerification(
-      email,
-      password,
-      fullName,
-      phoneNumber,
-      idFile,
-    );
+    // Step 1: Send OTP to user's email
+    const { error } = await sendOtp(email);
 
     if (error) {
       if (
@@ -280,30 +288,126 @@ export function SignupForm({ onSwitchToLogin }: SignupFormProps) {
         error.toLowerCase().includes("exists")
       ) {
         setEmailError(
-          `This email address is already registered. Please sign in instead or use a different email.`,
+          `This email address is already registered. Please sign in instead.`,
         );
-        toast.error(
-          `⚠️ Account already exists! The email "${email}" is already registered. Please sign in instead.`,
-        );
-      } else if (error.toLowerCase().includes("invalid email")) {
-        setEmailError("Please enter a valid email address");
-        toast.error("Please enter a valid email address");
+        toast.error(`Email already registered. Please sign in instead.`);
+      } else if (error.toLowerCase().includes("rate")) {
+        toast.error("Too many attempts. Please wait before trying again.");
       } else {
         toast.error(error);
       }
-    } else if (pending) {
-      // Registration submitted — show the pending approval screen
-      setRegistrationPending(true);
-      toast.success(
-        "🎉 Registration submitted! Your account is pending admin approval.",
-      );
+      setLoading(false);
+      return;
     }
 
+    // Move to OTP step
+    setStep('otp');
+    setCooldown(60);
+    setOtpDigits(['', '', '', '', '', '']);
+    setOtpError(null);
+    toast.success(`📧 OTP sent to ${email}`);
     setLoading(false);
+
+    // Focus first OTP input after a tick
+    setTimeout(() => otpInputRefs.current[0]?.focus(), 100);
   };
 
-  // ── Pending Approval Screen ──────────────────────────────────────────────────
-  if (registrationPending) {
+  // ── OTP digit input handler ─────────────────────────────────────────────────
+  const handleOtpChange = useCallback(
+    (index: number, value: string) => {
+      if (!/^\d*$/.test(value)) return;
+      const newDigits = [...otpDigits];
+      newDigits[index] = value.slice(-1);
+      setOtpDigits(newDigits);
+      setOtpError(null);
+      if (value && index < 5) {
+        otpInputRefs.current[index + 1]?.focus();
+      }
+    },
+    [otpDigits],
+  );
+
+  const handleOtpKeyDown = useCallback(
+    (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
+      if (e.key === 'Backspace' && !otpDigits[index] && index > 0) {
+        otpInputRefs.current[index - 1]?.focus();
+      }
+    },
+    [otpDigits],
+  );
+
+  const handleOtpPaste = useCallback(
+    (e: React.ClipboardEvent) => {
+      e.preventDefault();
+      const pasted = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6);
+      if (pasted.length > 0) {
+        const newDigits = [...otpDigits];
+        for (let i = 0; i < pasted.length; i++) {
+          newDigits[i] = pasted[i];
+        }
+        setOtpDigits(newDigits);
+        const focusIdx = Math.min(pasted.length, 5);
+        otpInputRefs.current[focusIdx]?.focus();
+      }
+    },
+    [otpDigits],
+  );
+
+  // ── Verify OTP + complete profile ─────────────────────────────────────────────
+  const handleVerifyOtp = async () => {
+    const otp = otpDigits.join('');
+    if (otp.length !== 6) {
+      setOtpError('Please enter all 6 digits');
+      return;
+    }
+
+    setOtpLoading(true);
+    setOtpError(null);
+
+    const { accessToken, error: otpErr } = await verifyEmailOtp(email, otp);
+    if (otpErr || !accessToken) {
+      setOtpError(otpErr || 'Verification failed');
+      setOtpLoading(false);
+      return;
+    }
+
+    const fullName = `${firstName} ${middleName ? middleName + ' ' : ''}${lastName}`.trim();
+    const { error: profileErr, pending } = await completeProfile(
+      accessToken, fullName, password, phoneNumber || undefined, idFile!,
+    );
+
+    if (profileErr) {
+      setOtpError(profileErr);
+      setOtpLoading(false);
+      return;
+    }
+
+    if (pending) {
+      setStep('pending');
+      toast.success('🎉 Registration submitted! Your account is pending admin approval.');
+    }
+    setOtpLoading(false);
+  };
+
+  // ── Resend OTP ────────────────────────────────────────────────────────────────
+  const handleResendOtp = async () => {
+    if (cooldown > 0) return;
+    setOtpLoading(true);
+    const { error } = await sendOtp(email);
+    if (error) {
+      toast.error(error);
+    } else {
+      setCooldown(60);
+      setOtpDigits(['', '', '', '', '', '']);
+      setOtpError(null);
+      toast.success('📧 New OTP sent!');
+      setTimeout(() => otpInputRefs.current[0]?.focus(), 100);
+    }
+    setOtpLoading(false);
+  };
+
+  // ── Step 3: Pending Approval Screen ─────────────────────────────────────────
+  if (step === 'pending') {
     return (
       <Card className="w-full max-w-md mx-auto">
         <CardHeader className="text-center">
@@ -312,7 +416,7 @@ export function SignupForm({ onSwitchToLogin }: SignupFormProps) {
           </div>
           <CardTitle className="text-2xl">Registration Submitted</CardTitle>
           <CardDescription>
-            Your account is pending admin approval
+            Your email has been verified and account is pending admin approval
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -336,7 +440,7 @@ export function SignupForm({ onSwitchToLogin }: SignupFormProps) {
           <div className="flex items-center gap-3 p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
             <Check className="w-5 h-5 text-green-600 dark:text-green-400 shrink-0" />
             <p className="text-sm text-green-800 dark:text-green-300">
-              Your ID document has been uploaded and is awaiting review.
+              ✅ Email verified &bull; ID document uploaded and awaiting review.
             </p>
           </div>
 
@@ -346,6 +450,102 @@ export function SignupForm({ onSwitchToLogin }: SignupFormProps) {
             className="w-full"
           >
             Back to Sign In
+          </Button>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // ── Step 2: OTP Verification Screen ─────────────────────────────────────────
+  if (step === 'otp') {
+    const otpFull = otpDigits.join('').length === 6;
+
+    return (
+      <Card className="w-full max-w-md mx-auto">
+        <CardHeader className="text-center">
+          <div className="w-16 h-16 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center mx-auto mb-4">
+            <Mail className="w-8 h-8 text-blue-600 dark:text-blue-400" />
+          </div>
+          <CardTitle className="text-2xl">Verify Your Email</CardTitle>
+          <CardDescription>
+            We sent a 6-digit code to <strong className="text-foreground">{email}</strong>
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {/* 6 OTP digit boxes */}
+          <div className="flex justify-center gap-2">
+            {otpDigits.map((digit, i) => (
+              <input
+                key={i}
+                ref={(el) => { otpInputRefs.current[i] = el; }}
+                type="text"
+                inputMode="numeric"
+                maxLength={1}
+                value={digit}
+                onChange={(e) => handleOtpChange(i, e.target.value)}
+                onKeyDown={(e) => handleOtpKeyDown(i, e)}
+                onPaste={i === 0 ? handleOtpPaste : undefined}
+                className={`w-12 h-14 text-center text-2xl font-bold rounded-lg border-2 bg-background transition-all focus:outline-none focus:ring-2 focus:ring-primary/50 ${
+                  otpError
+                    ? 'border-destructive focus:ring-destructive/50'
+                    : digit
+                      ? 'border-primary'
+                      : 'border-border'
+                }`}
+              />
+            ))}
+          </div>
+
+          {otpError && (
+            <Alert className="border-destructive/50 text-destructive dark:border-destructive">
+              <AlertTriangle className="h-4 w-4" />
+              <AlertDescription>{otpError}</AlertDescription>
+            </Alert>
+          )}
+
+          <Button
+            onClick={handleVerifyOtp}
+            disabled={!otpFull || otpLoading}
+            className="w-full"
+          >
+            {otpLoading ? (
+              <>
+                <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin mr-2" />
+                Verifying…
+              </>
+            ) : (
+              'Verify & Complete Registration'
+            )}
+          </Button>
+
+          {/* Resend OTP */}
+          <div className="text-center space-y-2">
+            <p className="text-sm text-muted-foreground">Didn't receive the code?</p>
+            {cooldown > 0 ? (
+              <p className="text-sm text-muted-foreground">
+                Resend in <span className="font-semibold text-foreground">{cooldown}s</span>
+              </p>
+            ) : (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleResendOtp}
+                disabled={otpLoading}
+              >
+                <RefreshCw className="w-3.5 h-3.5 mr-1.5" />
+                Resend Code
+              </Button>
+            )}
+          </div>
+
+          {/* Back to form */}
+          <Button
+            variant="outline"
+            className="w-full"
+            onClick={() => { setStep('form'); setOtpError(null); }}
+          >
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Back to Registration
           </Button>
         </CardContent>
       </Card>
@@ -762,10 +962,10 @@ export function SignupForm({ onSwitchToLogin }: SignupFormProps) {
             {loading ? (
               <>
                 <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin mr-2" />
-                Submitting Registration...
+                Sending OTP…
               </>
             ) : (
-              "Submit Registration"
+              <>Send OTP & Verify Email</>
             )}
           </Button>
         </form>

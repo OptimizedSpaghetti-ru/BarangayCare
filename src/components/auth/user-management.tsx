@@ -851,18 +851,31 @@ export function UserManagement() {
                       .toLowerCase()
                       .match(/\.(jpg|jpeg|png|webp)$/) ||
                     selectedUser.idDocumentUrl.includes("image") ? (
+                      <>
                       <img
                         src={selectedUser.idDocumentUrl}
                         alt="Submitted ID"
                         className="w-full max-h-80 object-contain p-2"
                         onError={(e) => {
-                          // If image fails (private bucket), show a link instead
-                          (e.target as HTMLImageElement).style.display = "none";
-                          (
-                            e.target as HTMLImageElement
-                          ).parentElement!.innerHTML = `<div class="p-4 text-center text-sm text-muted-foreground"><p>Image preview not available (private storage).</p><a href="${selectedUser.idDocumentUrl}" target="_blank" rel="noopener noreferrer" class="text-primary underline mt-2 block">Open ID Document ↗</a></div>`;
+                          // If image fails (private bucket), hide image and show fallback sibling
+                          const img = e.target as HTMLImageElement;
+                          img.style.display = "none";
+                          const fallback = img.nextElementSibling as HTMLElement;
+                          if (fallback) fallback.style.display = "block";
                         }}
                       />
+                      <div className="p-4 text-center text-sm text-muted-foreground" style={{ display: "none" }}>
+                        <p>Image preview not available (private storage).</p>
+                        <a
+                          href={selectedUser.idDocumentUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-primary underline mt-2 block"
+                        >
+                          Open ID Document ↗
+                        </a>
+                      </div>
+                      </>
                     ) : (
                       <div className="p-4 text-center">
                         <FileImage className="w-12 h-12 mx-auto text-muted-foreground mb-2" />
