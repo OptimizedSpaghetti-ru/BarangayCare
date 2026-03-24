@@ -1,4 +1,7 @@
 import { useState, useEffect } from "react";
+import { Capacitor } from "@capacitor/core";
+import { Filesystem, Directory } from "@capacitor/filesystem";
+import { Share } from "@capacitor/share";
 import {
   Card,
   CardContent,
@@ -56,6 +59,8 @@ interface Complaint {
 
 interface DataAnalyticsProps {
   complaints: Complaint[];
+  onRefresh?: () => Promise<void> | void;
+  refreshing?: boolean;
 }
 
 interface CategoryData {
@@ -68,12 +73,17 @@ interface CategoryData {
   rejected: number;
 }
 
-export function DataAnalytics({ complaints }: DataAnalyticsProps) {
+export function DataAnalytics({
+  complaints,
+  onRefresh,
+  refreshing = false,
+}: DataAnalyticsProps) {
   const [timePeriod, setTimePeriod] = useState<"weekly" | "monthly" | "yearly">(
     "monthly",
   );
   const [categoryData, setCategoryData] = useState<CategoryData[]>([]);
   const [loading, setLoading] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const [unresolvedInsights, setUnresolvedInsights] = useState<{
     avgUnresolvedDays: number;
     topUnresolvedCategories: { category: string; count: number }[];
@@ -100,10 +110,7 @@ export function DataAnalytics({ complaints }: DataAnalyticsProps) {
     generateAnalytics();
   }, [complaints, timePeriod]);
 
-  const generateAnalytics = () => {
-    setLoading(true);
-
-    // Filter complaints based on time period
+  const getFilteredComplaints = () => {
     const now = new Date();
     let filteredComplaints = complaints;
 
@@ -131,6 +138,15 @@ export function DataAnalytics({ complaints }: DataAnalyticsProps) {
         (c) => new Date(c.dateSubmitted) >= oneYearAgo,
       );
     }
+
+    return filteredComplaints;
+  };
+
+  const generateAnalytics = () => {
+    setLoading(true);
+
+    const now = new Date();
+    const filteredComplaints = getFilteredComplaints();
 
     // Generate category analytics
     const categoryCounts: { [key: string]: CategoryData } = {};
@@ -283,35 +299,22 @@ export function DataAnalytics({ complaints }: DataAnalyticsProps) {
     setLoading(false);
   };
 
-  const handleExportData = () => {
-    // Filter complaints based on time period (same logic as generateAnalytics)
-    const now = new Date();
-    let filteredComplaints = complaints;
-
-    if (timePeriod === "weekly") {
-      const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-      filteredComplaints = complaints.filter(
-        (c) => new Date(c.dateSubmitted) >= oneWeekAgo,
-      );
-    } else if (timePeriod === "monthly") {
-      const oneMonthAgo = new Date(
-        now.getFullYear(),
-        now.getMonth() - 1,
-        now.getDate(),
-      );
-      filteredComplaints = complaints.filter(
-        (c) => new Date(c.dateSubmitted) >= oneMonthAgo,
-      );
-    } else if (timePeriod === "yearly") {
-      const oneYearAgo = new Date(
-        now.getFullYear() - 1,
-        now.getMonth(),
-        now.getDate(),
-      );
-      filteredComplaints = complaints.filter(
-        (c) => new Date(c.dateSubmitted) >= oneYearAgo,
-      );
+  const handleRefreshAnalytics = async () => {
+    if (!onRefresh) {
+      generateAnalytics();
+      return;
     }
+
+    try {
+      await onRefresh();
+    } finally {
+      generateAnalytics();
+    }
+  };
+
+  const handleExportData = async () => {
+    const filteredComplaints = getFilteredComplaints();
+    setExporting(true);
 
     // Helper function to escape CSV values (handles commas, quotes, newlines)
     const escapeCSVValue = (value: string | undefined | null): string => {
@@ -438,19 +441,55 @@ export function DataAnalytics({ complaints }: DataAnalyticsProps) {
     // Combine headers and rows
     const csvContent = [headers.join(","), ...rows].join("\n");
 
-    // Add BOM for Excel to properly recognize UTF-8 encoding
-    const BOM = "\uFEFF";
-    const blob = new Blob([BOM + csvContent], {
-      type: "text/csv;charset=utf-8",
-    });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `barangay-complaints-${timePeriod}-${
+    const fileName = `barangay-complaints-${timePeriod}-${
       new Date().toISOString().split("T")[0]
     }.csv`;
-    a.click();
-    window.URL.revokeObjectURL(url);
+
+    try {
+      if (Capacitor.isNativePlatform()) {
+        const base64Content = btoa(unescape(encodeURIComponent(csvContent)));
+
+        const writeResult = await Filesystem.writeFile({
+          path: fileName,
+          data: base64Content,
+          directory: Directory.Cache,
+        });
+
+        await Share.share({
+          title: "BarangayCARE Analytics Export",
+          text: "CSV export from BarangayCARE data analytics",
+          url: writeResult.uri,
+          dialogTitle: "Export Analytics CSV",
+        });
+        return;
+      }
+
+      // Web fallback: direct download
+      const BOM = "\uFEFF";
+      const blob = new Blob([BOM + csvContent], {
+        type: "text/csv;charset=utf-8",
+      });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = fileName;
+      a.click();
+      window.URL.revokeObjectURL(url);
+    } catch {
+      // Fallback for native failures: try web-style download
+      const BOM = "\uFEFF";
+      const blob = new Blob([BOM + csvContent], {
+        type: "text/csv;charset=utf-8",
+      });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = fileName;
+      a.click();
+      window.URL.revokeObjectURL(url);
+    } finally {
+      setExporting(false);
+    }
   };
 
   const totalComplaints = categoryData.reduce((sum, cat) => sum + cat.count, 0);
@@ -500,23 +539,26 @@ export function DataAnalytics({ complaints }: DataAnalyticsProps) {
             <Button
               variant="secondary"
               size="sm"
-              onClick={generateAnalytics}
-              disabled={loading}
+              onClick={handleRefreshAnalytics}
+              disabled={loading || refreshing}
               className="flex items-center space-x-2"
             >
               <RefreshCw
-                className={`w-4 h-4 ${loading ? "animate-spin" : ""}`}
+                className={`w-4 h-4 ${loading || refreshing ? "animate-spin" : ""}`}
               />
               <span>Refresh</span>
             </Button>
             <Button
               variant="secondary"
               size="sm"
-              onClick={handleExportData}
+              onClick={() => void handleExportData()}
+              disabled={exporting}
               className="flex items-center space-x-2"
             >
-              <Download className="w-4 h-4" />
-              <span>Export</span>
+              <Download
+                className={`w-4 h-4 ${exporting ? "animate-pulse" : ""}`}
+              />
+              <span>{exporting ? "Exporting..." : "Export"}</span>
             </Button>
           </div>
         </div>

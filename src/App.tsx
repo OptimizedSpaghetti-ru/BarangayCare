@@ -1,4 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from "react";
+import { Capacitor } from "@capacitor/core";
+import { LocalNotifications } from "@capacitor/local-notifications";
 import { useTranslation } from "react-i18next";
 import { ThemeProvider } from "./components/theme-provider";
 import { AuthProvider, useAuth } from "./components/auth/auth-context";
@@ -87,6 +89,8 @@ function AppContent() {
     Map<string, { status: string; adminNotes: string | null }>
   >(new Map());
   const notificationsInitialized = useRef(false);
+  const localNotifSetupDoneRef = useRef(false);
+  const localNotifPermissionRef = useRef(false);
 
   const unreadNotificationCount = useMemo(
     () => notifications.filter((n) => !n.read).length,
@@ -129,6 +133,67 @@ function AppContent() {
     read: false,
   });
 
+  const ensureNativeNotificationAccess = async () => {
+    if (!Capacitor.isNativePlatform()) return false;
+
+    if (localNotifPermissionRef.current) return true;
+
+    try {
+      const permissionStatus = await LocalNotifications.checkPermissions();
+      if (permissionStatus.display !== "granted") {
+        const requested = await LocalNotifications.requestPermissions();
+        localNotifPermissionRef.current = requested.display === "granted";
+      } else {
+        localNotifPermissionRef.current = true;
+      }
+
+      if (localNotifPermissionRef.current && !localNotifSetupDoneRef.current) {
+        try {
+          await LocalNotifications.createChannel({
+            id: "barangaycare-alerts",
+            name: "BarangayCARE Alerts",
+            description: "Status updates and complaint activity alerts",
+            importance: 4,
+            visibility: 1,
+          });
+        } catch {
+          // Channel may already exist; safe to continue.
+        }
+        localNotifSetupDoneRef.current = true;
+      }
+
+      return localNotifPermissionRef.current;
+    } catch {
+      return false;
+    }
+  };
+
+  const pushNativeNotifications = async (items: AppNotification[]) => {
+    if (!Capacitor.isNativePlatform() || items.length === 0) return;
+
+    const granted = await ensureNativeNotificationAccess();
+    if (!granted) return;
+
+    const now = Date.now();
+    const notificationsToSchedule = items.slice(0, 3).map((item, index) => ({
+      id: Math.floor(now / 1000) + index,
+      title: item.title,
+      body: item.message,
+      schedule: {
+        at: new Date(now + index * 300),
+      },
+      channelId: "barangaycare-alerts",
+    }));
+
+    try {
+      await LocalNotifications.schedule({
+        notifications: notificationsToSchedule,
+      });
+    } catch {
+      // Ignore scheduling failures to avoid blocking app flow.
+    }
+  };
+
   // Redirect admins to Admin Panel after login
   useEffect(() => {
     if (user && isAdmin && currentView === "dashboard") {
@@ -141,6 +206,7 @@ function AppContent() {
       setNotifications([]);
       previousComplaintSnapshot.current = new Map();
       notificationsInitialized.current = false;
+      localNotifPermissionRef.current = false;
       return;
     }
 
@@ -159,6 +225,11 @@ function AppContent() {
     previousComplaintSnapshot.current = new Map();
     notificationsInitialized.current = false;
   }, [notificationsStorageKey]);
+
+  useEffect(() => {
+    if (!user) return;
+    void ensureNativeNotificationAccess();
+  }, [user]);
 
   useEffect(() => {
     if (!user) return;
@@ -255,6 +326,7 @@ function AppContent() {
         const next = [...fresh, ...prevNotifications].slice(0, 100);
         return persistNotifications(next);
       });
+      void pushNativeNotifications(fresh);
     }
 
     previousComplaintSnapshot.current = buildSnapshot();
@@ -595,7 +667,11 @@ function AppContent() {
         )}
 
         {currentView === "analytics" && (
-          <DataAnalytics complaints={complaints} />
+          <DataAnalytics
+            complaints={complaints}
+            onRefresh={handleRefresh}
+            refreshing={refreshing}
+          />
         )}
 
         {currentView === "users" && <UserManagement />}

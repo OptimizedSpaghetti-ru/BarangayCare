@@ -1,4 +1,4 @@
-# BarangayCare 🏘️
+# BarangayCare
 
 A comprehensive barangay management system built with React, TypeScript, and Supabase. This application enables residents to submit complaints and barangay administrators to manage and respond to community issues in real-time.
 
@@ -7,48 +7,50 @@ A comprehensive barangay management system built with React, TypeScript, and Sup
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178c6.svg)
 ![Supabase](https://img.shields.io/badge/Supabase-2.x-3ECF8E.svg)
 
-## 📋 Table of Contents
+## Table of Contents
 
-- [Features](#-features)
-- [Tech Stack](#-tech-stack)
-- [Prerequisites](#-prerequisites)
-- [Installation](#-installation)
-- [Database Setup](#-database-setup)
-- [Environment Variables](#-environment-variables)
-- [Running the Application](#-running-the-application)
-- [Project Structure](#-project-structure)
-- [User Roles](#-user-roles)
-- [Available Scripts](#-available-scripts)
-- [Troubleshooting](#-troubleshooting)
-- [Contributing](#-contributing)
-- [License](#-license)
+- [Features](#features)
+- [Tech Stack](#tech-stack)
+- [Prerequisites](#prerequisites)
+- [Installation](#installation)
+- [Database Setup](#database-setup)
+- [Environment Variables](#environment-variables)
+- [Running the Application](#running-the-application)
+- [Project Structure](#project-structure)
+- [User Roles](#user-roles)
+- [Available Scripts](#available-scripts)
+- [Troubleshooting](#troubleshooting)
+- [Contributing](#contributing)
+- [License](#license)
 
-## ✨ Features
+## Features
 
 ### For Residents
 
-- 📝 **Submit Complaints** - Report barangay issues with photos and location details
-- 👁️ **Track Status** - Monitor complaint progress in real-time
-- 👤 **Profile Management** - Update personal information and settings
-- 📊 **View History** - Access all submitted complaints and their statuses
+- **OTP Registration Flow** - Register using email OTP verification and complete profile with ID submission
+- **Complaint Submission** - Report barangay issues with required photo evidence and pinned map location
+- **Status Tracking** - Monitor complaint progress in real-time
+- **In-App Notifications** - Receive complaint activity updates with unread/read tracking
+- **Profile Management** - Update personal information and account settings
 
 ### For Administrators
 
-- 🎯 **Complaint Management** - Review, prioritize, and respond to complaints
-- 📈 **Data Analytics** - Visualize complaint trends and statistics
-- 👥 **User Management** - Manage resident accounts and permissions
-- 🔄 **Real-time Updates** - Instant synchronization across all devices
-- 🎛️ **Admin Panel** - Centralized control panel for all operations
+- **Complaint Management** - Review, prioritize, filter, and respond to complaints
+- **Address Verification Workflow** - Approve or reject pending accounts after ID review
+- **Heatmap Dashboard** - View a dedicated complaints heatmap page with category filtering
+- **Data Analytics** - Visualize trends and export analytics as CSV
+- **User Management** - Manage resident accounts and permissions
 
 ### General Features
 
-- 🔐 **Secure Authentication** - User signup, login, and role-based access control
-- 🌓 **Dark/Light Mode** - Toggle between themes for comfortable viewing
-- 📱 **Responsive Design** - Works seamlessly on desktop, tablet, and mobile
-- ☁️ **Cloud Storage** - All data securely stored in Supabase
-- 🔄 **Real-time Sync** - Automatic updates without page refresh
+- **Role-Based Access Control** - Separate resident and admin capabilities
+- **Pending Approval Enforcement** - New verified registrations remain pending until admin approval
+- **Strict Contact Validation** - Contact numbers are validated as 11-digit numeric values
+- **Real-Time Sync** - Automatic updates without page refresh
+- **Responsive Interface** - Optimized for desktop and mobile layouts
+- **Android Support (Capacitor)** - Mobile-ready build with local notifications and native file sharing
 
-## 🛠️ Tech Stack
+## Tech Stack
 
 ### Frontend
 
@@ -59,13 +61,21 @@ A comprehensive barangay management system built with React, TypeScript, and Sup
 - **Radix UI** - Accessible component primitives
 - **Lucide React** - Beautiful icon set
 - **Recharts** - Charting library for analytics
+- **Leaflet** - Mapping and heatmap visualization
 - **React Hook Form** - Form validation and management
 - **Sonner** - Toast notifications
 
 ### Backend & Database
 
 - **Supabase** - Backend-as-a-Service (PostgreSQL database, authentication, real-time subscriptions)
+- **Supabase Edge Functions (Hono)** - Server-side registration and account management endpoints
 - **Row Level Security (RLS)** - Database-level access control
+
+### Mobile
+
+- **Capacitor Android** - Native Android packaging and runtime integration
+- **Capacitor Local Notifications** - Native notification delivery for in-app events
+- **Capacitor Filesystem and Share** - Native analytics export and sharing on Android
 
 ### UI Components
 
@@ -73,7 +83,7 @@ A comprehensive barangay management system built with React, TypeScript, and Sup
 - Shadcn/ui inspired design system
 - Fully accessible and keyboard navigable
 
-## 📦 Prerequisites
+## Prerequisites
 
 Before you begin, ensure you have the following installed:
 
@@ -81,7 +91,7 @@ Before you begin, ensure you have the following installed:
 - **npm** or **yarn** or **pnpm**
 - **Supabase Account** (free tier available at [supabase.com](https://supabase.com))
 
-## 🚀 Installation
+## Installation
 
 1. **Clone the repository**
 
@@ -110,25 +120,22 @@ Before you begin, ensure you have the following installed:
    ```
 
    You can find these credentials in your Supabase project settings:
-
    - Go to [supabase.com/dashboard](https://supabase.com/dashboard)
    - Select your project
    - Navigate to **Settings** → **API**
    - Copy **Project URL** and **anon/public key**
 
-## 🗄️ Database Setup
+## Database Setup
 
 ### Quick Setup (5 Minutes)
 
 1. **Open Supabase SQL Editor**
-
    - Go to your [Supabase Dashboard](https://supabase.com/dashboard)
    - Select your project
    - Click **SQL Editor** in the left sidebar
    - Click **New Query**
 
 2. **Run the setup script**
-
    - Open `src/utils/supabase/setup-database.sql` in your project
    - Copy all contents
    - Paste into the SQL editor
@@ -137,13 +144,11 @@ Before you begin, ensure you have the following installed:
    > **Note:** If you encounter permission errors and already ran an old script, use `src/utils/supabase/fix-policies.sql` instead.
 
 3. **Enable Real-time**
-
    - Go to **Database** → **Replication**
    - Find the `complaints` table
    - Toggle **Replication** ON
 
 4. **Create an Admin User**
-
    - Go to **Authentication** → **Users**
    - Sign up through the app first
    - Find your user in the dashboard
@@ -158,21 +163,21 @@ Before you begin, ensure you have the following installed:
    - Click **Save**
 
 5. **Verify Setup**
-   - ✅ Table `complaints` exists in Table Editor
-   - ✅ 6 RLS policies are active (Database → Policies)
-   - ✅ Real-time replication is enabled
-   - ✅ At least one admin user is configured
+   - Table `complaints` exists in Table Editor
+   - RLS policies are active (Database → Policies)
+   - Real-time replication is enabled
+   - At least one admin user is configured
 
 ### Detailed Documentation
 
 For comprehensive database setup instructions, migration guides, and troubleshooting:
 
-- 📖 [Quick Start Guide](src/QUICK_START_DATABASE.md)
-- 📘 [Complete Database Setup](src/utils/supabase/DATABASE_SETUP_GUIDE.md)
-- 🔧 [Troubleshooting](src/TROUBLESHOOTING_DATABASE.md)
-- 🔄 [Migration from localStorage](src/utils/supabase/migrate-localStorage.tsx)
+- [Quick Start Guide](src/QUICK_START_DATABASE.md)
+- [Complete Database Setup](src/utils/supabase/DATABASE_SETUP_GUIDE.md)
+- [Troubleshooting](src/TROUBLESHOOTING_DATABASE.md)
+- [Migration from localStorage](src/utils/supabase/migrate-localStorage.tsx)
 
-## 🔐 Environment Variables
+## Environment Variables
 
 Create a `.env` file in the root directory with the following variables:
 
@@ -189,7 +194,7 @@ VITE_SUPABASE_ANON_KEY=your-anon-key-here
 3. Go to **Settings** → **API**
 4. Copy the **Project URL** and **anon/public** key
 
-## 🎮 Running the Application
+## Running the Application
 
 ### Development Mode
 
@@ -202,6 +207,20 @@ pnpm dev
 ```
 
 The application will start at `http://localhost:5173` (or another port if 5173 is busy).
+
+### Android (Capacitor)
+
+```bash
+npm run build
+npx cap sync android
+npx cap open android
+```
+
+To deploy Supabase edge function updates:
+
+```powershell
+.\deploy-functions.ps1
+```
 
 ### Build for Production
 
@@ -223,7 +242,7 @@ yarn preview
 pnpm preview
 ```
 
-## 📁 Project Structure
+## Project Structure
 
 ```
 BarangayCare/
@@ -281,14 +300,15 @@ BarangayCare/
 └── README.md                      # This file
 ```
 
-## 👥 User Roles
+## User Roles
 
 ### Resident (Default)
 
+- Register using OTP and submit account verification requirements
 - Submit and view own complaints
+- Track complaint status and admin responses
+- Receive notification updates
 - Update personal profile
-- Track complaint status
-- View barangay information
 
 ### Admin
 
@@ -296,7 +316,9 @@ BarangayCare/
 - View all complaints from all users
 - Update complaint status and priority
 - Manage user accounts
+- Review and verify pending registrations
 - Access analytics dashboard
+- Access the dedicated heatmap dashboard
 - Respond to complaints
 
 **To make a user an admin:**
@@ -305,16 +327,17 @@ BarangayCare/
 2. Click on the user
 3. Add to User Metadata: `{"role": "admin", "name": "Admin Name"}`
 
-## 📜 Available Scripts
+## Available Scripts
 
-| Command           | Description                |
-| ----------------- | -------------------------- |
-| `npm run dev`     | Start development server   |
-| `npm run build`   | Build for production       |
-| `npm run preview` | Preview production build   |
-| `npm run lint`    | Run ESLint (if configured) |
+| Command                | Description                           |
+| ---------------------- | ------------------------------------- |
+| `npm run dev`          | Start development server              |
+| `npm run build`        | Build for production                  |
+| `npm run preview`      | Preview production build              |
+| `npm run lint`         | Run ESLint (if configured)            |
+| `deploy-functions.ps1` | Deploy Supabase edge function updates |
 
-## 🔧 Troubleshooting
+## Troubleshooting
 
 ### Common Issues
 
@@ -350,11 +373,11 @@ BarangayCare/
 
 ### Need More Help?
 
-- 📖 Check the [Troubleshooting Guide](src/TROUBLESHOOTING_DATABASE.md)
-- 🐛 [Open an issue](https://github.com/OptimizedSpaghetti-ru/BarangayCare/issues)
-- 📧 Contact the development team
+- Check the [Troubleshooting Guide](src/TROUBLESHOOTING_DATABASE.md)
+- [Open an issue](https://github.com/OptimizedSpaghetti-ru/BarangayCare/issues)
+- Contact the development team
 
-## 🎨 Customization
+## Customization
 
 ### Theming
 
@@ -373,7 +396,7 @@ The application supports dark and light modes. Theme configuration is in `src/co
 3. Update database schema in `setup-database.sql`
 4. Add RLS policies for new tables
 
-## 🤝 Contributing
+## Contributing
 
 Contributions are welcome! Please follow these steps:
 
@@ -391,11 +414,11 @@ Contributions are welcome! Please follow these steps:
 - Write clean, documented code
 - Test on multiple devices and browsers
 
-## 📄 License
+## License
 
 This project is private and proprietary.
 
-## 🙏 Acknowledgments
+## Acknowledgments
 
 - **Supabase** - For the amazing backend platform
 - **Radix UI** - For accessible component primitives
@@ -404,25 +427,26 @@ This project is private and proprietary.
 - **Tailwind CSS** - For the utility-first CSS framework
 - **React Team** - For the excellent UI library
 
-## 📞 Support
+## Support
 
 For support and questions:
 
-- 📧 Email: [your-email@example.com]
-- 🐛 Issues: [GitHub Issues](https://github.com/OptimizedSpaghetti-ru/BarangayCare/issues)
-- 📖 Documentation: Check the `/src` directory for detailed guides
+- Email: [your-email@example.com]
+- Issues: [GitHub Issues](https://github.com/OptimizedSpaghetti-ru/BarangayCare/issues)
+- Documentation: Check the `/src` directory for detailed guides
 
-## 🗺️ Roadmap
+## Roadmap
 
-- [ ] Mobile app (React Native)
+- [x] Android app packaging with Capacitor
+- [x] In-app notification center with unread badge
+- [x] Heatmap dashboard for geotagged complaints
+- [x] Email OTP registration flow with pending approval
+- [x] Multi-language support
+- [x] Analytics export for web and Android
 - [ ] SMS notifications
-- [ ] Multi-language support
-- [ ] Advanced analytics
-- [ ] Document management
 - [ ] Event scheduling
 - [ ] Payment integration
-- [ ] GIS mapping integration
 
 ---
 
-Current Branch: Profile Picture
+Current Branch: Active Development
