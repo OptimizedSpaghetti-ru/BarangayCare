@@ -27,11 +27,20 @@ app.use(
 );
 
 // ── Security helpers ──────────────────────────────────────────────────────────
-const ALLOWED_MIME_TYPES = ["image/jpeg", "image/png", "image/webp", "application/pdf"];
+const ALLOWED_MIME_TYPES = [
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "application/pdf",
+];
 const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024; // 10 MB
 const MIN_PASSWORD_LENGTH = 8;
 
-function validateFileUpload(base64: string, mimeType: string, fileName: string) {
+function validateFileUpload(
+  base64: string,
+  mimeType: string,
+  fileName: string,
+) {
   if (!ALLOWED_MIME_TYPES.includes(mimeType)) {
     return { error: "Invalid file type. Allowed: JPEG, PNG, WebP, PDF" };
   }
@@ -130,15 +139,26 @@ async function verifyUser(request: Request) {
 // When idDocumentUrl/idDocumentPath are provided, account is set to pending.
 app.post("/make-server-fc40ab2c/auth/signup", async (c) => {
   try {
-    const { email, password, name, phoneNumber, idDocumentUrl, idDocumentPath } =
-      await c.req.json();
+    const {
+      email,
+      password,
+      name,
+      phoneNumber,
+      idDocumentUrl,
+      idDocumentPath,
+    } = await c.req.json();
 
     if (!email || !password || !name) {
       return c.json({ error: "Email, password, and name are required" }, 400);
     }
 
     if (password.length < MIN_PASSWORD_LENGTH) {
-      return c.json({ error: `Password must be at least ${MIN_PASSWORD_LENGTH} characters` }, 400);
+      return c.json(
+        {
+          error: `Password must be at least ${MIN_PASSWORD_LENGTH} characters`,
+        },
+        400,
+      );
     }
 
     const hasIdDocument = !!(idDocumentUrl && idDocumentPath);
@@ -236,7 +256,11 @@ app.post("/make-server-fc40ab2c/auth/signup-with-verification", async (c) => {
     }
 
     // Validate file upload
-    const fileValidation = validateFileUpload(idDocumentBase64, idDocumentMimeType || "image/jpeg", idDocumentFileName);
+    const fileValidation = validateFileUpload(
+      idDocumentBase64,
+      idDocumentMimeType || "image/jpeg",
+      idDocumentFileName,
+    );
     if (fileValidation.error) {
       return c.json({ error: fileValidation.error }, 400);
     }
@@ -390,7 +414,11 @@ app.post("/make-server-fc40ab2c/auth/complete-profile", async (c) => {
 
     // Validate file upload
     const mimeType = idDocumentMimeType || "image/jpeg";
-    const fileValidation = validateFileUpload(idDocumentBase64, mimeType, idDocumentFileName);
+    const fileValidation = validateFileUpload(
+      idDocumentBase64,
+      mimeType,
+      idDocumentFileName,
+    );
     if (fileValidation.error) {
       return c.json({ error: fileValidation.error }, 400);
     }
@@ -400,7 +428,12 @@ app.post("/make-server-fc40ab2c/auth/complete-profile", async (c) => {
     // ── Set the password if provided (OTP sign-in doesn't set a password) ─────
     if (password) {
       if (password.length < MIN_PASSWORD_LENGTH) {
-        return c.json({ error: `Password must be at least ${MIN_PASSWORD_LENGTH} characters` }, 400);
+        return c.json(
+          {
+            error: `Password must be at least ${MIN_PASSWORD_LENGTH} characters`,
+          },
+          400,
+        );
       }
       const { error: pwError } = await supabase.auth.admin.updateUserById(
         userId,
@@ -462,18 +495,21 @@ app.post("/make-server-fc40ab2c/auth/complete-profile", async (c) => {
     let profileError;
     if (existingProfile) {
       // Update existing partial profile
-      const { error } = await supabase.from("users").update({
-        name,
-        phone_number: phoneNumber || null,
-        is_active: false,
-        account_status: "pending",
-        address_verification_status: "pending",
-        id_document_url: idDocumentUrl,
-        id_document_path: filePath,
-        required_barangay: "Barangay Marulas, Valenzuela City",
-        email_verified: true,
-        updated_at: new Date().toISOString(),
-      }).eq("id", userId);
+      const { error } = await supabase
+        .from("users")
+        .update({
+          name,
+          phone_number: phoneNumber || null,
+          is_active: false,
+          account_status: "pending",
+          address_verification_status: "pending",
+          id_document_url: idDocumentUrl,
+          id_document_path: filePath,
+          required_barangay: "Barangay Marulas, Valenzuela City",
+          email_verified: true,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", userId);
       profileError = error;
     } else {
       // Insert fresh profile
@@ -502,7 +538,8 @@ app.post("/make-server-fc40ab2c/auth/complete-profile", async (c) => {
     }
 
     return c.json({
-      message: "Registration submitted. Your account is pending admin approval.",
+      message:
+        "Registration submitted. Your account is pending admin approval.",
       user: { id: userId, email: user.email, name, accountStatus: "pending" },
       pending: true,
     });
@@ -511,7 +548,6 @@ app.post("/make-server-fc40ab2c/auth/complete-profile", async (c) => {
     return c.json({ error: "Internal server error" }, 500);
   }
 });
-
 
 // ─── Auth: Get Profile ────────────────────────────────────────────────────────
 app.get("/make-server-fc40ab2c/auth/profile", async (c) => {
@@ -536,38 +572,7 @@ app.get("/make-server-fc40ab2c/auth/profile", async (c) => {
       );
 
       if (fetchError.code === "PGRST116" || !profile) {
-        console.log(
-          `Profile not found, creating new profile for user: ${user.id}`,
-        );
-
-        const newProfile = {
-          id: user.id,
-          email: user.email,
-          name: user.user_metadata?.name || "",
-          phone_number: user.user_metadata?.phone_number || null,
-          is_active: false,
-          account_status: "pending",
-          address_verification_status: "pending",
-          required_barangay: "Barangay Marulas, Valenzuela City",
-          created_at: user.created_at,
-          updated_at: new Date().toISOString(),
-        };
-
-        const { data: insertedProfile, error: insertError } = await supabase
-          .from("users")
-          .insert(newProfile)
-          .select()
-          .single();
-
-        if (insertError) {
-          console.log(`Error creating profile: ${insertError.message}`);
-          return c.json(
-            { error: `Failed to create user profile: ${insertError.message}` },
-            500,
-          );
-        }
-
-        return c.json({ profile: mapProfile(insertedProfile) });
+        return c.json({ error: "Profile not found" }, 404);
       } else {
         return c.json({ error: `Database error: ${fetchError.message}` }, 500);
       }
@@ -580,7 +585,9 @@ app.get("/make-server-fc40ab2c/auth/profile", async (c) => {
       error instanceof Error ? error.message : "Unknown error";
     console.log(`Get profile error: ${errorMessage}`);
     return c.json(
-      { error: `Internal server error while fetching profile: ${errorMessage}` },
+      {
+        error: `Internal server error while fetching profile: ${errorMessage}`,
+      },
       500,
     );
   }
@@ -842,10 +849,7 @@ app.put(
     try {
       const { error } = await verifyAdmin(c.req.raw);
       if (error) {
-        return c.json(
-          { error },
-          error === "Admin access required" ? 403 : 401,
-        );
+        return c.json({ error }, error === "Admin access required" ? 403 : 401);
       }
 
       const userId = c.req.param("userId");
@@ -889,7 +893,8 @@ app.put(
         updateData.address_rejection_reason = null;
       } else if (status === "rejected") {
         updateData.address_rejection_reason =
-          rejectionReason || "Address on ID does not match Barangay Marulas, Valenzuela City";
+          rejectionReason ||
+          "Address on ID does not match Barangay Marulas, Valenzuela City";
       }
 
       const { data: updatedProfile, error: updateError } = await supabase

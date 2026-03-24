@@ -99,7 +99,8 @@ export function ComplaintProvider({ children }: { children: React.ReactNode }) {
       let query = supabase
         .from("complaints")
         .select("*")
-        .order("date_submitted", { ascending: false });
+        .order("date_submitted", { ascending: false })
+        .limit(1000); // Limit to latest 1000 to keep dashboard fast
 
       // If not admin, only fetch user's own complaints
       if (!isAdmin) {

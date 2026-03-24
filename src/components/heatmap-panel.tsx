@@ -230,7 +230,7 @@ export function HeatmapPanel({ complaints }: HeatmapPanelProps) {
       <CardHeader className="pb-2">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <CardTitle className="flex items-center gap-2 text-base">
-            🔥 Complaint Heatmap
+
             <Badge variant="outline" className="text-xs font-normal">
               {pointCount} point{pointCount !== 1 ? "s" : ""}
             </Badge>
@@ -247,11 +247,10 @@ export function HeatmapPanel({ complaints }: HeatmapPanelProps) {
             <button
               key={cat}
               onClick={() => handleCategoryChange(cat)}
-              className={`px-2.5 py-1 rounded-full text-xs font-medium border transition-all ${
-                categoryFilter === cat
-                  ? "bg-primary text-primary-foreground border-primary shadow-sm"
-                  : "bg-background text-muted-foreground border-border hover:border-primary/50 hover:text-foreground"
-              }`}
+              className={`px-2.5 py-1 rounded-full text-xs font-medium border transition-all ${categoryFilter === cat
+                ? "bg-primary text-primary-foreground border-primary shadow-sm"
+                : "bg-background text-muted-foreground border-border hover:border-primary/50 hover:text-foreground"
+                }`}
             >
               {cat === "all" ? (
                 "All"

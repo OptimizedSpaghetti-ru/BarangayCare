@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useState, useRef } from "react";
 import { getSupabaseClient } from "../../utils/supabase/client";
 import { publicAnonKey, projectId } from "../../utils/supabase/info";
 
@@ -27,21 +27,21 @@ interface AuthContextType {
     password: string,
     name: string,
     phoneNumber?: string,
-    idFile?: File
+    idFile?: File,
   ) => Promise<{ error?: string; pending?: boolean }>;
   signUpWithIdVerification: (
     email: string,
     password: string,
     name: string,
     phoneNumber?: string,
-    idFile?: File
+    idFile?: File,
   ) => Promise<{ error?: string; pending?: boolean }>;
   /** Step 1: send a 6-digit OTP to the email via Supabase */
   sendOtp: (email: string) => Promise<{ error?: string }>;
   /** Step 2: verify the OTP — returns the session access token on success */
   verifyEmailOtp: (
     email: string,
-    token: string
+    token: string,
   ) => Promise<{ accessToken?: string; error?: string }>;
   /** Step 3: complete profile creation after OTP verification */
   completeProfile: (
@@ -49,11 +49,11 @@ interface AuthContextType {
     name: string,
     password: string,
     phoneNumber: string | undefined,
-    idFile: File
+    idFile: File,
   ) => Promise<{ error?: string; pending?: boolean }>;
   signIn: (
     email: string,
-    password: string
+    password: string,
   ) => Promise<{ error?: string; accountStatus?: string }>;
   signInWithGoogle: () => Promise<{ error?: string }>;
   signInWithFacebook: () => Promise<{ error?: string }>;
@@ -61,7 +61,7 @@ interface AuthContextType {
   signOut: () => Promise<void>;
   updateProfile: (
     name: string,
-    phoneNumber?: string
+    phoneNumber?: string,
   ) => Promise<{ error?: string }>;
   uploadProfilePicture: (file: File) => Promise<{ error?: string }>;
   deleteAccount: () => Promise<{ error?: string }>;
@@ -75,6 +75,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
   const [isGuest, setIsGuest] = useState(false);
+  const isRegisteringRef = useRef(false);
 
   const supabase = getSupabaseClient();
 
@@ -116,8 +117,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               profile.accountStatus === "approved"
             ) {
               setUser(profile);
-              const adminRole =
-                session.user?.user_metadata?.role === "admin";
+              const adminRole = session.user?.user_metadata?.role === "admin";
               setIsAdmin(adminRole);
             } else {
               // Account is pending or rejected — sign them out silently
@@ -126,6 +126,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               setIsAdmin(false);
             }
           } else {
+            if (response.status === 404) {
+              await supabase.auth.signOut();
+            }
             setUser(null);
             setIsAdmin(false);
           }
@@ -151,6 +154,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (event === "SIGNED_IN" && session?.access_token) {
+        // Prevent UI unmounting while OTP registration is actively happening
+        if (isRegisteringRef.current) return;
+
         const response = await fetch(`${serverUrl}/auth/profile`, {
           headers: {
             Authorization: `Bearer ${session.access_token}`,
@@ -170,6 +176,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             setUser(null);
             setIsAdmin(false);
           }
+        } else if (response.status === 404) {
+          await supabase.auth.signOut();
+          setUser(null);
+          setIsAdmin(false);
         }
       } else if (event === "SIGNED_OUT") {
         setUser(null);
@@ -202,7 +212,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     password: string,
     name: string,
     phoneNumber?: string,
-    idFile?: File
+    idFile?: File,
   ): Promise<{ error?: string; pending?: boolean }> => {
     return signUpWithIdVerification(email, password, name, phoneNumber, idFile);
   };
@@ -213,7 +223,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     password: string,
     name: string,
     phoneNumber?: string,
-    idFile?: File
+    idFile?: File,
   ): Promise<{ error?: string; pending?: boolean }> => {
     try {
       if (!idFile) {
@@ -225,13 +235,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       } catch {
         return { error: "Failed to read ID file. Please try again." };
       }
-      const response = await fetch(`${serverUrl}/auth/signup-with-verification`, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${publicAnonKey}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password, name, phoneNumber, idDocumentBase64, idDocumentFileName: idFile.name, idDocumentMimeType: idFile.type }),
-      });
+      const response = await fetch(
+        `${serverUrl}/auth/signup-with-verification`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${publicAnonKey}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            email,
+            password,
+            name,
+            phoneNumber,
+            idDocumentBase64,
+            idDocumentFileName: idFile.name,
+            idDocumentMimeType: idFile.type,
+          }),
+        },
+      );
       const data = await response.json();
-      if (!response.ok) return { error: data.error || "Failed to create account" };
+      if (!response.ok)
+        return { error: data.error || "Failed to create account" };
       return { pending: true };
     } catch (error) {
       console.error("Signup with verification error:", error);
@@ -243,6 +268,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   /** Step 1: Send 6-digit OTP to the user's email via Supabase Auth */
   const sendOtp = async (email: string): Promise<{ error?: string }> => {
+    isRegisteringRef.current = true;
     const { error } = await supabase.auth.signInWithOtp({
       email,
       options: { shouldCreateUser: true },
@@ -254,7 +280,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   /** Step 2: Verify the 6-digit OTP. Returns the OTP session access token. */
   const verifyEmailOtp = async (
     email: string,
-    token: string
+    token: string,
   ): Promise<{ accessToken?: string; error?: string }> => {
     const { data, error } = await supabase.auth.verifyOtp({
       email,
@@ -262,10 +288,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       type: "email",
     });
     if (error) return { error: error.message };
-    // Sign out immediately — we only needed the OTP session to get the token
-    // The user won't have a persistent session until admin-approved login
+
+    // We intentionally DO NOT sign out here so the token stays valid
+    // for the completeProfile step. isRegisteringRef prevents the UI
+    // from jumping to the dashboard in the meantime.
     const accessToken = data.session?.access_token;
-    await supabase.auth.signOut();
     if (!accessToken) return { error: "OTP verified but no session received" };
     return { accessToken };
   };
@@ -276,7 +303,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     name: string,
     password: string,
     phoneNumber: string | undefined,
-    idFile: File
+    idFile: File,
   ): Promise<{ error?: string; pending?: boolean }> => {
     try {
       if (!idFile) return { error: "ID document is required" };
@@ -286,29 +313,61 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       } catch {
         return { error: "Failed to read ID file. Please try again." };
       }
-      const response = await fetch(`${serverUrl}/auth/complete-profile`, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name, password, phoneNumber,
-          idDocumentBase64,
-          idDocumentFileName: idFile.name,
-          idDocumentMimeType: idFile.type,
-        }),
-      });
-      const data = await response.json();
-      if (!response.ok) return { error: data.error || "Failed to complete registration" };
+
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000);
+
+      let response: Response;
+      try {
+        response = await fetch(`${serverUrl}/auth/complete-profile`, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            "Content-Type": "application/json",
+          },
+          signal: controller.signal,
+          body: JSON.stringify({
+            name,
+            password,
+            phoneNumber,
+            idDocumentBase64,
+            idDocumentFileName: idFile.name,
+            idDocumentMimeType: idFile.type,
+          }),
+        });
+      } finally {
+        clearTimeout(timeoutId);
+      }
+
+      let data: { error?: string } | null = null;
+      try {
+        data = await response.json();
+      } catch {
+        data = null;
+      }
+
+      if (!response.ok) {
+        return { error: data?.error || "Failed to complete registration" };
+      }
+
       return { pending: true };
     } catch (error) {
       console.error("Complete profile error:", error);
+      if (error instanceof DOMException && error.name === "AbortError") {
+        return { error: "Request timed out. Please try again." };
+      }
       return { error: "Network error during registration" };
+    } finally {
+      // Registration guard is released here.
+      // Caller controls sign-out timing to avoid blocking UI transitions.
+      isRegisteringRef.current = false;
     }
   };
 
   // signIn — checks account status after authentication
   const signIn = async (
     email: string,
-    password: string
+    password: string,
   ): Promise<{ error?: string; accountStatus?: string }> => {
     try {
       const { data, error } = await supabase.auth.signInWithPassword({
@@ -348,14 +407,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           }
 
           // Block users who haven't completed email OTP verification
-          if (profile.emailVerified === false || profile.email_verified === false) {
+          if (
+            profile.emailVerified === false ||
+            profile.email_verified === false
+          ) {
             await supabase.auth.signOut();
             return { error: "unverified", accountStatus: "unverified" };
           }
 
           setUser(profile);
-          const adminRole =
-            data.session.user?.user_metadata?.role === "admin";
+          const adminRole = data.session.user?.user_metadata?.role === "admin";
           setIsAdmin(adminRole);
         }
       }
@@ -476,8 +537,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
         if (uploadError.message.includes("Policy")) {
           return {
-            error:
-              "Storage permissions not configured. Please contact admin.",
+            error: "Storage permissions not configured. Please contact admin.",
           };
         }
         return { error: `Upload failed: ${uploadError.message}` };

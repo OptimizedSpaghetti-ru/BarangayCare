@@ -63,14 +63,20 @@ export function SignupForm({ onSwitchToLogin }: SignupFormProps) {
   }>({ score: 0, label: "", color: "", feedback: [] });
 
   // Flow step: 'form' | 'otp' | 'pending'
-  const [step, setStep] = useState<'form' | 'otp' | 'pending'>('form');
+  const [step, setStep] = useState<"form" | "otp" | "pending">("form");
 
   // OTP verification states
-  const [otpDigits, setOtpDigits] = useState<string[]>(['', '', '', '', '', '']);
+  const [otpDigits, setOtpDigits] = useState<string[]>([
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+  ]);
   const [otpError, setOtpError] = useState<string | null>(null);
   const [otpLoading, setOtpLoading] = useState(false);
   const [cooldown, setCooldown] = useState(0);
-  const [otpAccessToken, setOtpAccessToken] = useState<string | null>(null);
   const otpInputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
   // ID verification states
@@ -79,7 +85,8 @@ export function SignupForm({ onSwitchToLogin }: SignupFormProps) {
   const [idError, setIdError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const { sendOtp, verifyEmailOtp, completeProfile, loginAsGuest } = useAuth();
+  const { sendOtp, verifyEmailOtp, completeProfile, loginAsGuest, signOut } =
+    useAuth();
 
   // Cooldown timer for resend
   useEffect(() => {
@@ -301,9 +308,9 @@ export function SignupForm({ onSwitchToLogin }: SignupFormProps) {
     }
 
     // Move to OTP step
-    setStep('otp');
+    setStep("otp");
     setCooldown(60);
-    setOtpDigits(['', '', '', '', '', '']);
+    setOtpDigits(["", "", "", "", "", ""]);
     setOtpError(null);
     toast.success(`📧 OTP sent to ${email}`);
     setLoading(false);
@@ -329,7 +336,7 @@ export function SignupForm({ onSwitchToLogin }: SignupFormProps) {
 
   const handleOtpKeyDown = useCallback(
     (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
-      if (e.key === 'Backspace' && !otpDigits[index] && index > 0) {
+      if (e.key === "Backspace" && !otpDigits[index] && index > 0) {
         otpInputRefs.current[index - 1]?.focus();
       }
     },
@@ -339,7 +346,10 @@ export function SignupForm({ onSwitchToLogin }: SignupFormProps) {
   const handleOtpPaste = useCallback(
     (e: React.ClipboardEvent) => {
       e.preventDefault();
-      const pasted = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6);
+      const pasted = e.clipboardData
+        .getData("text")
+        .replace(/\D/g, "")
+        .slice(0, 6);
       if (pasted.length > 0) {
         const newDigits = [...otpDigits];
         for (let i = 0; i < pasted.length; i++) {
@@ -355,59 +365,77 @@ export function SignupForm({ onSwitchToLogin }: SignupFormProps) {
 
   // ── Verify OTP + complete profile ─────────────────────────────────────────────
   const handleVerifyOtp = async () => {
-    const otp = otpDigits.join('');
+    const otp = otpDigits.join("");
     if (otp.length !== 6) {
-      setOtpError('Please enter all 6 digits');
+      setOtpError("Please enter all 6 digits");
       return;
     }
 
     setOtpLoading(true);
     setOtpError(null);
 
-    const { accessToken, error: otpErr } = await verifyEmailOtp(email, otp);
-    if (otpErr || !accessToken) {
-      setOtpError(otpErr || 'Verification failed');
+    try {
+      const { accessToken, error: otpErr } = await verifyEmailOtp(email, otp);
+      if (otpErr || !accessToken) {
+        setOtpError(otpErr || "Verification failed");
+        return;
+      }
+
+      const fullName =
+        `${firstName} ${middleName ? middleName + " " : ""}${lastName}`.trim();
+      const { error: profileErr, pending } = await completeProfile(
+        accessToken,
+        fullName,
+        password,
+        phoneNumber || undefined,
+        idFile!,
+      );
+
+      if (profileErr) {
+        setOtpError(profileErr);
+        return;
+      }
+
+      if (pending) {
+        try {
+          await signOut();
+        } catch {}
+        setStep("pending");
+        toast.success(
+          "🎉 Registration submitted! Your account is pending approval due to ID verification.",
+        );
+      } else {
+        setOtpError("Registration could not be completed. Please try again.");
+      }
+    } catch {
+      setOtpError("An unexpected error occurred. Please try again.");
+    } finally {
       setOtpLoading(false);
-      return;
     }
-
-    const fullName = `${firstName} ${middleName ? middleName + ' ' : ''}${lastName}`.trim();
-    const { error: profileErr, pending } = await completeProfile(
-      accessToken, fullName, password, phoneNumber || undefined, idFile!,
-    );
-
-    if (profileErr) {
-      setOtpError(profileErr);
-      setOtpLoading(false);
-      return;
-    }
-
-    if (pending) {
-      setStep('pending');
-      toast.success('🎉 Registration submitted! Your account is pending admin approval.');
-    }
-    setOtpLoading(false);
   };
 
   // ── Resend OTP ────────────────────────────────────────────────────────────────
   const handleResendOtp = async () => {
     if (cooldown > 0) return;
     setOtpLoading(true);
-    const { error } = await sendOtp(email);
-    if (error) {
-      toast.error(error);
-    } else {
-      setCooldown(60);
-      setOtpDigits(['', '', '', '', '', '']);
-      setOtpError(null);
-      toast.success('📧 New OTP sent!');
-      setTimeout(() => otpInputRefs.current[0]?.focus(), 100);
+    try {
+      const { error } = await sendOtp(email);
+      if (error) {
+        toast.error(error);
+      } else {
+        setCooldown(60);
+        setOtpDigits(["", "", "", "", "", ""]);
+        setOtpError(null);
+        toast.success("📧 New OTP sent!");
+        setTimeout(() => otpInputRefs.current[0]?.focus(), 100);
+      }
+    } finally {
+      setOtpLoading(false);
     }
-    setOtpLoading(false);
   };
 
   // ── Step 3: Pending Approval Screen ─────────────────────────────────────────
-  if (step === 'pending') {
+  if (step === "pending") {
     return (
       <Card className="w-full max-w-md mx-auto">
         <CardHeader className="text-center">
@@ -416,7 +444,7 @@ export function SignupForm({ onSwitchToLogin }: SignupFormProps) {
           </div>
           <CardTitle className="text-2xl">Registration Submitted</CardTitle>
           <CardDescription>
-            Your email has been verified and account is pending admin approval
+            Your account is pending approval due to ID verification.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -457,8 +485,8 @@ export function SignupForm({ onSwitchToLogin }: SignupFormProps) {
   }
 
   // ── Step 2: OTP Verification Screen ─────────────────────────────────────────
-  if (step === 'otp') {
-    const otpFull = otpDigits.join('').length === 6;
+  if (step === "otp") {
+    const otpFull = otpDigits.join("").length === 6;
 
     return (
       <Card className="w-full max-w-md mx-auto">
@@ -468,7 +496,8 @@ export function SignupForm({ onSwitchToLogin }: SignupFormProps) {
           </div>
           <CardTitle className="text-2xl">Verify Your Email</CardTitle>
           <CardDescription>
-            We sent a 6-digit code to <strong className="text-foreground">{email}</strong>
+            We sent a 6-digit code to{" "}
+            <strong className="text-foreground">{email}</strong>
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
@@ -477,7 +506,9 @@ export function SignupForm({ onSwitchToLogin }: SignupFormProps) {
             {otpDigits.map((digit, i) => (
               <input
                 key={i}
-                ref={(el) => { otpInputRefs.current[i] = el; }}
+                ref={(el) => {
+                  otpInputRefs.current[i] = el;
+                }}
                 type="text"
                 inputMode="numeric"
                 maxLength={1}
@@ -487,10 +518,10 @@ export function SignupForm({ onSwitchToLogin }: SignupFormProps) {
                 onPaste={i === 0 ? handleOtpPaste : undefined}
                 className={`w-12 h-14 text-center text-2xl font-bold rounded-lg border-2 bg-background transition-all focus:outline-none focus:ring-2 focus:ring-primary/50 ${
                   otpError
-                    ? 'border-destructive focus:ring-destructive/50'
+                    ? "border-destructive focus:ring-destructive/50"
                     : digit
-                      ? 'border-primary'
-                      : 'border-border'
+                      ? "border-primary"
+                      : "border-border"
                 }`}
               />
             ))}
@@ -514,16 +545,21 @@ export function SignupForm({ onSwitchToLogin }: SignupFormProps) {
                 Verifying…
               </>
             ) : (
-              'Verify & Complete Registration'
+              "Verify & Complete Registration"
             )}
           </Button>
 
           {/* Resend OTP */}
           <div className="text-center space-y-2">
-            <p className="text-sm text-muted-foreground">Didn't receive the code?</p>
+            <p className="text-sm text-muted-foreground">
+              Didn't receive the code?
+            </p>
             {cooldown > 0 ? (
               <p className="text-sm text-muted-foreground">
-                Resend in <span className="font-semibold text-foreground">{cooldown}s</span>
+                Resend in{" "}
+                <span className="font-semibold text-foreground">
+                  {cooldown}s
+                </span>
               </p>
             ) : (
               <Button
@@ -542,7 +578,10 @@ export function SignupForm({ onSwitchToLogin }: SignupFormProps) {
           <Button
             variant="outline"
             className="w-full"
-            onClick={() => { setStep('form'); setOtpError(null); }}
+            onClick={() => {
+              setStep("form");
+              setOtpError(null);
+            }}
           >
             <ArrowLeft className="w-4 h-4 mr-2" />
             Back to Registration
@@ -728,7 +767,9 @@ export function SignupForm({ onSwitchToLogin }: SignupFormProps) {
                             ? "bg-green-500"
                             : "bg-emerald-500"
                     }`}
-                    style={{ width: `${Math.min(passwordStrength.score, 100)}%` }}
+                    style={{
+                      width: `${Math.min(passwordStrength.score, 100)}%`,
+                    }}
                   />
                 </div>
                 {passwordStrength.feedback.length > 0 && (
@@ -815,11 +856,10 @@ export function SignupForm({ onSwitchToLogin }: SignupFormProps) {
               <MapPin className="h-4 w-4 text-amber-600 dark:text-amber-400" />
               <AlertDescription className="text-amber-800 dark:text-amber-300 text-sm">
                 <strong>Important:</strong> Registration is only available for
-                residents of{" "}
-                <strong>Barangay Marulas, Valenzuela City.</strong> Upload a
-                valid government or barangay-issued ID that clearly shows your
-                address. An admin will review your ID before approving your
-                account.
+                residents of <strong>Barangay Marulas, Valenzuela City.</strong>{" "}
+                Upload a valid government or barangay-issued ID that clearly
+                shows your address. An admin will review your ID before
+                approving your account.
               </AlertDescription>
             </Alert>
 
