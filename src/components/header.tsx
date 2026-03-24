@@ -3,6 +3,8 @@ import { Badge } from "./ui/badge";
 import {
   Home,
   PlusCircle,
+  Bell,
+  Map,
   Settings,
   MessageSquare,
   Moon,
@@ -27,6 +29,7 @@ interface HeaderProps {
   onViewChange: (view: string) => void;
   isAdmin?: boolean;
   pendingCount?: number;
+  unreadNotificationCount?: number;
 }
 
 export function Header({
@@ -34,6 +37,7 @@ export function Header({
   onViewChange,
   isAdmin = false,
   pendingCount = 0,
+  unreadNotificationCount = 0,
 }: HeaderProps) {
   const { t } = useTranslation();
   const { theme, toggleTheme } = useTheme();
@@ -65,6 +69,12 @@ export function Header({
       label: t("nav.admin"),
       icon: Settings,
       shortLabel: t("admin.title"),
+    });
+    navigationItems.push({
+      key: "heatmap",
+      label: "Heatmap",
+      icon: Map,
+      shortLabel: "Heatmap",
     });
     navigationItems.push({
       key: "analytics",
@@ -126,6 +136,26 @@ export function Header({
                 </Button>
               ))}
 
+              <Button
+                variant={currentView === "notifications" ? "default" : "ghost"}
+                size="icon"
+                onClick={() => handleNavClick("notifications")}
+                className="relative"
+                aria-label="Open notifications"
+              >
+                <Bell className="w-4 h-4" />
+                {unreadNotificationCount > 0 && (
+                  <Badge
+                    variant="destructive"
+                    className="absolute -top-1 -right-1 h-5 min-w-5 px-1 text-[10px] flex items-center justify-center"
+                  >
+                    {unreadNotificationCount > 99
+                      ? "99+"
+                      : unreadNotificationCount}
+                  </Badge>
+                )}
+              </Button>
+
               {/* Theme Toggle */}
               <Button
                 variant="ghost"
@@ -164,6 +194,26 @@ export function Header({
 
             {/* Mobile Navigation */}
             <div className="flex items-center space-x-2 md:hidden">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => handleNavClick("notifications")}
+                className="relative"
+                aria-label="Open notifications"
+              >
+                <Bell className="w-4 h-4" />
+                {unreadNotificationCount > 0 && (
+                  <Badge
+                    variant="destructive"
+                    className="absolute -top-1 -right-1 h-5 min-w-5 px-1 text-[10px] flex items-center justify-center"
+                  >
+                    {unreadNotificationCount > 99
+                      ? "99+"
+                      : unreadNotificationCount}
+                  </Badge>
+                )}
+              </Button>
+
               <Button variant="ghost" size="icon" onClick={toggleTheme}>
                 {theme === "light" ? (
                   <Moon className="w-4 h-4" />
@@ -197,6 +247,25 @@ export function Header({
                         )}
                       </Button>
                     ))}
+
+                    <Button
+                      variant={
+                        currentView === "notifications" ? "default" : "ghost"
+                      }
+                      onClick={() => handleNavClick("notifications")}
+                      className="flex items-center justify-start space-x-3 w-full"
+                      size="lg"
+                    >
+                      <Bell className="w-5 h-5" />
+                      <span>Notifications</span>
+                      {unreadNotificationCount > 0 && (
+                        <Badge variant="destructive" className="ml-auto">
+                          {unreadNotificationCount > 99
+                            ? "99+"
+                            : unreadNotificationCount}
+                        </Badge>
+                      )}
+                    </Button>
 
                     {user && (
                       <>

@@ -45,6 +45,7 @@ export function SignupForm({ onSwitchToLogin }: SignupFormProps) {
   const [middleName, setMiddleName] = useState("");
   const [lastName, setLastName] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
+  const [phoneNumberError, setPhoneNumberError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -87,6 +88,20 @@ export function SignupForm({ onSwitchToLogin }: SignupFormProps) {
 
   const { sendOtp, verifyEmailOtp, completeProfile, loginAsGuest, signOut } =
     useAuth();
+
+  const normalizePhone = (value: string) =>
+    value.replace(/\D/g, "").slice(0, 11);
+
+  const validatePhone = (value: string): string | null => {
+    if (!value) return null;
+    if (!/^\d+$/.test(value)) {
+      return "Phone number must contain digits only";
+    }
+    if (value.length !== 11) {
+      return "Phone number must be exactly 11 digits";
+    }
+    return null;
+  };
 
   // Cooldown timer for resend
   useEffect(() => {
@@ -265,6 +280,13 @@ export function SignupForm({ onSwitchToLogin }: SignupFormProps) {
 
     if (passwordStrength.score < 70) {
       toast.error("Password is too weak. Please create a stronger password.");
+      return;
+    }
+
+    const phoneValidation = validatePhone(phoneNumber.trim());
+    if (phoneValidation) {
+      setPhoneNumberError(phoneValidation);
+      toast.error(phoneValidation);
       return;
     }
 
@@ -708,12 +730,28 @@ export function SignupForm({ onSwitchToLogin }: SignupFormProps) {
               <Input
                 id="phone"
                 type="tel"
+                inputMode="numeric"
+                maxLength={11}
                 value={phoneNumber}
-                onChange={(e) => setPhoneNumber(e.target.value)}
+                onChange={(e) => {
+                  const normalized = normalizePhone(e.target.value);
+                  setPhoneNumber(normalized);
+                  setPhoneNumberError(validatePhone(normalized));
+                }}
                 placeholder="Enter your phone number"
-                className="pl-10"
+                className={`pl-10 ${
+                  phoneNumberError
+                    ? "border-destructive focus-visible:ring-destructive"
+                    : ""
+                }`}
               />
             </div>
+            {phoneNumberError && (
+              <p className="text-xs text-destructive flex items-center gap-1 mt-1">
+                <AlertTriangle className="w-3 h-3" />
+                {phoneNumberError}
+              </p>
+            )}
           </div>
 
           <div className="space-y-2">

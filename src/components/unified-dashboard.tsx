@@ -31,6 +31,7 @@ import {
   TrendingUp,
   FileText,
   User,
+  RefreshCw,
 } from "lucide-react";
 import { useAuth } from "./auth/auth-context";
 import { ImageWithFallback } from "./figma/ImageWithFallback";
@@ -56,18 +57,30 @@ interface UnifiedDashboardProps {
   complaints: Complaint[];
   onViewDetails: (complaint: Complaint) => void;
   isAdmin?: boolean;
+  onRefresh?: () => Promise<void> | void;
+  refreshing?: boolean;
 }
 
 export function UnifiedDashboard({
   complaints,
   onViewDetails,
   isAdmin = false,
+  onRefresh,
+  refreshing = false,
 }: UnifiedDashboardProps) {
   const { t } = useTranslation();
   const { user } = useAuth();
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
+
+  const getTimeBasedGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour >= 5 && hour < 12) return "Good morning";
+    if (hour >= 12 && hour < 13) return "Good noon";
+    if (hour >= 13 && hour < 18) return "Good afternoon";
+    return "Good evening";
+  };
 
   // Show all complaints
   const baseComplaints = complaints;
@@ -159,14 +172,14 @@ export function UnifiedDashboard({
             : "from-primary to-accent text-primary-foreground"
         } p-4 sm:p-6 rounded-lg`}
       >
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-3">
           <div>
             <h1 className="text-xl sm:text-2xl flex items-center space-x-2">
               <User className="w-6 h-6" />
               <span>
                 {isAdmin
                   ? t("admin.title") + " - BarangayCARE"
-                  : `${t("auth.welcomeBack")}, ${user?.name}!`}
+                  : `${getTimeBasedGreeting()}, ${user?.name}!`}
               </span>
             </h1>
             <p className="mt-2 opacity-90 text-sm sm:text-base">
@@ -175,6 +188,19 @@ export function UnifiedDashboard({
                 : t("dashboard.residentDescription")}
             </p>
           </div>
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            className="shrink-0"
+            onClick={() => void onRefresh?.()}
+            disabled={refreshing}
+          >
+            <RefreshCw
+              className={`w-4 h-4 mr-2 ${refreshing ? "animate-spin" : ""}`}
+            />
+            Refresh
+          </Button>
         </div>
       </div>
 

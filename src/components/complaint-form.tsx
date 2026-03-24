@@ -54,6 +54,7 @@ export function ComplaintForm({ onSubmit }: ComplaintFormProps) {
   const [location, setLocation] = useState("");
   const [photo, setPhoto] = useState<string | null>(null);
   const [contactInfo, setContactInfo] = useState("");
+  const [contactError, setContactError] = useState<string | null>(null);
   const [showMap, setShowMap] = useState(false);
   const [coordinates, setCoordinates] = useState<{
     lat: number;
@@ -61,6 +62,19 @@ export function ComplaintForm({ onSubmit }: ComplaintFormProps) {
   } | null>(null);
   const [respondent, setRespondent] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const normalizePhone = (value: string) =>
+    value.replace(/\D/g, "").slice(0, 11);
+
+  const validatePhone = (value: string): string | null => {
+    if (!/^\d+$/.test(value)) {
+      return "Contact number must contain digits only";
+    }
+    if (value.length !== 11) {
+      return "Contact number must be exactly 11 digits";
+    }
+    return null;
+  };
 
   // Check if category requires respondent field
   const requiresRespondent =
@@ -74,6 +88,7 @@ export function ComplaintForm({ onSubmit }: ComplaintFormProps) {
       category !== "" &&
       location.trim() !== "" &&
       contactInfo.trim() !== "" &&
+      validatePhone(contactInfo.trim()) === null &&
       photo !== null; // Photo is now mandatory
 
     // If category requires respondent, check if it's filled
@@ -90,8 +105,15 @@ export function ComplaintForm({ onSubmit }: ComplaintFormProps) {
     // Validate all required fields before submission
     if (!isFormValid()) {
       toast.error(
-        "Please fill in all required fields including uploading a photo."
+        "Please fill in all required fields including uploading a photo.",
       );
+      return;
+    }
+
+    const phoneValidation = validatePhone(contactInfo.trim());
+    if (phoneValidation) {
+      setContactError(phoneValidation);
+      toast.error(phoneValidation);
       return;
     }
 
@@ -118,6 +140,7 @@ export function ComplaintForm({ onSubmit }: ComplaintFormProps) {
     setLocation("");
     setPhoto(null);
     setContactInfo("");
+    setContactError(null);
     setCoordinates(null);
     setRespondent("");
   };
@@ -138,9 +161,15 @@ export function ComplaintForm({ onSubmit }: ComplaintFormProps) {
     }
   };
 
-  const handleLocationSelect = (result: { lat: number; lng: number; address: string }) => {
+  const handleLocationSelect = (result: {
+    lat: number;
+    lng: number;
+    address: string;
+  }) => {
     setCoordinates({ lat: result.lat, lng: result.lng });
-    setLocation(result.address || `${result.lat.toFixed(6)}, ${result.lng.toFixed(6)}`);
+    setLocation(
+      result.address || `${result.lat.toFixed(6)}, ${result.lng.toFixed(6)}`,
+    );
     setShowMap(false);
     toast.success("📍 Location pinned successfully!");
   };
@@ -249,9 +278,7 @@ export function ComplaintForm({ onSubmit }: ComplaintFormProps) {
                     required
                   />
                   {coordinates && (
-                    <Badge
-                      className="absolute right-2 top-1/2 -translate-y-1/2 text-xs bg-green-500 text-white hover:bg-green-600 border-0 pointer-events-none"
-                    >
+                    <Badge className="absolute right-2 top-1/2 -translate-y-1/2 text-xs bg-green-500 text-white hover:bg-green-600 border-0 pointer-events-none">
                       <MapPin className="w-3 h-3 mr-1" />
                       Pinned
                     </Badge>
@@ -321,10 +348,25 @@ export function ComplaintForm({ onSubmit }: ComplaintFormProps) {
               <Input
                 id="contact"
                 value={contactInfo}
-                onChange={(e) => setContactInfo(e.target.value)}
+                type="tel"
+                inputMode="numeric"
+                maxLength={11}
+                onChange={(e) => {
+                  const normalized = normalizePhone(e.target.value);
+                  setContactInfo(normalized);
+                  setContactError(validatePhone(normalized));
+                }}
                 placeholder={t("form.contactPlaceholder")}
+                className={
+                  contactError
+                    ? "border-destructive focus-visible:ring-destructive"
+                    : ""
+                }
                 required
               />
+              {contactError && (
+                <p className="text-xs text-destructive">{contactError}</p>
+              )}
             </div>
 
             <Button
@@ -348,7 +390,8 @@ export function ComplaintForm({ onSubmit }: ComplaintFormProps) {
               Pin Your Location
             </DialogTitle>
             <DialogDescription>
-              Click anywhere within the <strong>Barangay Marulas</strong> boundary to pin your exact location. Drag the marker to adjust.
+              Click anywhere within the <strong>Barangay Marulas</strong>{" "}
+              boundary to pin your exact location. Drag the marker to adjust.
             </DialogDescription>
           </DialogHeader>
 

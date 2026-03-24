@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { ThemeProvider } from "./components/theme-provider";
 import { AuthProvider, useAuth } from "./components/auth/auth-context";
@@ -16,6 +16,7 @@ import { UnifiedDashboard } from "./components/unified-dashboard";
 import { ComplaintForm } from "./components/complaint-form";
 import { AdminPanel } from "./components/admin-panel";
 import { DataAnalytics } from "./components/data-analytics";
+import { HeatmapDashboard } from "./components/heatmap-dashboard";
 import {
   Dialog,
   DialogContent,
@@ -28,10 +29,13 @@ import { Badge } from "./components/ui/badge";
 import { Card, CardContent } from "./components/ui/card";
 import {
   CheckCircle,
+  CheckCheck,
   Clock,
+  Bell,
   MapPin,
   MessageSquare,
   Phone,
+  Shield,
   User,
   XCircle,
 } from "lucide-react";
@@ -56,18 +60,74 @@ interface Complaint {
   userName?: string;
 }
 
+interface AppNotification {
+  id: string;
+  title: string;
+  message: string;
+  createdAt: string;
+  read: boolean;
+}
+
 // No sample data - only real data will be displayed
 
 function AppContent() {
   const { t } = useTranslation();
   const { user, loading, isAdmin, isGuest } = useAuth();
-  const { complaints, addComplaint, updateComplaint } = useComplaints();
+  const { complaints, addComplaint, updateComplaint, fetchComplaints } =
+    useComplaints();
   const [currentView, setCurrentView] = useState("dashboard");
   const [authView, setAuthView] = useState<"login" | "signup">("login");
   const [selectedComplaint, setSelectedComplaint] = useState<Complaint | null>(
-    null
+    null,
   );
   const [showDetailsDialog, setShowDetailsDialog] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [notifications, setNotifications] = useState<AppNotification[]>([]);
+  const previousComplaintSnapshot = useRef<
+    Map<string, { status: string; adminNotes: string | null }>
+  >(new Map());
+  const notificationsInitialized = useRef(false);
+
+  const unreadNotificationCount = useMemo(
+    () => notifications.filter((n) => !n.read).length,
+    [notifications],
+  );
+
+  const notificationsStorageKey = user
+    ? `barangaycare.notifications.${isAdmin ? "admin" : "user"}.${user.id}`
+    : null;
+
+  const persistNotifications = (next: AppNotification[]) => {
+    if (notificationsStorageKey) {
+      localStorage.setItem(notificationsStorageKey, JSON.stringify(next));
+    }
+    return next;
+  };
+
+  const buildSnapshot = () => {
+    const snapshot = new Map<
+      string,
+      { status: string; adminNotes: string | null }
+    >();
+    for (const complaint of complaints) {
+      snapshot.set(complaint.id, {
+        status: complaint.status,
+        adminNotes: complaint.adminNotes || null,
+      });
+    }
+    return snapshot;
+  };
+
+  const createNotification = (
+    title: string,
+    message: string,
+  ): AppNotification => ({
+    id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    title,
+    message,
+    createdAt: new Date().toISOString(),
+    read: false,
+  });
 
   // Redirect admins to Admin Panel after login
   useEffect(() => {
@@ -76,15 +136,171 @@ function AppContent() {
     }
   }, [user, isAdmin, currentView]);
 
+  useEffect(() => {
+    if (!notificationsStorageKey) {
+      setNotifications([]);
+      previousComplaintSnapshot.current = new Map();
+      notificationsInitialized.current = false;
+      return;
+    }
+
+    try {
+      const stored = localStorage.getItem(notificationsStorageKey);
+      if (stored) {
+        const parsed = JSON.parse(stored) as AppNotification[];
+        setNotifications(parsed);
+      } else {
+        setNotifications([]);
+      }
+    } catch {
+      setNotifications([]);
+    }
+
+    previousComplaintSnapshot.current = new Map();
+    notificationsInitialized.current = false;
+  }, [notificationsStorageKey]);
+
+  useEffect(() => {
+    if (!user) return;
+
+    if (!notificationsInitialized.current) {
+      const seeded = complaints
+        .filter((complaint) => {
+          if (isAdmin) return true;
+          return complaint.userId === user.id;
+        })
+        .slice(0, 10)
+        .map((complaint) => {
+          if (isAdmin) {
+            return {
+              id: `seed-admin-${complaint.id}`,
+              title: "New complaint submitted",
+              message: `${complaint.userName || "A resident"} filed "${complaint.title}" (${complaint.status})`,
+              createdAt: complaint.dateSubmitted,
+              read: true,
+            } as AppNotification;
+          }
+
+          return {
+            id: `seed-user-${complaint.id}`,
+            title: "Complaint status",
+            message: `"${complaint.title}" is currently ${complaint.status.replace("-", " ")}.`,
+            createdAt: complaint.dateSubmitted,
+            read: true,
+          } as AppNotification;
+        });
+
+      setNotifications((prev) => {
+        if (prev.length > 0) return prev;
+        return persistNotifications(seeded);
+      });
+
+      previousComplaintSnapshot.current = buildSnapshot();
+      notificationsInitialized.current = true;
+      return;
+    }
+
+    const prev = previousComplaintSnapshot.current;
+    const fresh: AppNotification[] = [];
+
+    for (const complaint of complaints) {
+      const previous = prev.get(complaint.id);
+
+      if (isAdmin) {
+        if (!previous) {
+          fresh.push(
+            createNotification(
+              "New complaint submitted",
+              `${complaint.userName || "A resident"} filed "${complaint.title}" in ${complaint.category}.`,
+            ),
+          );
+        }
+        continue;
+      }
+
+      if (complaint.userId !== user.id) continue;
+
+      if (!previous) {
+        fresh.push(
+          createNotification(
+            "Complaint received",
+            `Your complaint "${complaint.title}" was recorded as ${complaint.status.replace("-", " ")}.`,
+          ),
+        );
+        continue;
+      }
+
+      if (previous.status !== complaint.status) {
+        fresh.push(
+          createNotification(
+            "Complaint status updated",
+            `"${complaint.title}" changed from ${previous.status.replace("-", " ")} to ${complaint.status.replace("-", " ")}.`,
+          ),
+        );
+      }
+
+      const currentNotes = complaint.adminNotes || null;
+      if (currentNotes && previous.adminNotes !== currentNotes) {
+        fresh.push(
+          createNotification(
+            "Admin response received",
+            `An admin updated "${complaint.title}" with new notes.`,
+          ),
+        );
+      }
+    }
+
+    if (fresh.length > 0) {
+      setNotifications((prevNotifications) => {
+        const next = [...fresh, ...prevNotifications].slice(0, 100);
+        return persistNotifications(next);
+      });
+    }
+
+    previousComplaintSnapshot.current = buildSnapshot();
+  }, [complaints, isAdmin, user]);
+
+  const markAllNotificationsRead = () => {
+    setNotifications((prev) =>
+      persistNotifications(prev.map((item) => ({ ...item, read: true }))),
+    );
+  };
+
+  const markNotificationRead = (id: string) => {
+    setNotifications((prev) =>
+      persistNotifications(
+        prev.map((item) => (item.id === id ? { ...item, read: true } : item)),
+      ),
+    );
+  };
+
+  useEffect(() => {
+    if (currentView !== "notifications") return;
+    if (unreadNotificationCount === 0) return;
+    markAllNotificationsRead();
+  }, [currentView]);
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await fetchComplaints();
+      toast.success("Latest complaints loaded");
+    } catch {
+      toast.error("Failed to refresh complaints");
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
   const handleSubmitComplaint = async (
-    newComplaint: Omit<Complaint, "id" | "dateSubmitted">
+    newComplaint: Omit<Complaint, "id" | "dateSubmitted">,
   ) => {
     const { error } = await addComplaint(newComplaint);
     if (error) {
       toast.error(error);
     } else {
       toast.success(
-        "Request submitted successfully! We will review it shortly."
+        "Request submitted successfully! We will review it shortly.",
       );
       setCurrentView("dashboard");
     }
@@ -92,7 +308,7 @@ function AppContent() {
 
   const handleUpdateComplaint = async (
     id: string,
-    updates: Partial<Complaint>
+    updates: Partial<Complaint>,
   ) => {
     const { error } = await updateComplaint(id, updates);
     if (error) {
@@ -261,6 +477,7 @@ function AppContent() {
         onViewChange={setCurrentView}
         isAdmin={isAdmin}
         pendingCount={pendingCount}
+        unreadNotificationCount={unreadNotificationCount}
       />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
@@ -269,6 +486,8 @@ function AppContent() {
             complaints={complaints}
             onViewDetails={handleViewDetails}
             isAdmin={isAdmin}
+            onRefresh={handleRefresh}
+            refreshing={refreshing}
           />
         )}
 
@@ -280,7 +499,99 @@ function AppContent() {
           <AdminPanel
             complaints={complaints}
             onUpdateComplaint={handleUpdateComplaint}
+            onRefresh={handleRefresh}
+            refreshing={refreshing}
+            onOpenHeatmap={() => setCurrentView("heatmap")}
           />
+        )}
+
+        {currentView === "heatmap" && isAdmin && (
+          <HeatmapDashboard complaints={complaints} />
+        )}
+
+        {currentView === "notifications" && (
+          <div className="space-y-6">
+            <div className="bg-gradient-to-r from-primary to-accent text-primary-foreground p-4 sm:p-6 rounded-lg">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <h1 className="text-xl sm:text-2xl flex items-center gap-2">
+                    <Bell className="w-6 h-6" />
+                    Notifications
+                  </h1>
+                  <p className="mt-2 opacity-90 text-sm sm:text-base">
+                    {isAdmin
+                      ? "Monitor newly submitted complaints and recent resident activities"
+                      : "Track complaint status updates and responses from admins"}
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  className="shrink-0"
+                  onClick={markAllNotificationsRead}
+                  disabled={unreadNotificationCount === 0}
+                >
+                  <CheckCheck className="w-4 h-4 mr-2" />
+                  Mark all read
+                </Button>
+              </div>
+            </div>
+
+            <Card>
+              <CardContent className="p-4 sm:p-6 space-y-3">
+                {notifications.length === 0 ? (
+                  <div className="py-12 text-center text-muted-foreground">
+                    <Bell className="w-10 h-10 mx-auto mb-3 opacity-60" />
+                    No notifications yet
+                  </div>
+                ) : (
+                  notifications.map((notification) => (
+                    <button
+                      key={notification.id}
+                      type="button"
+                      onClick={() => markNotificationRead(notification.id)}
+                      className={`w-full text-left rounded-lg border p-4 transition-colors ${
+                        notification.read
+                          ? "bg-background border-border"
+                          : "bg-primary/5 border-primary/30"
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            {isAdmin ? (
+                              <Shield className="w-4 h-4 text-primary shrink-0" />
+                            ) : (
+                              <User className="w-4 h-4 text-primary shrink-0" />
+                            )}
+                            <p className="font-medium text-foreground truncate">
+                              {notification.title}
+                            </p>
+                            {!notification.read && (
+                              <Badge
+                                variant="default"
+                                className="text-[10px] px-1.5 py-0 h-5"
+                              >
+                                New
+                              </Badge>
+                            )}
+                          </div>
+                          <p className="text-sm text-muted-foreground">
+                            {notification.message}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-1 text-xs text-muted-foreground shrink-0">
+                          <Clock className="w-3 h-3" />
+                          {new Date(notification.createdAt).toLocaleString()}
+                        </div>
+                      </div>
+                    </button>
+                  ))
+                )}
+              </CardContent>
+            </Card>
+          </div>
         )}
 
         {currentView === "analytics" && (
@@ -314,7 +625,7 @@ function AppContent() {
                   <div className="flex items-center space-x-3 mt-2">
                     <Badge
                       className={`${getStatusColor(
-                        selectedComplaint.status
+                        selectedComplaint.status,
                       )} border-0`}
                     >
                       {selectedComplaint.status}
@@ -322,7 +633,7 @@ function AppContent() {
                     <div className="flex items-center space-x-1">
                       <div
                         className={`w-3 h-3 rounded-full ${getPriorityColor(
-                          selectedComplaint.priority
+                          selectedComplaint.priority,
                         )}`}
                       />
                       <span className="text-sm text-gray-600">
@@ -365,7 +676,7 @@ function AppContent() {
                         hour: "numeric",
                         minute: "2-digit",
                         hour12: true,
-                      }
+                      },
                     )}
                   </p>
                 </div>
@@ -437,8 +748,8 @@ function AppContent() {
                     {selectedComplaint.status === "resolved"
                       ? t("complaints.requestResolved")
                       : selectedComplaint.status === "rejected"
-                      ? t("complaints.requestRejected")
-                      : t("complaints.requestBeingProcessed")}
+                        ? t("complaints.requestRejected")
+                        : t("complaints.requestBeingProcessed")}
                   </span>
                 </div>
               </div>

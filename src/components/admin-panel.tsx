@@ -47,14 +47,12 @@ import {
   CalendarIcon,
   X,
   Settings,
-  ChevronDown,
-  ChevronUp,
-  Flame,
+  Map,
+  RefreshCw,
 } from "lucide-react";
 import { ImageWithFallback } from "./figma/ImageWithFallback";
 import { format, parse, isValid } from "date-fns";
 import type { DateRange } from "react-day-picker";
-import { HeatmapPanel } from "./heatmap-panel";
 
 interface Complaint {
   id: string;
@@ -79,9 +77,18 @@ interface Complaint {
 interface AdminPanelProps {
   complaints: Complaint[];
   onUpdateComplaint: (id: string, updates: Partial<Complaint>) => void;
+  onRefresh?: () => Promise<void> | void;
+  refreshing?: boolean;
+  onOpenHeatmap?: () => void;
 }
 
-export function AdminPanel({ complaints, onUpdateComplaint }: AdminPanelProps) {
+export function AdminPanel({
+  complaints,
+  onUpdateComplaint,
+  onRefresh,
+  refreshing = false,
+  onOpenHeatmap,
+}: AdminPanelProps) {
   const { t } = useTranslation();
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -97,7 +104,6 @@ export function AdminPanel({ complaints, onUpdateComplaint }: AdminPanelProps) {
   const [selectedPriority, setSelectedPriority] = useState<
     "low" | "medium" | "high"
   >("medium");
-  const [showHeatmap, setShowHeatmap] = useState(false);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -252,20 +258,38 @@ export function AdminPanel({ complaints, onUpdateComplaint }: AdminPanelProps) {
   return (
     <div className="space-y-6">
       <div className="bg-gradient-to-r from-secondary to-primary text-secondary-foreground p-4 sm:p-6 rounded-lg">
-        <h1 className="text-xl sm:text-2xl flex items-center gap-2">
-          <Settings className="w-6 h-6" />
-          Admin Panel
-        </h1>
-        <p className="mt-2 opacity-90 text-sm sm:text-base">
-          Manage community requests and track resolution progress
-        </p>
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h1 className="text-xl sm:text-2xl flex items-center gap-2">
+              <Settings className="w-6 h-6" />
+              Admin Panel
+            </h1>
+            <p className="mt-2 opacity-90 text-sm sm:text-base">
+              Manage community requests and track resolution progress
+            </p>
+          </div>
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            className="shrink-0"
+            onClick={() => void onRefresh?.()}
+            disabled={refreshing}
+          >
+            <RefreshCw
+              className={`w-4 h-4 mr-2 ${refreshing ? "animate-spin" : ""}`}
+            />
+            Refresh
+          </Button>
+        </div>
       </div>
 
       {/* Statistics Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
         <Card
-          className={`cursor-pointer transition-all duration-300 hover:bg-primary/5 hover:border-primary/50 active:scale-95 ${statusFilter === "all" ? "ring-2 ring-primary bg-primary/10" : ""
-            }`}
+          className={`cursor-pointer transition-all duration-300 hover:bg-primary/5 hover:border-primary/50 active:scale-95 ${
+            statusFilter === "all" ? "ring-2 ring-primary bg-primary/10" : ""
+          }`}
           onClick={() => setStatusFilter("all")}
         >
           <CardHeader className="pb-2 sm:pb-3">
@@ -279,10 +303,11 @@ export function AdminPanel({ complaints, onUpdateComplaint }: AdminPanelProps) {
         </Card>
 
         <Card
-          className={`cursor-pointer transition-all duration-300 hover:bg-yellow-500/5 hover:border-yellow-500/50 active:scale-95 ${statusFilter === "pending"
+          className={`cursor-pointer transition-all duration-300 hover:bg-yellow-500/5 hover:border-yellow-500/50 active:scale-95 ${
+            statusFilter === "pending"
               ? "ring-2 ring-yellow-500 bg-yellow-500/10"
               : ""
-            }`}
+          }`}
           onClick={() => setStatusFilter("pending")}
         >
           <CardHeader className="pb-2 sm:pb-3">
@@ -296,10 +321,11 @@ export function AdminPanel({ complaints, onUpdateComplaint }: AdminPanelProps) {
         </Card>
 
         <Card
-          className={`cursor-pointer transition-all duration-300 hover:bg-blue-500/5 hover:border-blue-500/50 active:scale-95 ${statusFilter === "in-progress"
+          className={`cursor-pointer transition-all duration-300 hover:bg-blue-500/5 hover:border-blue-500/50 active:scale-95 ${
+            statusFilter === "in-progress"
               ? "ring-2 ring-blue-500 bg-blue-500/10"
               : ""
-            }`}
+          }`}
           onClick={() => setStatusFilter("in-progress")}
         >
           <CardHeader className="pb-2 sm:pb-3">
@@ -313,10 +339,11 @@ export function AdminPanel({ complaints, onUpdateComplaint }: AdminPanelProps) {
         </Card>
 
         <Card
-          className={`cursor-pointer transition-all duration-300 hover:bg-green-500/5 hover:border-green-500/50 active:scale-95 ${statusFilter === "resolved"
+          className={`cursor-pointer transition-all duration-300 hover:bg-green-500/5 hover:border-green-500/50 active:scale-95 ${
+            statusFilter === "resolved"
               ? "ring-2 ring-green-500 bg-green-500/10"
               : ""
-            }`}
+          }`}
           onClick={() => setStatusFilter("resolved")}
         >
           <CardHeader className="pb-2 sm:pb-3">
@@ -330,10 +357,11 @@ export function AdminPanel({ complaints, onUpdateComplaint }: AdminPanelProps) {
         </Card>
 
         <Card
-          className={`cursor-pointer transition-all duration-300 hover:bg-red-500/5 hover:border-red-500/50 active:scale-95 ${statusFilter === "rejected"
+          className={`cursor-pointer transition-all duration-300 hover:bg-red-500/5 hover:border-red-500/50 active:scale-95 ${
+            statusFilter === "rejected"
               ? "ring-2 ring-red-500 bg-red-500/10"
               : ""
-            }`}
+          }`}
           onClick={() => setStatusFilter("rejected")}
         >
           <CardHeader className="pb-2 sm:pb-3">
@@ -347,30 +375,24 @@ export function AdminPanel({ complaints, onUpdateComplaint }: AdminPanelProps) {
         </Card>
       </div>
 
-      {/* Heatmap Section — collapsible */}
-      <div>
-        <button
-          type="button"
-          onClick={() => setShowHeatmap((v) => !v)}
-          className="w-full flex items-center justify-between px-4 py-3 rounded-lg bg-muted/60 hover:bg-muted transition-colors border border-border text-sm font-medium"
-        >
-          <span className="flex items-center gap-2">
-            <span className="text-red-500"> </span>
-            Complaint Heatmap
-            <Badge variant="outline" className="text-xs">
-              {complaints.filter((c) => c.latitude && c.longitude).length} locations
-            </Badge>
-          </span>
-          {showHeatmap
-            ? <span className="text-muted-foreground text-xs">▲ Collapse</span>
-            : <span className="text-muted-foreground text-xs">▼ Expand</span>}
-        </button>
-        {showHeatmap && (
-          <div className="mt-3">
-            <HeatmapPanel complaints={complaints} />
+      {/* Heatmap access */}
+      <Card>
+        <CardContent className="py-4 flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <Map className="w-5 h-5 text-primary" />
+            <div>
+              <p className="text-sm font-medium">Complaint Heatmap</p>
+              <p className="text-xs text-muted-foreground">
+                {complaints.filter((c) => c.latitude && c.longitude).length}{" "}
+                complaints with location pins
+              </p>
+            </div>
           </div>
-        )}
-      </div>
+          <Button type="button" variant="outline" onClick={onOpenHeatmap}>
+            Open Heatmap Page
+          </Button>
+        </CardContent>
+      </Card>
 
       {/* Filters */}
       <Card>
@@ -514,13 +536,13 @@ export function AdminPanel({ complaints, onUpdateComplaint }: AdminPanelProps) {
                       <p className="text-sm text-muted-foreground text-center">
                         {dateRange.to
                           ? `Showing requests from ${format(
-                            dateRange.from,
-                            "MMM dd",
-                          )} to ${format(dateRange.to, "MMM dd, yyyy")}`
+                              dateRange.from,
+                              "MMM dd",
+                            )} to ${format(dateRange.to, "MMM dd, yyyy")}`
                           : `Showing requests on ${format(
-                            dateRange.from,
-                            "MMM dd, yyyy",
-                          )}`}
+                              dateRange.from,
+                              "MMM dd, yyyy",
+                            )}`}
                       </p>
                       <Button
                         variant="outline"
@@ -746,7 +768,7 @@ export function AdminPanel({ complaints, onUpdateComplaint }: AdminPanelProps) {
                                     <Button
                                       variant={
                                         selectedComplaint.status ===
-                                          "in-progress"
+                                        "in-progress"
                                           ? "default"
                                           : "outline"
                                       }
@@ -759,7 +781,7 @@ export function AdminPanel({ complaints, onUpdateComplaint }: AdminPanelProps) {
                                       }
                                       className={
                                         selectedComplaint.status ===
-                                          "in-progress"
+                                        "in-progress"
                                           ? "bg-blue-500 hover:bg-blue-600 text-white"
                                           : ""
                                       }

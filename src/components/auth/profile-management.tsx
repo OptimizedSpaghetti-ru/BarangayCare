@@ -47,13 +47,35 @@ export function ProfileManagement() {
   const [editMode, setEditMode] = useState(false);
   const [name, setName] = useState(user?.name || "");
   const [phoneNumber, setPhoneNumber] = useState(user?.phoneNumber || "");
+  const [phoneNumberError, setPhoneNumberError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
+  const normalizePhone = (value: string) =>
+    value.replace(/\D/g, "").slice(0, 11);
+
+  const validatePhone = (value: string): string | null => {
+    if (!value) return null;
+    if (!/^\d+$/.test(value)) {
+      return "Phone number must contain digits only";
+    }
+    if (value.length !== 11) {
+      return "Phone number must be exactly 11 digits";
+    }
+    return null;
+  };
+
   const handleSaveProfile = async () => {
     if (!name.trim()) {
       toast.error("Name is required");
+      return;
+    }
+
+    const phoneValidation = validatePhone(phoneNumber.trim());
+    if (phoneValidation) {
+      setPhoneNumberError(phoneValidation);
+      toast.error(phoneValidation);
       return;
     }
 
@@ -86,6 +108,7 @@ export function ProfileManagement() {
   const handleCancelEdit = () => {
     setName(user?.name || "");
     setPhoneNumber(user?.phoneNumber || "");
+    setPhoneNumberError(null);
     setEditMode(false);
   };
 
@@ -231,15 +254,30 @@ export function ProfileManagement() {
               {editMode ? (
                 <Input
                   id="phone"
+                  type="tel"
+                  inputMode="numeric"
+                  maxLength={11}
                   value={phoneNumber}
-                  onChange={(e) => setPhoneNumber(e.target.value)}
+                  onChange={(e) => {
+                    const normalized = normalizePhone(e.target.value);
+                    setPhoneNumber(normalized);
+                    setPhoneNumberError(validatePhone(normalized));
+                  }}
                   placeholder="Enter your phone number"
+                  className={
+                    phoneNumberError
+                      ? "border-destructive focus-visible:ring-destructive"
+                      : ""
+                  }
                 />
               ) : (
                 <div className="flex items-center space-x-2 p-3 bg-muted rounded-md">
                   <Phone className="w-4 h-4 text-muted-foreground" />
                   <span>{user.phoneNumber || "Not provided"}</span>
                 </div>
+              )}
+              {editMode && phoneNumberError && (
+                <p className="text-xs text-destructive">{phoneNumberError}</p>
               )}
             </div>
           </div>
