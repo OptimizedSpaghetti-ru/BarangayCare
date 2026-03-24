@@ -431,7 +431,7 @@ This project is private and proprietary.
 
 For support and questions:
 
-- Email: [your-email@example.com]
+- Email: russellignacio05@gmail.com
 - Issues: [GitHub Issues](https://github.com/OptimizedSpaghetti-ru/BarangayCare/issues)
 - Documentation: Check the `/src` directory for detailed guides
 
