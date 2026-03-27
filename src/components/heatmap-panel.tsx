@@ -83,6 +83,20 @@ const CATEGORY_COLORS: Record<string, string> = {
   other: "bg-gray-400",
 };
 
+const CATEGORY_DOT_COLORS: Record<string, string> = {
+  emergency: "#ef4444",
+  security: "#f97316",
+  "minor-criminal": "#fb923c",
+  infrastructure: "#eab308",
+  sanitation: "#84cc16",
+  utilities: "#38bdf8",
+  health: "#a855f7",
+  "civil-disputes": "#ec4899",
+  other: "#9ca3af",
+};
+
+const POINTS_PANE = "complaint-points-pane";
+
 function loadLeafletHeat(): Promise<void> {
   return new Promise((resolve) => {
     if ((window as any).L?.heatLayer) {
@@ -104,36 +118,96 @@ function toNumber(value: unknown): number | undefined {
   return undefined;
 }
 
-function parseCoordinatesFromLocation(location: unknown) {
-  if (typeof location !== "string") return undefined;
-  const match = location.match(/(-?\d{1,2}\.\d+)\s*,\s*(-?\d{1,3}\.\d+)/);
-  if (!match) return undefined;
+function isValidCoordinatePair(lat: number, lng: number): boolean {
+  return (
+    Number.isFinite(lat) &&
+    Number.isFinite(lng) &&
+    Math.abs(lat) <= 90 &&
+    Math.abs(lng) <= 180
+  );
+}
 
-  const lat = Number(match[1]);
-  const lng = Number(match[2]);
-  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return undefined;
-  if (Math.abs(lat) > 90 || Math.abs(lng) > 180) return undefined;
-  return { lat, lng };
+function toCoordinatePair(lat: unknown, lng: unknown) {
+  const parsedLat = toNumber(lat);
+  const parsedLng = toNumber(lng);
+  if (parsedLat === undefined || parsedLng === undefined) return undefined;
+  if (!isValidCoordinatePair(parsedLat, parsedLng)) return undefined;
+  return { lat: parsedLat, lng: parsedLng };
+}
+
+function extractCoordinates(
+  source: unknown,
+): { lat: number; lng: number } | null {
+  if (source == null) return null;
+
+  if (typeof source === "object") {
+    const obj = source as Record<string, unknown>;
+
+    const direct = toCoordinatePair(
+      obj.lat ?? obj.latitude,
+      obj.lng ?? obj.longitude ?? obj.lon ?? obj.long,
+    );
+    if (direct) return direct;
+
+    if (obj.coordinates !== undefined) {
+      const nested = extractCoordinates(obj.coordinates);
+      if (nested) return nested;
+    }
+
+    if (obj.location !== undefined) {
+      const fromLocation = extractCoordinates(obj.location);
+      if (fromLocation) return fromLocation;
+    }
+
+    return null;
+  }
+
+  if (typeof source !== "string") return null;
+
+  const value = source.trim();
+  if (!value) return null;
+
+  try {
+    const parsed = JSON.parse(value);
+    const fromJson = extractCoordinates(parsed);
+    if (fromJson) return fromJson;
+  } catch {
+    // Not JSON; continue with regex parsing.
+  }
+
+  const labeledLat = value.match(
+    /(?:^|[\s,{])(?:lat|latitude)\s*[:=]\s*(-?\d{1,2}\.\d{3,})/i,
+  )?.[1];
+  const labeledLng = value.match(
+    /(?:^|[\s,{])(?:lng|lon|long|longitude)\s*[:=]\s*(-?\d{1,3}\.\d{3,})/i,
+  )?.[1];
+  const labeledPair = toCoordinatePair(labeledLat, labeledLng);
+  if (labeledPair) return labeledPair;
+
+  const pair = value.match(/(-?\d{1,2}\.\d{3,})\s*[, ]\s*(-?\d{1,3}\.\d{3,})/);
+  if (!pair) return null;
+
+  return toCoordinatePair(pair[1], pair[2]) ?? null;
 }
 
 function getComplaintLatLng(c: Complaint): [number, number] | null {
-  let lat = toNumber(c.coordinates?.lat ?? c.latitude);
-  let lng = toNumber(c.coordinates?.lng ?? c.longitude);
+  const extracted = extractCoordinates({
+    latitude: c.latitude,
+    longitude: c.longitude,
+    coordinates: c.coordinates,
+    location: c.location,
+  });
 
-  if (lat === undefined || lng === undefined) {
-    const fromLocation = parseCoordinatesFromLocation(c.location);
-    if (fromLocation) {
-      lat = lat ?? fromLocation.lat;
-      lng = lng ?? fromLocation.lng;
-    }
-  }
-
-  if (lat === undefined || lng === undefined) return null;
-  if (Math.abs(lat) > 90 || Math.abs(lng) > 180) return null;
-  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
-
-  return [lat, lng];
+  if (!extracted) return null;
+  return [extracted.lat, extracted.lng];
 }
+
+type HeatPoint = {
+  lat: number;
+  lng: number;
+  intensity: number;
+  category: string;
+};
 
 export function HeatmapPanel({
   complaints,
@@ -144,13 +218,14 @@ export function HeatmapPanel({
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<any>(null);
   const heatLayerRef = useRef<any>(null);
+  const pointLayerRef = useRef<any>(null);
   const leafletRef = useRef<any>(null);
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [mapReady, setMapReady] = useState(false);
   const [pointCount, setPointCount] = useState(0);
 
   const buildPoints = useCallback(
-    (cat: string): [number, number, number][] => {
+    (cat: string): HeatPoint[] => {
       return complaints
         .filter((c) => {
           const ll = getComplaintLatLng(c);
@@ -158,7 +233,12 @@ export function HeatmapPanel({
         })
         .map((c) => {
           const ll = getComplaintLatLng(c)!;
-          return [ll[0], ll[1], CATEGORY_INTENSITY[c.category] ?? 0.5];
+          return {
+            lat: ll[0],
+            lng: ll[1],
+            intensity: CATEGORY_INTENSITY[c.category] ?? 0.5,
+            category: c.category,
+          };
         });
     },
     [complaints],
@@ -181,34 +261,68 @@ export function HeatmapPanel({
         heatLayerRef.current = null;
       }
 
-      if (typeof (L as any).heatLayer !== "function") {
-        return;
+      // Remove old point layer
+      if (pointLayerRef.current) {
+        map.removeLayer(pointLayerRef.current);
+        pointLayerRef.current = null;
       }
 
       if (points.length === 0) return;
 
-      // Create new heat layer with clearly visible settings
-      const heat = (L as any).heatLayer(points, {
-        radius: 28,
-        blur: 20,
-        maxZoom: 19,
-        max: 1.0,
-        minOpacity: 0.55,
-        gradient: {
-          0.25: "#3b82f6",
-          0.5: "#84cc16",
-          0.7: "#eab308",
-          0.85: "#f97316",
-          1.0: "#ef4444",
-        },
-      });
-      heat.addTo(map);
-      heatLayerRef.current = heat;
+      if (typeof (L as any).heatLayer !== "function") {
+        console.warn(
+          "leaflet.heat plugin unavailable; rendering point dots only",
+        );
+      } else {
+        const heatInput = points.map((point) => [
+          point.lat,
+          point.lng,
+          point.intensity,
+        ]);
+
+        // Create new heat layer with clearly visible settings
+        const heat = (L as any).heatLayer(heatInput, {
+          radius: 28,
+          blur: 20,
+          maxZoom: 19,
+          max: 1.0,
+          minOpacity: 0.55,
+          gradient: {
+            0.25: "#3b82f6",
+            0.5: "#84cc16",
+            0.7: "#eab308",
+            0.85: "#f97316",
+            1.0: "#ef4444",
+          },
+        });
+        heat.addTo(map);
+        heatLayerRef.current = heat;
+      }
+
+      // Always render explicit dots so points are visible even when leaflet.heat
+      // fails to attach in some production bundles.
+      const pointLayer = L.layerGroup();
+      for (const point of points) {
+        const dotColor = CATEGORY_DOT_COLORS[point.category] ?? "#64748b";
+        const radius = 5 + point.intensity * 5;
+
+        L.circleMarker([point.lat, point.lng], {
+          pane: POINTS_PANE,
+          radius,
+          color: "#0f172a",
+          weight: 1.25,
+          fillColor: dotColor,
+          fillOpacity: 0.95,
+          opacity: 1,
+        }).addTo(pointLayer);
+      }
+      pointLayer.addTo(map);
+      pointLayerRef.current = pointLayer;
 
       // Auto-fly to the bounding box of visible points
       if (cat !== "all" && points.length > 0) {
-        const lats = points.map((p: [number, number, number]) => p[0]);
-        const lngs = points.map((p: [number, number, number]) => p[1]);
+        const lats = points.map((p) => p.lat);
+        const lngs = points.map((p) => p.lng);
         const sw: [number, number] = [
           Math.min(...lats) - 0.001,
           Math.min(...lngs) - 0.001,
@@ -253,6 +367,10 @@ export function HeatmapPanel({
         attributionControl: true,
       });
 
+      const pane = map.getPane(POINTS_PANE) ?? map.createPane(POINTS_PANE);
+      pane.style.zIndex = "650";
+      pane.style.pointerEvents = "none";
+
       L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
         attribution:
           '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
@@ -288,6 +406,7 @@ export function HeatmapPanel({
         mapRef.current.remove();
         mapRef.current = null;
         heatLayerRef.current = null;
+        pointLayerRef.current = null;
         leafletRef.current = null;
         setMapReady(false);
       }
