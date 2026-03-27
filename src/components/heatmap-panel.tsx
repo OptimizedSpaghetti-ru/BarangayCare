@@ -9,6 +9,7 @@ interface Complaint {
   category: string;
   status: string;
   priority: string;
+  location?: string;
   coordinates?: { lat: number; lng: number };
   latitude?: number;
   longitude?: number;
@@ -92,11 +93,46 @@ function loadLeafletHeat(): Promise<void> {
   });
 }
 
+function toNumber(value: unknown): number | undefined {
+  if (typeof value === "number") {
+    return Number.isFinite(value) ? value : undefined;
+  }
+  if (typeof value === "string" && value.trim() !== "") {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : undefined;
+  }
+  return undefined;
+}
+
+function parseCoordinatesFromLocation(location: unknown) {
+  if (typeof location !== "string") return undefined;
+  const match = location.match(/(-?\d{1,2}\.\d+)\s*,\s*(-?\d{1,3}\.\d+)/);
+  if (!match) return undefined;
+
+  const lat = Number(match[1]);
+  const lng = Number(match[2]);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return undefined;
+  if (Math.abs(lat) > 90 || Math.abs(lng) > 180) return undefined;
+  return { lat, lng };
+}
+
 function getComplaintLatLng(c: Complaint): [number, number] | null {
-  const lat = c.coordinates?.lat ?? c.latitude;
-  const lng = c.coordinates?.lng ?? c.longitude;
-  if (lat && lng) return [lat, lng];
-  return null;
+  let lat = toNumber(c.coordinates?.lat ?? c.latitude);
+  let lng = toNumber(c.coordinates?.lng ?? c.longitude);
+
+  if (lat === undefined || lng === undefined) {
+    const fromLocation = parseCoordinatesFromLocation(c.location);
+    if (fromLocation) {
+      lat = lat ?? fromLocation.lat;
+      lng = lng ?? fromLocation.lng;
+    }
+  }
+
+  if (lat === undefined || lng === undefined) return null;
+  if (Math.abs(lat) > 90 || Math.abs(lng) > 180) return null;
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+
+  return [lat, lng];
 }
 
 export function HeatmapPanel({

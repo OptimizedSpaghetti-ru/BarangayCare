@@ -414,7 +414,11 @@ export function AdminPanel({
             <div>
               <p className="text-sm font-medium">Complaint Heatmap</p>
               <p className="text-xs text-muted-foreground">
-                {complaints.filter((c) => c.latitude && c.longitude).length}{" "}
+                {
+                  complaints.filter(
+                    (c) => c.latitude != null && c.longitude != null,
+                  ).length
+                }{" "}
                 complaints with location pins
               </p>
             </div>

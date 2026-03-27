@@ -105,28 +105,97 @@ export function ComplaintProvider({ children }: { children: React.ReactNode }) {
     });
   };
 
-  const transformComplaint = (complaint: any): Complaint => ({
-    id: complaint.id,
-    title: complaint.title,
-    description: complaint.description,
-    category: complaint.category,
-    location: complaint.location,
-    photo: complaint.photo,
-    contactInfo: complaint.contact_info,
-    status: complaint.status,
-    priority: complaint.priority,
-    dateSubmitted: complaint.date_submitted,
-    adminNotes: complaint.admin_notes,
-    respondent: complaint.respondent,
-    userId: complaint.user_id,
-    userName: complaint.user_name,
-    latitude: complaint.latitude ?? undefined,
-    longitude: complaint.longitude ?? undefined,
-    coordinates:
-      complaint.latitude && complaint.longitude
-        ? { lat: complaint.latitude, lng: complaint.longitude }
-        : undefined,
-  });
+  const toNumber = (value: unknown): number | undefined => {
+    if (typeof value === "number") {
+      return Number.isFinite(value) ? value : undefined;
+    }
+    if (typeof value === "string" && value.trim() !== "") {
+      const parsed = Number(value);
+      return Number.isFinite(parsed) ? parsed : undefined;
+    }
+    return undefined;
+  };
+
+  const parseCoordinatesFromLocation = (location: unknown) => {
+    if (typeof location !== "string") return undefined;
+    // Legacy records may store coordinates directly in the location text.
+    const match = location.match(/(-?\d{1,2}\.\d+)\s*,\s*(-?\d{1,3}\.\d+)/);
+    if (!match) return undefined;
+
+    const lat = Number(match[1]);
+    const lng = Number(match[2]);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return undefined;
+    if (Math.abs(lat) > 90 || Math.abs(lng) > 180) return undefined;
+    return { lat, lng };
+  };
+
+  const extractCoordinates = (complaint: any) => {
+    let lat = toNumber(complaint.latitude ?? complaint.lat);
+    let lng = toNumber(complaint.longitude ?? complaint.lng);
+
+    if (lat === undefined || lng === undefined) {
+      const rawCoordinates = complaint.coordinates;
+
+      if (rawCoordinates && typeof rawCoordinates === "object") {
+        lat = lat ?? toNumber(rawCoordinates.lat ?? rawCoordinates.latitude);
+        lng = lng ?? toNumber(rawCoordinates.lng ?? rawCoordinates.longitude);
+      } else if (typeof rawCoordinates === "string") {
+        try {
+          const parsedCoordinates = JSON.parse(rawCoordinates);
+          lat =
+            lat ??
+            toNumber(parsedCoordinates?.lat ?? parsedCoordinates?.latitude);
+          lng =
+            lng ??
+            toNumber(parsedCoordinates?.lng ?? parsedCoordinates?.longitude);
+        } catch {
+          // Ignore malformed JSON and continue with other coordinate sources.
+        }
+      }
+    }
+
+    if (lat === undefined || lng === undefined) {
+      const parsedFromLocation = parseCoordinatesFromLocation(
+        complaint.location,
+      );
+      if (parsedFromLocation) {
+        lat = lat ?? parsedFromLocation.lat;
+        lng = lng ?? parsedFromLocation.lng;
+      }
+    }
+
+    if (lat === undefined || lng === undefined) {
+      return {} as const;
+    }
+
+    return {
+      latitude: lat,
+      longitude: lng,
+      coordinates: { lat, lng },
+    } as const;
+  };
+
+  const transformComplaint = (complaint: any): Complaint => {
+    const locationCoordinates = extractCoordinates(complaint);
+
+    return {
+      id: complaint.id,
+      title: complaint.title,
+      description: complaint.description,
+      category: complaint.category,
+      location: complaint.location,
+      photo: complaint.photo,
+      contactInfo: complaint.contact_info,
+      status: complaint.status,
+      priority: complaint.priority,
+      dateSubmitted: complaint.date_submitted,
+      adminNotes: complaint.admin_notes,
+      respondent: complaint.respondent,
+      userId: complaint.user_id,
+      userName: complaint.user_name,
+      ...locationCoordinates,
+    };
+  };
 
   const fetchComplaintsInternal = async (
     options: FetchComplaintsOptions = {},
@@ -337,6 +406,8 @@ export function ComplaintProvider({ children }: { children: React.ReactNode }) {
         return { error: "Failed to submit complaint" };
       }
 
+      const locationCoordinates = extractCoordinates(data);
+
       // Transform response back to camelCase
       const newComplaint: Complaint = {
         id: data.id,
@@ -353,12 +424,7 @@ export function ComplaintProvider({ children }: { children: React.ReactNode }) {
         respondent: data.respondent,
         userId: data.user_id,
         userName: data.user_name,
-        latitude: data.latitude ?? undefined,
-        longitude: data.longitude ?? undefined,
-        coordinates:
-          data.latitude && data.longitude
-            ? { lat: data.latitude, lng: data.longitude }
-            : undefined,
+        ...locationCoordinates,
       };
 
       setComplaintsAndCache(
