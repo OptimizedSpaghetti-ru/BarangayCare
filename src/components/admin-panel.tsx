@@ -89,7 +89,7 @@ interface Complaint {
 interface AdminPanelProps {
   complaints: Complaint[];
   onUpdateComplaint: (id: string, updates: Partial<Complaint>) => void;
-  onDeleteComplaint: (id: string) => Promise<void> | void;
+  onDeleteComplaint: (id: string) => Promise<{ error?: string }>;
   onRefresh?: () => Promise<void> | void;
   refreshing?: boolean;
   onOpenHeatmap?: () => void;
@@ -265,7 +265,10 @@ export function AdminPanel({
   const handleConfirmDelete = async () => {
     if (!deleteTarget) return;
 
-    await onDeleteComplaint(deleteTarget.id);
+    const { error } = await onDeleteComplaint(deleteTarget.id);
+    if (error) {
+      return;
+    }
 
     if (selectedComplaint?.id === deleteTarget.id) {
       setSelectedComplaint(null);

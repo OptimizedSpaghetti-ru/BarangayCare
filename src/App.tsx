@@ -77,6 +77,7 @@ function AppContent() {
   const { user, loading, isAdmin, isGuest } = useAuth();
   const {
     complaints,
+    loading: complaintsLoading,
     addComplaint,
     updateComplaint,
     deleteComplaint,
@@ -395,14 +396,7 @@ function AppContent() {
     }
   };
 
-  const handleDeleteComplaint = async (id: string) => {
-    const { error } = await deleteComplaint(id);
-    if (error) {
-      toast.error(error);
-    } else {
-      toast.success("Request deleted successfully!");
-    }
-  };
+  const handleDeleteComplaint = async (id: string) => deleteComplaint(id);
 
   const handleViewDetails = (complaint: Complaint) => {
     setSelectedComplaint(complaint);
@@ -446,6 +440,18 @@ function AppContent() {
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
           <p className="text-muted-foreground">Loading BarangayCARE...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Prevent empty/zero-state flicker while complaints hydrate from cache or network.
+  if (user && complaintsLoading && complaints.length === 0) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Loading complaints...</p>
         </div>
       </div>
     );

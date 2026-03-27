@@ -37,6 +37,11 @@ interface ComplaintContextType {
   fetchComplaints: () => Promise<void>;
 }
 
+type FetchComplaintsOptions = {
+  suppressLoading?: boolean;
+  suppressErrorToast?: boolean;
+};
+
 const ComplaintContext = createContext<ComplaintContextType | undefined>(
   undefined,
 );
@@ -48,6 +53,138 @@ export function ComplaintProvider({ children }: { children: React.ReactNode }) {
   const { user, isAdmin, loading: authLoading } = useAuth();
   const supabase = getSupabaseClient();
 
+  const getComplaintsCacheKey = (userId: string, admin: boolean) =>
+    `barangaycare.complaints.${admin ? "admin" : "user"}.${userId}`;
+
+  const getCacheKeyFromSession = (
+    session: {
+      user?: { id: string; user_metadata?: Record<string, any> };
+    } | null,
+  ) => {
+    if (!session?.user?.id) return null;
+    const admin = session.user.user_metadata?.role === "admin";
+    return getComplaintsCacheKey(session.user.id, admin);
+  };
+
+  const readCachedComplaints = (cacheKey: string): Complaint[] | null => {
+    try {
+      const raw = localStorage.getItem(cacheKey);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? (parsed as Complaint[]) : null;
+    } catch {
+      return null;
+    }
+  };
+
+  const writeCachedComplaints = (
+    cacheKey: string | null,
+    next: Complaint[],
+  ) => {
+    if (!cacheKey) return;
+    try {
+      localStorage.setItem(cacheKey, JSON.stringify(next));
+    } catch {
+      // Ignore cache write failures and continue with in-memory state.
+    }
+  };
+
+  const setComplaintsAndCache = (
+    next: Complaint[] | ((previousComplaints: Complaint[]) => Complaint[]),
+    cacheKey: string | null,
+  ) => {
+    setComplaints((previousComplaints) => {
+      const resolvedComplaints =
+        typeof next === "function"
+          ? (next as (previousComplaints: Complaint[]) => Complaint[])(
+              previousComplaints,
+            )
+          : next;
+      writeCachedComplaints(cacheKey, resolvedComplaints);
+      return resolvedComplaints;
+    });
+  };
+
+  const transformComplaint = (complaint: any): Complaint => ({
+    id: complaint.id,
+    title: complaint.title,
+    description: complaint.description,
+    category: complaint.category,
+    location: complaint.location,
+    photo: complaint.photo,
+    contactInfo: complaint.contact_info,
+    status: complaint.status,
+    priority: complaint.priority,
+    dateSubmitted: complaint.date_submitted,
+    adminNotes: complaint.admin_notes,
+    respondent: complaint.respondent,
+    userId: complaint.user_id,
+    userName: complaint.user_name,
+    latitude: complaint.latitude ?? undefined,
+    longitude: complaint.longitude ?? undefined,
+    coordinates:
+      complaint.latitude && complaint.longitude
+        ? { lat: complaint.latitude, lng: complaint.longitude }
+        : undefined,
+  });
+
+  const fetchComplaintsInternal = async (
+    options: FetchComplaintsOptions = {},
+  ) => {
+    const { suppressLoading = false, suppressErrorToast = false } = options;
+
+    try {
+      if (!suppressLoading) {
+        setLoading(true);
+      }
+
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (!session) {
+        setComplaints([]);
+        return;
+      }
+
+      const cacheKey = getCacheKeyFromSession(session);
+      const sessionUser = session.user;
+      const sessionIsAdmin = sessionUser?.user_metadata?.role === "admin";
+
+      let query = supabase
+        .from("complaints")
+        .select("*")
+        .order("date_submitted", { ascending: false })
+        .limit(1000);
+
+      if (!sessionIsAdmin) {
+        query = query.eq("user_id", sessionUser.id);
+      }
+
+      const { data, error } = await query;
+
+      if (error) {
+        console.error("Error fetching complaints:", error);
+        if (!suppressErrorToast) {
+          toast.error("Failed to load complaints");
+        }
+        return;
+      }
+
+      const transformedComplaints = (data || []).map(transformComplaint);
+      setComplaintsAndCache(transformedComplaints, cacheKey);
+    } catch (error) {
+      console.error("Error fetching complaints:", error);
+      if (!suppressErrorToast) {
+        toast.error("Failed to load complaints");
+      }
+    } finally {
+      if (!suppressLoading) {
+        setLoading(false);
+      }
+    }
+  };
+
   // Fetch complaints whenever auth state changes (login/logout)
   useEffect(() => {
     // Wait for auth to finish loading before fetching complaints
@@ -55,7 +192,36 @@ export function ComplaintProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    fetchComplaints();
+    let isMounted = true;
+
+    const bootstrapComplaints = async () => {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (!isMounted) return;
+
+      if (!session) {
+        setComplaints([]);
+        setLoading(false);
+        return;
+      }
+
+      const cacheKey = getCacheKeyFromSession(session);
+      const cachedComplaints = cacheKey ? readCachedComplaints(cacheKey) : null;
+
+      if (cachedComplaints) {
+        setComplaints(cachedComplaints);
+        setLoading(false);
+      }
+
+      await fetchComplaintsInternal({
+        suppressLoading: Boolean(cachedComplaints),
+        suppressErrorToast: Boolean(cachedComplaints),
+      });
+    };
+
+    void bootstrapComplaints();
 
     // Set up real-time subscription for complaints
     const channel = supabase
@@ -70,83 +236,23 @@ export function ComplaintProvider({ children }: { children: React.ReactNode }) {
         (payload) => {
           console.log("Real-time update received:", payload);
           // Refetch complaints when any change occurs
-          fetchComplaints();
+          void fetchComplaintsInternal({
+            suppressLoading: true,
+            suppressErrorToast: true,
+          });
         },
       )
       .subscribe();
 
     // Cleanup subscription on unmount
     return () => {
+      isMounted = false;
       supabase.removeChannel(channel);
     };
   }, [user, isAdmin, authLoading]);
 
   const fetchComplaints = async () => {
-    try {
-      setLoading(true);
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-
-      if (!session) {
-        setComplaints([]);
-        return;
-      }
-
-      const user = session.user;
-      const isAdmin = user?.user_metadata?.role === "admin";
-
-      // Fetch complaints from Supabase
-      let query = supabase
-        .from("complaints")
-        .select("*")
-        .order("date_submitted", { ascending: false })
-        .limit(1000); // Limit to latest 1000 to keep dashboard fast
-
-      // If not admin, only fetch user's own complaints
-      if (!isAdmin) {
-        query = query.eq("user_id", user.id);
-      }
-
-      const { data, error } = await query;
-
-      if (error) {
-        console.error("Error fetching complaints:", error);
-        toast.error("Failed to load complaints");
-        return;
-      }
-
-      // Transform data from snake_case to camelCase
-      const transformedComplaints = (data || []).map((complaint: any) => ({
-        id: complaint.id,
-        title: complaint.title,
-        description: complaint.description,
-        category: complaint.category,
-        location: complaint.location,
-        photo: complaint.photo,
-        contactInfo: complaint.contact_info,
-        status: complaint.status,
-        priority: complaint.priority,
-        dateSubmitted: complaint.date_submitted,
-        adminNotes: complaint.admin_notes,
-        respondent: complaint.respondent,
-        userId: complaint.user_id,
-        userName: complaint.user_name,
-        latitude: complaint.latitude ?? undefined,
-        longitude: complaint.longitude ?? undefined,
-        coordinates:
-          complaint.latitude && complaint.longitude
-            ? { lat: complaint.latitude, lng: complaint.longitude }
-            : undefined,
-      }));
-
-      setComplaints(transformedComplaints);
-    } catch (error) {
-      console.error("Error fetching complaints:", error);
-      toast.error("Failed to load complaints");
-    } finally {
-      setLoading(false);
-    }
+    await fetchComplaintsInternal();
   };
 
   const addComplaint = async (
@@ -157,6 +263,7 @@ export function ComplaintProvider({ children }: { children: React.ReactNode }) {
         data: { session },
       } = await supabase.auth.getSession();
       const user = session?.user;
+      const cacheKey = getCacheKeyFromSession(session);
       const isGuestMode = localStorage.getItem("guestMode") === "true";
 
       // Allow guest submissions
@@ -254,7 +361,10 @@ export function ComplaintProvider({ children }: { children: React.ReactNode }) {
             : undefined,
       };
 
-      setComplaints([newComplaint, ...complaints]);
+      setComplaintsAndCache(
+        (previousComplaints) => [newComplaint, ...previousComplaints],
+        cacheKey,
+      );
       toast.success("Complaint submitted successfully");
 
       return {};
@@ -274,6 +384,8 @@ export function ComplaintProvider({ children }: { children: React.ReactNode }) {
       if (!session) {
         return { error: "You must be logged in to update a complaint" };
       }
+
+      const cacheKey = getCacheKeyFromSession(session);
 
       // Transform updates from camelCase to snake_case
       const dbUpdates: any = {};
@@ -312,18 +424,20 @@ export function ComplaintProvider({ children }: { children: React.ReactNode }) {
         return { error: "Failed to update complaint" };
       }
 
-      // Update local state
-      const updatedComplaints = complaints.map((complaint) =>
-        complaint.id === id
-          ? {
-              ...complaint,
-              ...updates,
-              dateSubmitted: data.date_submitted, // Keep the database timestamp
-            }
-          : complaint,
+      // Update local state and cache
+      setComplaintsAndCache(
+        (previousComplaints) =>
+          previousComplaints.map((complaint) =>
+            complaint.id === id
+              ? {
+                  ...complaint,
+                  ...updates,
+                  dateSubmitted: data.date_submitted,
+                }
+              : complaint,
+          ),
+        cacheKey,
       );
-
-      setComplaints(updatedComplaints);
       toast.success("Complaint updated successfully");
 
       return {};
@@ -349,7 +463,13 @@ export function ComplaintProvider({ children }: { children: React.ReactNode }) {
         return { error: "Only admins can delete complaints" };
       }
 
-      const { error } = await supabase.from("complaints").delete().eq("id", id);
+      const cacheKey = getCacheKeyFromSession(session);
+
+      const { data: deletedRows, error } = await supabase
+        .from("complaints")
+        .delete()
+        .eq("id", id)
+        .select("id");
 
       if (error) {
         console.error("Error deleting complaint:", error);
@@ -357,7 +477,43 @@ export function ComplaintProvider({ children }: { children: React.ReactNode }) {
         return { error: "Failed to delete complaint" };
       }
 
-      setComplaints((prev) => prev.filter((complaint) => complaint.id !== id));
+      if (!deletedRows || deletedRows.length === 0) {
+        // If another client already removed it, treat as success locally.
+        const { data: existingComplaint, error: checkError } = await supabase
+          .from("complaints")
+          .select("id")
+          .eq("id", id)
+          .maybeSingle();
+
+        if (checkError) {
+          const checkFailedMessage =
+            "Delete failed. Please check complaint RLS delete policy in Supabase.";
+          console.error("Error checking complaint after delete:", checkError);
+          toast.error(checkFailedMessage);
+          return { error: checkFailedMessage };
+        }
+
+        if (!existingComplaint) {
+          setComplaintsAndCache(
+            (previousComplaints) =>
+              previousComplaints.filter((complaint) => complaint.id !== id),
+            cacheKey,
+          );
+          toast.success("Complaint deleted successfully");
+          return {};
+        }
+
+        const blockedMessage =
+          "Delete blocked by database policy. Add an admin DELETE policy for complaints.";
+        toast.error(blockedMessage);
+        return { error: blockedMessage };
+      }
+
+      setComplaintsAndCache(
+        (previousComplaints) =>
+          previousComplaints.filter((complaint) => complaint.id !== id),
+        cacheKey,
+      );
       toast.success("Complaint deleted successfully");
 
       return {};
