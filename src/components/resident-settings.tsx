@@ -8,61 +8,35 @@ import {
   CardTitle,
 } from "./ui/card";
 import { Button } from "./ui/button";
-import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Switch } from "./ui/switch";
-import { Separator } from "./ui/separator";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "./ui/select";
 import {
   Settings,
   Bell,
-  Shield,
   Palette,
   Globe,
-  Smartphone,
-  Mail,
   Save,
   Moon,
   Sun,
   Monitor,
 } from "lucide-react";
 import { useTheme } from "./theme-provider";
-import { useAuth } from "./auth/auth-context";
 import { toast } from "sonner@2.0.3";
 import { LanguageToggle } from "./language-toggle";
 
 export function ResidentSettings() {
   const { t } = useTranslation();
   const { theme, setTheme } = useTheme();
-  const { user } = useAuth();
 
   // Settings state
   const [notifications, setNotifications] = useState({
     email: true,
     push: true,
-    sms: false,
     statusUpdates: true,
-    weeklyDigest: true,
-    communityNews: false,
   });
 
   const [preferences, setPreferences] = useState({
-    timezone: "Asia/Manila",
-    defaultLocation: "Barangay Hall",
     autoLocation: true,
-  });
-
-  const [privacy, setPrivacy] = useState({
-    showProfile: true,
-    shareLocation: true,
-    allowContact: true,
-    dataCollection: false,
   });
 
   const [unsavedChanges, setUnsavedChanges] = useState(false);
@@ -77,11 +51,6 @@ export function ResidentSettings() {
     setUnsavedChanges(true);
   };
 
-  const handlePrivacyChange = (key: string, value: boolean) => {
-    setPrivacy((prev) => ({ ...prev, [key]: value }));
-    setUnsavedChanges(true);
-  };
-
   const handleSaveSettings = () => {
     // In a real app, this would save to backend
     toast.success(t("messages.saveSuccess"));
@@ -93,21 +62,10 @@ export function ResidentSettings() {
     setNotifications({
       email: true,
       push: true,
-      sms: false,
       statusUpdates: true,
-      weeklyDigest: true,
-      communityNews: false,
     });
     setPreferences({
-      timezone: "Asia/Manila",
-      defaultLocation: "Barangay Hall",
       autoLocation: true,
-    });
-    setPrivacy({
-      showProfile: true,
-      shareLocation: true,
-      allowContact: true,
-      dataCollection: false,
     });
     setUnsavedChanges(true);
     toast.success(t("messages.updateSuccess"));
@@ -215,27 +173,6 @@ export function ResidentSettings() {
 
             <div className="flex items-center justify-between">
               <div className="space-y-1">
-                <Label>SMS Notifications</Label>
-                <p className="text-sm text-muted-foreground">
-                  Receive updates via text message
-                </p>
-              </div>
-              <Switch
-                checked={notifications.sms}
-                onCheckedChange={(checked) =>
-                  handleNotificationChange("sms", checked)
-                }
-              />
-            </div>
-          </div>
-
-          <Separator />
-
-          <div className="space-y-4">
-            <h4 className="font-medium">Notification Types</h4>
-
-            <div className="flex items-center justify-between">
-              <div className="space-y-1">
                 <Label>Status Updates</Label>
                 <p className="text-sm text-muted-foreground">
                   When your requests are updated
@@ -245,36 +182,6 @@ export function ResidentSettings() {
                 checked={notifications.statusUpdates}
                 onCheckedChange={(checked) =>
                   handleNotificationChange("statusUpdates", checked)
-                }
-              />
-            </div>
-
-            <div className="flex items-center justify-between">
-              <div className="space-y-1">
-                <Label>Weekly Digest</Label>
-                <p className="text-sm text-muted-foreground">
-                  Summary of community activities
-                </p>
-              </div>
-              <Switch
-                checked={notifications.weeklyDigest}
-                onCheckedChange={(checked) =>
-                  handleNotificationChange("weeklyDigest", checked)
-                }
-              />
-            </div>
-
-            <div className="flex items-center justify-between">
-              <div className="space-y-1">
-                <Label>Community News</Label>
-                <p className="text-sm text-muted-foreground">
-                  Updates from barangay officials
-                </p>
-              </div>
-              <Switch
-                checked={notifications.communityNews}
-                onCheckedChange={(checked) =>
-                  handleNotificationChange("communityNews", checked)
                 }
               />
             </div>
@@ -294,39 +201,8 @@ export function ResidentSettings() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="space-y-4">
             <LanguageToggle />
-
-            <div className="space-y-2">
-              <Label htmlFor="timezone">Timezone</Label>
-              <Select
-                value={preferences.timezone}
-                onValueChange={(value) =>
-                  handlePreferenceChange("timezone", value)
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select timezone" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Asia/Manila">Asia/Manila (PHT)</SelectItem>
-                  <SelectItem value="UTC">UTC</SelectItem>
-                  <SelectItem value="Asia/Singapore">Asia/Singapore</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="defaultLocation">Default Location</Label>
-            <Input
-              id="defaultLocation"
-              value={preferences.defaultLocation}
-              onChange={(e) =>
-                handlePreferenceChange("defaultLocation", e.target.value)
-              }
-              placeholder="Enter your default location"
-            />
           </div>
 
           <div className="flex items-center justify-between">
@@ -340,80 +216,6 @@ export function ResidentSettings() {
               checked={preferences.autoLocation}
               onCheckedChange={(checked) =>
                 handlePreferenceChange("autoLocation", checked)
-              }
-            />
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Privacy Settings */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center space-x-2">
-            <Shield className="w-5 h-5" />
-            <span>Privacy & Security</span>
-          </CardTitle>
-          <CardDescription>
-            Control your privacy and data sharing preferences
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="space-y-1">
-              <Label>Show Profile to Others</Label>
-              <p className="text-sm text-muted-foreground">
-                Let other residents see your public profile
-              </p>
-            </div>
-            <Switch
-              checked={privacy.showProfile}
-              onCheckedChange={(checked) =>
-                handlePrivacyChange("showProfile", checked)
-              }
-            />
-          </div>
-
-          <div className="flex items-center justify-between">
-            <div className="space-y-1">
-              <Label>Share Location Data</Label>
-              <p className="text-sm text-muted-foreground">
-                Allow location sharing for better service
-              </p>
-            </div>
-            <Switch
-              checked={privacy.shareLocation}
-              onCheckedChange={(checked) =>
-                handlePrivacyChange("shareLocation", checked)
-              }
-            />
-          </div>
-
-          <div className="flex items-center justify-between">
-            <div className="space-y-1">
-              <Label>Allow Contact from Officials</Label>
-              <p className="text-sm text-muted-foreground">
-                Let barangay officials contact you directly
-              </p>
-            </div>
-            <Switch
-              checked={privacy.allowContact}
-              onCheckedChange={(checked) =>
-                handlePrivacyChange("allowContact", checked)
-              }
-            />
-          </div>
-
-          <div className="flex items-center justify-between">
-            <div className="space-y-1">
-              <Label>Anonymous Usage Data</Label>
-              <p className="text-sm text-muted-foreground">
-                Help improve the app with anonymous usage data
-              </p>
-            </div>
-            <Switch
-              checked={privacy.dataCollection}
-              onCheckedChange={(checked) =>
-                handlePrivacyChange("dataCollection", checked)
               }
             />
           </div>

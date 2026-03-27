@@ -29,6 +29,7 @@ import {
 import { Textarea } from "./ui/textarea";
 import {
   Dialog,
+  DialogClose,
   DialogContent,
   DialogDescription,
   DialogHeader,
@@ -916,9 +917,11 @@ export function AdminPanel({
                                     placeholder="Add notes about this request..."
                                     rows={3}
                                   />
-                                  <Button onClick={handleSaveNotes} size="sm">
-                                    Save Notes
-                                  </Button>
+                                  <DialogClose asChild>
+                                    <Button onClick={handleSaveNotes} size="sm">
+                                      Save Notes
+                                    </Button>
+                                  </DialogClose>
                                 </div>
                               </div>
                             )}
@@ -1263,9 +1266,11 @@ export function AdminPanel({
                                 placeholder="Add notes about this request..."
                                 rows={3}
                               />
-                              <Button onClick={handleSaveNotes} size="sm">
-                                Save Notes
-                              </Button>
+                              <DialogClose asChild>
+                                <Button onClick={handleSaveNotes} size="sm">
+                                  Save Notes
+                                </Button>
+                              </DialogClose>
                             </div>
                           </div>
                         )}

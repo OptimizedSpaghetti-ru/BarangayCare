@@ -147,7 +147,7 @@ export function Header({
                 {unreadNotificationCount > 0 && (
                   <Badge
                     variant="destructive"
-                    className="absolute -top-1 -right-1 h-5 min-w-5 px-1 text-[10px] flex items-center justify-center"
+                    className="absolute top-0 right-0 -translate-y-1/2 translate-x-1/2 h-4 min-w-4 px-1 text-[9px] leading-none flex items-center justify-center"
                   >
                     {unreadNotificationCount > 99
                       ? "99+"
@@ -205,7 +205,7 @@ export function Header({
                 {unreadNotificationCount > 0 && (
                   <Badge
                     variant="destructive"
-                    className="absolute -top-1 -right-1 h-5 min-w-5 px-1 text-[10px] flex items-center justify-center"
+                    className="absolute top-0 right-0 -translate-y-1/2 translate-x-1/2 h-4 min-w-4 px-1 text-[9px] leading-none flex items-center justify-center"
                   >
                     {unreadNotificationCount > 99
                       ? "99+"
