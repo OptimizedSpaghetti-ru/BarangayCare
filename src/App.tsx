@@ -75,8 +75,13 @@ interface AppNotification {
 function AppContent() {
   const { t } = useTranslation();
   const { user, loading, isAdmin, isGuest } = useAuth();
-  const { complaints, addComplaint, updateComplaint, fetchComplaints } =
-    useComplaints();
+  const {
+    complaints,
+    addComplaint,
+    updateComplaint,
+    deleteComplaint,
+    fetchComplaints,
+  } = useComplaints();
   const [currentView, setCurrentView] = useState("dashboard");
   const [authView, setAuthView] = useState<"login" | "signup">("login");
   const [selectedComplaint, setSelectedComplaint] = useState<Complaint | null>(
@@ -390,6 +395,15 @@ function AppContent() {
     }
   };
 
+  const handleDeleteComplaint = async (id: string) => {
+    const { error } = await deleteComplaint(id);
+    if (error) {
+      toast.error(error);
+    } else {
+      toast.success("Request deleted successfully!");
+    }
+  };
+
   const handleViewDetails = (complaint: Complaint) => {
     setSelectedComplaint(complaint);
     setShowDetailsDialog(true);
@@ -571,6 +585,7 @@ function AppContent() {
           <AdminPanel
             complaints={complaints}
             onUpdateComplaint={handleUpdateComplaint}
+            onDeleteComplaint={handleDeleteComplaint}
             onRefresh={handleRefresh}
             refreshing={refreshing}
             onOpenHeatmap={() => setCurrentView("heatmap")}

@@ -33,6 +33,7 @@ interface ComplaintContextType {
     id: string,
     updates: Partial<Complaint>,
   ) => Promise<{ error?: string }>;
+  deleteComplaint: (id: string) => Promise<{ error?: string }>;
   fetchComplaints: () => Promise<void>;
 }
 
@@ -158,11 +159,8 @@ export function ComplaintProvider({ children }: { children: React.ReactNode }) {
       const user = session?.user;
       const isGuestMode = localStorage.getItem("guestMode") === "true";
 
-
-
       // Allow guest submissions
       if (!user && !isGuestMode) {
-
         return { error: "You must be logged in to submit a complaint" };
       }
 
@@ -212,14 +210,14 @@ export function ComplaintProvider({ children }: { children: React.ReactNode }) {
       };
 
       // Save coordinates if provided
-      if (complaintData.latitude !== undefined) dbComplaint.latitude = complaintData.latitude;
-      if (complaintData.longitude !== undefined) dbComplaint.longitude = complaintData.longitude;
+      if (complaintData.latitude !== undefined)
+        dbComplaint.latitude = complaintData.latitude;
+      if (complaintData.longitude !== undefined)
+        dbComplaint.longitude = complaintData.longitude;
       if (complaintData.coordinates) {
         dbComplaint.latitude = complaintData.coordinates.lat;
         dbComplaint.longitude = complaintData.coordinates.lng;
       }
-
-
 
       const { data, error } = await supabase
         .from("complaints")
@@ -231,7 +229,6 @@ export function ComplaintProvider({ children }: { children: React.ReactNode }) {
         toast.error(`Failed to submit complaint: ${error.message}`);
         return { error: "Failed to submit complaint" };
       }
-
 
       // Transform response back to camelCase
       const newComplaint: Complaint = {
@@ -295,7 +292,8 @@ export function ComplaintProvider({ children }: { children: React.ReactNode }) {
       if (updates.respondent !== undefined)
         dbUpdates.respondent = updates.respondent;
       if (updates.latitude !== undefined) dbUpdates.latitude = updates.latitude;
-      if (updates.longitude !== undefined) dbUpdates.longitude = updates.longitude;
+      if (updates.longitude !== undefined)
+        dbUpdates.longitude = updates.longitude;
       if (updates.coordinates) {
         dbUpdates.latitude = updates.coordinates.lat;
         dbUpdates.longitude = updates.coordinates.lng;
@@ -336,11 +334,46 @@ export function ComplaintProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const deleteComplaint = async (id: string) => {
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (!session) {
+        return { error: "You must be logged in to delete a complaint" };
+      }
+
+      const role = session.user?.user_metadata?.role;
+      if (role !== "admin") {
+        return { error: "Only admins can delete complaints" };
+      }
+
+      const { error } = await supabase.from("complaints").delete().eq("id", id);
+
+      if (error) {
+        console.error("Error deleting complaint:", error);
+        toast.error("Failed to delete complaint");
+        return { error: "Failed to delete complaint" };
+      }
+
+      setComplaints((prev) => prev.filter((complaint) => complaint.id !== id));
+      toast.success("Complaint deleted successfully");
+
+      return {};
+    } catch (error) {
+      console.error("Error deleting complaint:", error);
+      toast.error("Failed to delete complaint");
+      return { error: "Failed to delete complaint" };
+    }
+  };
+
   const value = {
     complaints,
     loading,
     addComplaint,
     updateComplaint,
+    deleteComplaint,
     fetchComplaints,
   };
 
