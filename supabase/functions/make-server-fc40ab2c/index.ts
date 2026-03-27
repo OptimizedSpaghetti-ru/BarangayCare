@@ -4,13 +4,37 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 
 const app = new Hono();
 
-// Allowed origins for CORS (add your production domain here)
-const ALLOWED_ORIGINS = [
+// Allowed origins for CORS.
+// Add custom domains via env secret CORS_ALLOWED_ORIGINS as comma-separated URLs.
+const STATIC_ALLOWED_ORIGINS = [
   "http://localhost:5173",
   "http://localhost:5174",
   "http://localhost:3000",
   `https://${Deno.env.get("SUPABASE_URL")?.replace("https://", "").split(".")[0]}.supabase.co`,
 ];
+
+const ENV_ALLOWED_ORIGINS = (Deno.env.get("CORS_ALLOWED_ORIGINS") || "")
+  .split(",")
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+
+const ALLOWED_ORIGINS = [
+  ...STATIC_ALLOWED_ORIGINS,
+  ...ENV_ALLOWED_ORIGINS,
+];
+
+function isAllowedOrigin(origin: string): boolean {
+  if (ALLOWED_ORIGINS.includes(origin)) {
+    return true;
+  }
+
+  // Allow Vercel preview and production subdomains by default.
+  if (/^https:\/\/[a-z0-9-]+\.vercel\.app$/i.test(origin)) {
+    return true;
+  }
+
+  return false;
+}
 
 // CORS middleware — restrict to known origins
 app.use(
@@ -18,7 +42,7 @@ app.use(
   cors({
     origin: (origin) => {
       if (!origin) return ALLOWED_ORIGINS[0]; // allow server-to-server
-      return ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
+      return isAllowedOrigin(origin) ? origin : ALLOWED_ORIGINS[0];
     },
     allowHeaders: ["Authorization", "Content-Type"],
     allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],

@@ -967,6 +967,7 @@ export function AdminPanel({
                                         <Button
                                           variant="destructive"
                                           size="sm"
+                                          className="transition-all duration-200 hover:scale-105 hover:shadow-md"
                                           onClick={() => {
                                             if (!selectedComplaint) return;
                                             setDeleteTarget(selectedComplaint);
@@ -982,13 +983,14 @@ export function AdminPanel({
                             </DialogContent>
                           </Dialog>
                           <Button
-                            variant="destructive"
+                            variant="ghost"
                             size="icon"
+                            className="group text-red-600 bg-transparent hover:bg-transparent hover:text-red-700 transition-all duration-200 hover:scale-110"
                             onClick={() => setDeleteTarget(complaint)}
                             aria-label={`Delete request: ${complaint.title}`}
                             title="Delete Request"
                           >
-                            <Trash2 className="w-4 h-4" />
+                            <Trash2 className="w-4 h-4 transition-transform duration-200 group-hover:rotate-12" />
                           </Button>
                         </div>
                       </TableCell>
@@ -1343,6 +1345,7 @@ export function AdminPanel({
                                     <Button
                                       variant="destructive"
                                       size="sm"
+                                      className="transition-all duration-200 hover:scale-105 hover:shadow-md"
                                       onClick={() => {
                                         if (!selectedComplaint) return;
                                         setDeleteTarget(selectedComplaint);
@@ -1360,10 +1363,10 @@ export function AdminPanel({
                       <Button
                         variant="destructive"
                         size="sm"
-                        className="w-full"
+                        className="group w-full transition-all duration-200 hover:scale-[1.02] hover:shadow-md"
                         onClick={() => setDeleteTarget(complaint)}
                       >
-                        <Trash2 className="w-4 h-4 mr-2" />
+                        <Trash2 className="w-4 h-4 mr-2 transition-transform duration-200 group-hover:rotate-12" />
                         Delete
                       </Button>
                     </div>
