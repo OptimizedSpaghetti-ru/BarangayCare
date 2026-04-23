@@ -780,7 +780,7 @@ function AppContent() {
 
       {/* Request Details Dialog */}
       <Dialog open={showDetailsDialog} onOpenChange={setShowDetailsDialog}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto mx-4">
+        <DialogContent className="w-full max-w-2xl max-h-[90vh] overflow-y-auto px-4 sm:px-6">
           <DialogHeader>
             <DialogTitle>{t("complaints.requestDetails")}</DialogTitle>
             <DialogDescription>
