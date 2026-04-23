@@ -780,7 +780,7 @@ function AppContent() {
 
       {/* Request Details Dialog */}
       <Dialog open={showDetailsDialog} onOpenChange={setShowDetailsDialog}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto mx-4">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{t("complaints.requestDetails")}</DialogTitle>
             <DialogDescription>
@@ -795,7 +795,7 @@ function AppContent() {
                   <h3 className="text-lg font-medium">
                     {selectedComplaint.title}
                   </h3>
-                  <div className="flex items-center space-x-3 mt-2">
+                  <div className="mt-2 flex flex-wrap items-center gap-2 sm:gap-3">
                     <Badge
                       className={`${getStatusColor(
                         selectedComplaint.status,
@@ -803,13 +803,13 @@ function AppContent() {
                     >
                       {selectedComplaint.status}
                     </Badge>
-                    <div className="flex items-center space-x-1">
+                    <div className="flex min-w-0 items-center space-x-1">
                       <div
                         className={`w-3 h-3 rounded-full ${getPriorityColor(
                           selectedComplaint.priority,
                         )}`}
                       />
-                      <span className="text-sm text-gray-600">
+                      <span className="text-sm text-gray-600 break-words">
                         {selectedComplaint.priority}{" "}
                         {t("complaints.priorityLabel")}
                       </span>
@@ -909,7 +909,7 @@ function AppContent() {
               )}
 
               <div className="flex items-center justify-between pt-4 border-t border-border">
-                <div className="flex items-center space-x-2">
+                <div className="flex min-w-0 flex-wrap items-center gap-2">
                   {selectedComplaint.status === "resolved" ? (
                     <CheckCircle className="w-5 h-5 text-green-500" />
                   ) : selectedComplaint.status === "rejected" ? (
@@ -917,7 +917,7 @@ function AppContent() {
                   ) : (
                     <Clock className="w-5 h-5 text-yellow-500" />
                   )}
-                  <span className="text-sm text-muted-foreground">
+                  <span className="text-sm text-muted-foreground break-words">
                     {selectedComplaint.status === "resolved"
                       ? t("complaints.requestResolved")
                       : selectedComplaint.status === "rejected"
