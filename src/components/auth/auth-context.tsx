@@ -418,13 +418,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setUser(profile);
           const adminRole = data.session.user?.user_metadata?.role === "admin";
           setIsAdmin(adminRole);
+        } else {
+          let serverError = "";
+          try {
+            const body = await response.json();
+            serverError = body?.error || body?.message || "";
+          } catch {
+            serverError = "";
+          }
+          await supabase.auth.signOut();
+          return {
+            error:
+              serverError ||
+              `Failed to fetch profile (${response.status} ${response.statusText})`,
+          };
         }
       }
 
       return {};
     } catch (error) {
       console.error("Sign in error:", error);
-      return { error: "Network error during sign in" };
+      const errorMessage =
+        error instanceof Error ? error.message : "Unknown error";
+      return { error: `Network error during sign in: ${errorMessage}` };
     }
   };
 

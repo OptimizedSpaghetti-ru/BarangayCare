@@ -7,9 +7,13 @@ const app = new Hono();
 // Allowed origins for CORS.
 // Add custom domains via env secret CORS_ALLOWED_ORIGINS as comma-separated URLs.
 const STATIC_ALLOWED_ORIGINS = [
+  "http://localhost",
   "http://localhost:5173",
   "http://localhost:5174",
   "http://localhost:3000",
+  "https://localhost",
+  "capacitor://localhost",
+  "ionic://localhost",
   `https://${Deno.env.get("SUPABASE_URL")?.replace("https://", "").split(".")[0]}.supabase.co`,
 ];
 
@@ -18,10 +22,7 @@ const ENV_ALLOWED_ORIGINS = (Deno.env.get("CORS_ALLOWED_ORIGINS") || "")
   .map((origin) => origin.trim())
   .filter(Boolean);
 
-const ALLOWED_ORIGINS = [
-  ...STATIC_ALLOWED_ORIGINS,
-  ...ENV_ALLOWED_ORIGINS,
-];
+const ALLOWED_ORIGINS = [...STATIC_ALLOWED_ORIGINS, ...ENV_ALLOWED_ORIGINS];
 
 function isAllowedOrigin(origin: string): boolean {
   if (ALLOWED_ORIGINS.includes(origin)) {
