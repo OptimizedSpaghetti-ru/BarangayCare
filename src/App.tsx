@@ -37,6 +37,7 @@ import {
   MapPin,
   MessageSquare,
   Phone,
+  RefreshCw,
   Shield,
   User,
   XCircle,
@@ -90,6 +91,7 @@ function AppContent() {
   );
   const [showDetailsDialog, setShowDetailsDialog] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [pullDistance, setPullDistance] = useState(0);
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const previousComplaintSnapshot = useRef<
     Map<string, { status: string; adminNotes: string | null }>
@@ -97,6 +99,9 @@ function AppContent() {
   const notificationsInitialized = useRef(false);
   const localNotifSetupDoneRef = useRef(false);
   const localNotifPermissionRef = useRef(false);
+  const mainScrollRef = useRef<HTMLElement | null>(null);
+  const pullStartYRef = useRef<number | null>(null);
+  const isPullingRef = useRef(false);
 
   const unreadNotificationCount = useMemo(
     () => notifications.filter((n) => !n.read).length,
@@ -370,6 +375,52 @@ function AppContent() {
     }
   };
 
+  const resetPullState = () => {
+    pullStartYRef.current = null;
+    isPullingRef.current = false;
+    setPullDistance(0);
+  };
+
+  const handleTouchStart = (event: React.TouchEvent<HTMLElement>) => {
+    if (refreshing) return;
+    const scrollElement = mainScrollRef.current;
+    if (!scrollElement || scrollElement.scrollTop > 0) return;
+    pullStartYRef.current = event.touches[0]?.clientY ?? null;
+    isPullingRef.current = false;
+  };
+
+  const handleTouchMove = (event: React.TouchEvent<HTMLElement>) => {
+    if (refreshing) return;
+    const scrollElement = mainScrollRef.current;
+    const startY = pullStartYRef.current;
+    if (!scrollElement || startY === null || scrollElement.scrollTop > 0)
+      return;
+
+    const currentY = event.touches[0]?.clientY;
+    if (currentY === undefined) return;
+
+    const distance = currentY - startY;
+    if (distance <= 0) return;
+
+    isPullingRef.current = true;
+    event.preventDefault();
+    setPullDistance(Math.min(distance * 0.6, 120));
+  };
+
+  const handleTouchEnd = async () => {
+    if (!isPullingRef.current) {
+      resetPullState();
+      return;
+    }
+
+    const shouldRefresh = pullDistance >= 80;
+    resetPullState();
+
+    if (shouldRefresh && !refreshing) {
+      await handleRefresh();
+    }
+  };
+
   const handleSubmitComplaint = async (
     newComplaint: Omit<Complaint, "id" | "dateSubmitted">,
   ) => {
@@ -563,7 +614,7 @@ function AppContent() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background flex flex-col">
       <Header
         currentView={currentView}
         onViewChange={setCurrentView}
@@ -572,7 +623,32 @@ function AppContent() {
         unreadNotificationCount={unreadNotificationCount}
       />
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
+      <main
+        ref={mainScrollRef}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        onTouchCancel={resetPullState}
+        className="flex-1 overflow-y-auto overscroll-y-contain max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-4 sm:py-8"
+      >
+        <div
+          className={`mb-4 flex items-center justify-center gap-2 text-sm text-muted-foreground transition-all duration-200 ${
+            pullDistance > 0 || refreshing ? "opacity-100" : "opacity-0"
+          }`}
+          style={{ transform: `translateY(${Math.min(pullDistance, 24)}px)` }}
+        >
+          <RefreshCw
+            className={refreshing ? "h-4 w-4 animate-spin" : "h-4 w-4"}
+          />
+          <span>
+            {refreshing
+              ? "Refreshing..."
+              : pullDistance >= 80
+                ? "Release to refresh"
+                : "Pull down to refresh"}
+          </span>
+        </div>
+
         {currentView === "dashboard" && !isAdmin && (
           <UnifiedDashboard
             complaints={complaints}

@@ -30,7 +30,7 @@ const notificationSizes = {
   xxxhdpi: 96,
 };
 
-const launcherIconScale = 0.68;
+const launcherIconScale = 0.55;
 const notificationIconScale = 0.78;
 
 async function renderInsetIcon(inputPath, outputPath, canvasSize, scale) {
