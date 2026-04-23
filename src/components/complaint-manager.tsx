@@ -302,8 +302,7 @@ export function ComplaintProvider({ children }: { children: React.ReactNode }) {
           schema: "public",
           table: "complaints",
         },
-        (payload) => {
-          console.log("Real-time update received:", payload);
+        () => {
           // Refetch complaints when any change occurs
           void fetchComplaintsInternal({
             suppressLoading: true,

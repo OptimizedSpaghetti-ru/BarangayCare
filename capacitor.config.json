@@ -1,5 +1,18 @@
 {
   "appId": "com.barangaycare.app",
   "appName": "BarangayCare",
-  "webDir": "dist"
+  "webDir": "dist",
+  "plugins": {
+    "LocalNotifications": {
+      "smallIcon": "ic_notification",
+      "iconColor": "#1e88e5",
+      "sound": "beep"
+    }
+  },
+  "android": {
+    "allowMixedContent": true
+  },
+  "ios": {
+    "limitsNavigationsToAppBoundDomains": true
+  }
 }
