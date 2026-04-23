@@ -30,6 +30,42 @@ const notificationSizes = {
   xxxhdpi: 96,
 };
 
+const launcherIconScale = 0.68;
+const notificationIconScale = 0.78;
+
+async function renderInsetIcon(inputPath, outputPath, canvasSize, scale) {
+  const targetSize = Math.max(1, Math.round(canvasSize * scale));
+  const resizedIcon = await sharp(inputPath)
+    .resize(targetSize, targetSize, {
+      fit: "contain",
+      background: { r: 255, g: 255, b: 255, alpha: 0 },
+    })
+    .png()
+    .toBuffer();
+
+  const metadata = await sharp(resizedIcon).metadata();
+  const left = Math.max(
+    0,
+    Math.round((canvasSize - (metadata.width || targetSize)) / 2),
+  );
+  const top = Math.max(
+    0,
+    Math.round((canvasSize - (metadata.height || targetSize)) / 2),
+  );
+
+  await sharp({
+    create: {
+      width: canvasSize,
+      height: canvasSize,
+      channels: 4,
+      background: { r: 255, g: 255, b: 255, alpha: 0 },
+    },
+  })
+    .composite([{ input: resizedIcon, left, top }])
+    .png()
+    .toFile(outputPath);
+}
+
 async function generateIcons() {
   console.log("Generating Android launcher icons...");
 
@@ -44,21 +80,19 @@ async function generateIcons() {
 
       console.log(`  Creating ${density} launcher icon (${size}x${size})...`);
 
-      await sharp(sourceIcon)
-        .resize(size, size, {
-          fit: "contain",
-          background: { r: 255, g: 255, b: 255, alpha: 0 },
-        })
-        .png()
-        .toFile(path.join(outputDir, "ic_launcher.png"));
+      await renderInsetIcon(
+        sourceIcon,
+        path.join(outputDir, "ic_launcher.png"),
+        size,
+        launcherIconScale,
+      );
 
-      await sharp(sourceIcon)
-        .resize(size, size, {
-          fit: "contain",
-          background: { r: 255, g: 255, b: 255, alpha: 0 },
-        })
-        .png()
-        .toFile(path.join(outputDir, "ic_launcher_round.png"));
+      await renderInsetIcon(
+        sourceIcon,
+        path.join(outputDir, "ic_launcher_round.png"),
+        size,
+        launcherIconScale,
+      );
     }
 
     // Generate adaptive icon foreground assets used by mipmap-anydpi-v26 XML
@@ -73,13 +107,12 @@ async function generateIcons() {
         `  Creating ${density} adaptive foreground icon (${size}x${size})...`,
       );
 
-      await sharp(sourceIcon)
-        .resize(size, size, {
-          fit: "contain",
-          background: { r: 255, g: 255, b: 255, alpha: 0 },
-        })
-        .png()
-        .toFile(path.join(outputDir, "ic_launcher_foreground.png"));
+      await renderInsetIcon(
+        sourceIcon,
+        path.join(outputDir, "ic_launcher_foreground.png"),
+        size,
+        launcherIconScale,
+      );
     }
 
     // Generate notification icons (smaller sizes)
@@ -94,13 +127,12 @@ async function generateIcons() {
         `  Creating ${density} notification icon (${size}x${size})...`,
       );
 
-      await sharp(sourceIcon)
-        .resize(size, size, {
-          fit: "contain",
-          background: { r: 255, g: 255, b: 255, alpha: 0 },
-        })
-        .png()
-        .toFile(path.join(outputDir, "ic_notification.png"));
+      await renderInsetIcon(
+        sourceIcon,
+        path.join(outputDir, "ic_notification.png"),
+        size,
+        notificationIconScale,
+      );
     }
 
     console.log("✓ Icon generation complete!");
