@@ -8,6 +8,10 @@ import {
   ComplaintProvider,
   useComplaints,
 } from "./components/complaint-manager";
+import {
+  AssistanceProvider,
+  useAssistance,
+} from "./components/assistance-manager";
 import { LoginForm } from "./components/auth/login-form";
 import { SignupForm } from "./components/auth/signup-form";
 import { ProfileManagement } from "./components/auth/profile-management";
@@ -16,6 +20,7 @@ import { ResidentSettings } from "./components/resident-settings";
 import { Header } from "./components/header";
 import { UnifiedDashboard } from "./components/unified-dashboard";
 import { ComplaintForm } from "./components/complaint-form";
+import { AssistanceForm } from "./components/assistance-form";
 import { AdminPanel } from "./components/admin-panel";
 import { DataAnalytics } from "./components/data-analytics";
 import { HeatmapDashboard } from "./components/heatmap-dashboard";
@@ -37,7 +42,6 @@ import {
   MapPin,
   MessageSquare,
   Phone,
-  RefreshCw,
   Shield,
   User,
   XCircle,
@@ -84,6 +88,13 @@ function AppContent() {
     deleteComplaint,
     fetchComplaints,
   } = useComplaints();
+  const {
+    assistanceRequests,
+    addAssistanceRequest,
+    fetchAssistanceRequests,
+    updateAssistanceRequest,
+    deleteAssistanceRequest,
+  } = useAssistance();
   const [currentView, setCurrentView] = useState("dashboard");
   const [authView, setAuthView] = useState<"login" | "signup">("login");
   const [selectedComplaint, setSelectedComplaint] = useState<Complaint | null>(
@@ -92,6 +103,9 @@ function AppContent() {
   const [showDetailsDialog, setShowDetailsDialog] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [pullDistance, setPullDistance] = useState(0);
+  const [guestSubmissionType, setGuestSubmissionType] = useState<
+    "complaint" | "assistance"
+  >("complaint");
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const previousComplaintSnapshot = useRef<
     Map<string, { status: string; adminNotes: string | null }>
@@ -366,10 +380,10 @@ function AppContent() {
   const handleRefresh = async () => {
     setRefreshing(true);
     try {
-      await fetchComplaints();
-      toast.success("Latest complaints loaded");
+      await Promise.all([fetchComplaints(), fetchAssistanceRequests()]);
+      toast.success("Latest data loaded");
     } catch {
-      toast.error("Failed to refresh complaints");
+      toast.error("Failed to refresh");
     } finally {
       setRefreshing(false);
     }
@@ -429,7 +443,19 @@ function AppContent() {
       toast.error(error);
     } else {
       toast.success(
-        "Request submitted successfully! We will review it shortly.",
+        "Complaint submitted successfully! We will review it shortly.",
+      );
+      setCurrentView("dashboard");
+    }
+  };
+
+  const handleSubmitAssistance = async (requestData: any) => {
+    const { error } = await addAssistanceRequest(requestData);
+    if (error) {
+      toast.error(error);
+    } else {
+      toast.success(
+        "Assistance request submitted! We will process it shortly.",
       );
       setCurrentView("dashboard");
     }
@@ -510,6 +536,11 @@ function AppContent() {
 
   // Show guest complaint form if in guest mode
   if (isGuest) {
+    const guestFormTitle =
+      guestSubmissionType === "complaint"
+        ? "Submit your complaint anonymously"
+        : "Submit your assistance request anonymously";
+
     return (
       <div className="min-h-screen bg-background">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 relative">
@@ -552,13 +583,32 @@ function AppContent() {
                 BarangayCARE - Guest Mode
               </span>
             </div>
-            <p className="text-muted-foreground mb-4">
-              Submit your complaint anonymously
-            </p>
+            <p className="text-muted-foreground mb-4">{guestFormTitle}</p>
+            <div className="flex flex-wrap justify-center gap-2 mb-4">
+              <Button
+                type="button"
+                variant={
+                  guestSubmissionType === "complaint" ? "default" : "outline"
+                }
+                onClick={() => setGuestSubmissionType("complaint")}
+              >
+                Complaint
+              </Button>
+              <Button
+                type="button"
+                variant={
+                  guestSubmissionType === "assistance" ? "default" : "outline"
+                }
+                onClick={() => setGuestSubmissionType("assistance")}
+              >
+                Assistance
+              </Button>
+            </div>
             <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg max-w-2xl mx-auto">
               <p className="text-sm text-blue-800 dark:text-blue-300">
-                ⓘ You are submitting as a guest. Your complaint will be recorded
-                as "Anonymous" and you won't be able to track its status.
+                ⓘ You are submitting as a guest. Your submission will be
+                recorded as "Anonymous" and you won't be able to track its
+                status.
                 <br />
                 <a
                   href="#"
@@ -574,7 +624,11 @@ function AppContent() {
               </p>
             </div>
           </div>
-          <ComplaintForm onSubmit={handleSubmitComplaint} />
+          {guestSubmissionType === "complaint" ? (
+            <ComplaintForm onSubmit={handleSubmitComplaint} />
+          ) : (
+            <AssistanceForm onSubmit={handleSubmitAssistance} />
+          )}
         </div>
         <Toaster />
       </div>
@@ -631,24 +685,6 @@ function AppContent() {
         onTouchCancel={resetPullState}
         className="flex-1 overflow-y-auto overscroll-y-contain max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-4 sm:py-8"
       >
-        <div
-          className={`mb-4 flex items-center justify-center gap-2 text-sm text-muted-foreground transition-all duration-200 ${
-            pullDistance > 0 || refreshing ? "opacity-100" : "opacity-0"
-          }`}
-          style={{ transform: `translateY(${Math.min(pullDistance, 24)}px)` }}
-        >
-          <RefreshCw
-            className={refreshing ? "h-4 w-4 animate-spin" : "h-4 w-4"}
-          />
-          <span>
-            {refreshing
-              ? "Refreshing..."
-              : pullDistance >= 80
-                ? "Release to refresh"
-                : "Pull down to refresh"}
-          </span>
-        </div>
-
         {currentView === "dashboard" && !isAdmin && (
           <UnifiedDashboard
             complaints={complaints}
@@ -663,11 +699,18 @@ function AppContent() {
           <ComplaintForm onSubmit={handleSubmitComplaint} />
         )}
 
+        {currentView === "assistance" && (
+          <AssistanceForm onSubmit={handleSubmitAssistance} />
+        )}
+
         {currentView === "admin" && (
           <AdminPanel
             complaints={complaints}
+            assistanceRequests={assistanceRequests}
             onUpdateComplaint={handleUpdateComplaint}
             onDeleteComplaint={handleDeleteComplaint}
+            onUpdateAssistance={updateAssistanceRequest}
+            onDeleteAssistance={deleteAssistanceRequest}
             onRefresh={handleRefresh}
             refreshing={refreshing}
             onOpenHeatmap={() => setCurrentView("heatmap")}
@@ -766,6 +809,7 @@ function AppContent() {
         {currentView === "analytics" && (
           <DataAnalytics
             complaints={complaints}
+            assistanceRequests={assistanceRequests}
             onRefresh={handleRefresh}
             refreshing={refreshing}
           />
@@ -941,7 +985,9 @@ export default function App() {
     <ThemeProvider>
       <AuthProvider>
         <ComplaintProvider>
-          <AppContent />
+          <AssistanceProvider>
+            <AppContent />
+          </AssistanceProvider>
         </ComplaintProvider>
       </AuthProvider>
     </ThemeProvider>

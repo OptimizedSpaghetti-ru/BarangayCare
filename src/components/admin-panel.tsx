@@ -1,5 +1,10 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
+import {
+  COMPLAINT_CATEGORIES,
+  ASSISTANCE_CATEGORIES,
+} from "../config/categories";
+import type { AssistanceRequest } from "./assistance-manager";
 import {
   Card,
   CardContent,
@@ -88,8 +93,14 @@ interface Complaint {
 
 interface AdminPanelProps {
   complaints: Complaint[];
+  assistanceRequests?: AssistanceRequest[];
   onUpdateComplaint: (id: string, updates: Partial<Complaint>) => void;
   onDeleteComplaint: (id: string) => Promise<{ error?: string }>;
+  onUpdateAssistance?: (
+    id: string,
+    updates: Partial<AssistanceRequest>,
+  ) => Promise<{ error?: string }>;
+  onDeleteAssistance?: (id: string) => Promise<{ error?: string }>;
   onRefresh?: () => Promise<void> | void;
   refreshing?: boolean;
   onOpenHeatmap?: () => void;
@@ -97,8 +108,11 @@ interface AdminPanelProps {
 
 export function AdminPanel({
   complaints,
+  assistanceRequests = [],
   onUpdateComplaint,
   onDeleteComplaint,
+  onUpdateAssistance,
+  onDeleteAssistance,
   onRefresh,
   refreshing = false,
   onOpenHeatmap,
@@ -107,6 +121,9 @@ export function AdminPanel({
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [categoryFilter, setCategoryFilter] = useState("all");
+  const [typeFilter, setTypeFilter] = useState<
+    "all" | "complaint" | "assistance"
+  >("all");
   const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
   const [manualStartDate, setManualStartDate] = useState("");
   const [manualEndDate, setManualEndDate] = useState("");
@@ -119,6 +136,21 @@ export function AdminPanel({
     "low" | "medium" | "high"
   >("medium");
   const [deleteTarget, setDeleteTarget] = useState<Complaint | null>(null);
+  const availableCategories =
+    typeFilter === "complaint"
+      ? COMPLAINT_CATEGORIES
+      : typeFilter === "assistance"
+        ? ASSISTANCE_CATEGORIES
+        : [...COMPLAINT_CATEGORIES, ...ASSISTANCE_CATEGORIES];
+
+  useEffect(() => {
+    if (
+      categoryFilter !== "all" &&
+      !availableCategories.some((category) => category.value === categoryFilter)
+    ) {
+      setCategoryFilter("all");
+    }
+  }, [availableCategories, categoryFilter]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -208,21 +240,65 @@ export function AdminPanel({
     return matchesSearch && matchesStatus && matchesCategory && matchesDate;
   });
 
-  const handleStatusUpdate = (complaintId: string, newStatus: string) => {
-    onUpdateComplaint(complaintId, { status: newStatus as any });
-    // Update the selected complaint to reflect the change immediately
-    if (selectedComplaint && selectedComplaint.id === complaintId) {
+  const filteredAssistance = assistanceRequests.filter((req) => {
+    const searchLower = searchTerm.toLowerCase();
+    const matchesSearch =
+      !searchTerm ||
+      req.title.toLowerCase().includes(searchLower) ||
+      req.description.toLowerCase().includes(searchLower) ||
+      req.location.toLowerCase().includes(searchLower) ||
+      req.category.toLowerCase().includes(searchLower) ||
+      req.status.toLowerCase().includes(searchLower) ||
+      req.contactInfo.toLowerCase().includes(searchLower) ||
+      (req.userName && req.userName.toLowerCase().includes(searchLower)) ||
+      (req.respondent && req.respondent.toLowerCase().includes(searchLower)) ||
+      (req.adminNotes && req.adminNotes.toLowerCase().includes(searchLower));
+
+    const matchesStatus = statusFilter === "all" || req.status === statusFilter;
+    const matchesCategory =
+      categoryFilter === "all" || req.category === categoryFilter;
+
+    let matchesDate = true;
+    if (dateRange?.from) {
+      const reqDate = new Date(req.dateSubmitted);
+      reqDate.setHours(0, 0, 0, 0);
+
+      const fromDate = new Date(dateRange.from);
+      fromDate.setHours(0, 0, 0, 0);
+
+      if (dateRange.to) {
+        const toDate = new Date(dateRange.to);
+        toDate.setHours(23, 59, 59, 999);
+        matchesDate = reqDate >= fromDate && reqDate <= toDate;
+      } else {
+        matchesDate = reqDate.toDateString() === fromDate.toDateString();
+      }
+    }
+
+    return matchesSearch && matchesStatus && matchesCategory && matchesDate;
+  });
+
+  const handleStatusUpdate = (id: string, newStatus: string) => {
+    if (typeFilter === "assistance") {
+      void onUpdateAssistance?.(id, { status: newStatus as any });
+    } else {
+      onUpdateComplaint(id, { status: newStatus as any });
+    }
+    if (selectedComplaint && selectedComplaint.id === id) {
       setSelectedComplaint({ ...selectedComplaint, status: newStatus as any });
     }
   };
 
   const handlePriorityUpdate = (
-    complaintId: string,
+    id: string,
     newPriority: "low" | "medium" | "high",
   ) => {
-    onUpdateComplaint(complaintId, { priority: newPriority });
-    // Update the selected complaint to reflect the change immediately
-    if (selectedComplaint && selectedComplaint.id === complaintId) {
+    if (typeFilter === "assistance") {
+      void onUpdateAssistance?.(id, { priority: newPriority });
+    } else {
+      onUpdateComplaint(id, { priority: newPriority });
+    }
+    if (selectedComplaint && selectedComplaint.id === id) {
       setSelectedComplaint({ ...selectedComplaint, priority: newPriority });
     }
   };
@@ -256,18 +332,24 @@ export function AdminPanel({
   };
 
   const handleSaveNotes = () => {
-    if (selectedComplaint) {
+    if (!selectedComplaint) return;
+    if (typeFilter === "assistance") {
+      void onUpdateAssistance?.(selectedComplaint.id, { adminNotes });
+    } else {
       onUpdateComplaint(selectedComplaint.id, { adminNotes });
-      setSelectedComplaint({ ...selectedComplaint, adminNotes });
     }
+    setSelectedComplaint({ ...selectedComplaint, adminNotes });
   };
 
   const handleConfirmDelete = async () => {
     if (!deleteTarget) return;
 
-    const { error } = await onDeleteComplaint(deleteTarget.id);
-    if (error) {
-      return;
+    if (typeFilter === "assistance") {
+      const { error } = await onDeleteAssistance?.(deleteTarget.id as string);
+      if (error) return;
+    } else {
+      const { error } = await onDeleteComplaint(deleteTarget.id);
+      if (error) return;
     }
 
     if (selectedComplaint?.id === deleteTarget.id) {
@@ -438,6 +520,42 @@ export function AdminPanel({
           </CardDescription>
         </CardHeader>
         <CardContent>
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <Button
+                size="sm"
+                variant={typeFilter === "complaint" ? "default" : "outline"}
+                onClick={() => setTypeFilter("complaint")}
+              >
+                Complaints
+              </Button>
+              <Button
+                size="sm"
+                variant={typeFilter === "assistance" ? "default" : "outline"}
+                onClick={() => setTypeFilter("assistance")}
+              >
+                Assistance
+              </Button>
+              <Button
+                size="sm"
+                variant={typeFilter === "all" ? "default" : "outline"}
+                onClick={() => setTypeFilter("all")}
+              >
+                All
+              </Button>
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">
+                Showing:{" "}
+                {typeFilter === "all"
+                  ? "All requests"
+                  : typeFilter === "complaint"
+                    ? "Complaints"
+                    : "Assistance"}
+              </p>
+            </div>
+          </div>
+
           <div className="flex flex-col gap-3 sm:gap-4 mb-6">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
@@ -485,20 +603,30 @@ export function AdminPanel({
               </Select>
 
               <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                <SelectTrigger className="w-full sm:w-40">
+                <SelectTrigger className="w-full sm:w-44">
                   <SelectValue placeholder="Category" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Categories</SelectItem>
-                  <SelectItem value="infrastructure">Infrastructure</SelectItem>
-                  <SelectItem value="sanitation">Sanitation</SelectItem>
-                  <SelectItem value="utilities">Utilities</SelectItem>
-                  <SelectItem value="security">Security</SelectItem>
-                  <SelectItem value="health">Health</SelectItem>
-                  <SelectItem value="emergency">Emergency</SelectItem>
-                  <SelectItem value="civil-disputes">Civil Disputes</SelectItem>
-                  <SelectItem value="minor-criminal">Minor Crime</SelectItem>
-                  <SelectItem value="other">Other</SelectItem>
+                  {availableCategories.map((c) => (
+                    <SelectItem key={c.value} value={c.value}>
+                      {c.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              <Select
+                value={typeFilter}
+                onValueChange={(v) => setTypeFilter(v as any)}
+              >
+                <SelectTrigger className="w-full sm:w-40">
+                  <SelectValue placeholder="Type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Types</SelectItem>
+                  <SelectItem value="complaint">Complaints Only</SelectItem>
+                  <SelectItem value="assistance">Assistance Only</SelectItem>
                 </SelectContent>
               </Select>
 
@@ -615,7 +743,10 @@ export function AdminPanel({
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredComplaints.map((complaint) => (
+                  {(typeFilter === "assistance"
+                    ? filteredAssistance
+                    : filteredComplaints
+                  ).map((complaint) => (
                     <TableRow key={complaint.id}>
                       <TableCell>
                         <div className="max-w-48">

@@ -1,5 +1,4 @@
-import { useState, useRef } from "react";
-import { useTranslation } from "react-i18next";
+import { useState, useRef, type ChangeEvent, type FormEvent } from "react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Textarea } from "./ui/textarea";
@@ -29,14 +28,14 @@ import { Badge } from "./ui/badge";
 import { Camera, MapPin, Upload } from "lucide-react";
 import { ImageWithFallback } from "./figma/ImageWithFallback";
 import { MapPicker } from "./map-picker";
-import { toast } from "sonner@2.0.3";
-import { COMPLAINT_CATEGORIES } from "../config/categories";
+import { toast } from "sonner";
+import { ASSISTANCE_CATEGORIES } from "../config/categories";
 
-// Re-export so existing consumers keep working
-export { COMPLAINT_CATEGORIES };
+// Re-export so existing imports keep working
+export { ASSISTANCE_CATEGORIES };
 
-interface ComplaintFormProps {
-  onSubmit: (complaint: {
+interface AssistanceFormProps {
+  onSubmit: (request: {
     title: string;
     description: string;
     category: string;
@@ -50,8 +49,7 @@ interface ComplaintFormProps {
   }) => void;
 }
 
-export function ComplaintForm({ onSubmit }: ComplaintFormProps) {
-  const { t } = useTranslation();
+export function AssistanceForm({ onSubmit }: AssistanceFormProps) {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [category, setCategory] = useState("");
@@ -64,7 +62,6 @@ export function ComplaintForm({ onSubmit }: ComplaintFormProps) {
     lat: number;
     lng: number;
   } | null>(null);
-  const [respondent, setRespondent] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const normalizePhone = (value: string) =>
@@ -80,29 +77,21 @@ export function ComplaintForm({ onSubmit }: ComplaintFormProps) {
     return null;
   };
 
-  // Check if category requires respondent field
-  const requiresRespondent =
-    category === "neighborhood-disputes" || category === "minor-crime";
-
-  // Validation: Check if all required fields are filled
   const isFormValid = () => {
-    const baseFieldsFilled =
+    return (
       title.trim() !== "" &&
       description.trim() !== "" &&
       category !== "" &&
       location.trim() !== "" &&
       contactInfo.trim() !== "" &&
       validatePhone(contactInfo.trim()) === null &&
-      photo !== null; // Photo is now mandatory
-
-    if (requiresRespondent) {
-      return baseFieldsFilled && respondent.trim() !== "";
-    }
-
-    return baseFieldsFilled;
+      photo !== null
+    );
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const submitButtonEnabled = isFormValid();
+
+  const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
     if (!isFormValid()) {
@@ -119,7 +108,12 @@ export function ComplaintForm({ onSubmit }: ComplaintFormProps) {
       return;
     }
 
-    const complaint = {
+    const priority =
+      category === "emergency-assistance" || category === "disaster-relief"
+        ? ("high" as const)
+        : ("medium" as const);
+
+    const request = {
       title,
       description,
       category,
@@ -127,15 +121,11 @@ export function ComplaintForm({ onSubmit }: ComplaintFormProps) {
       photo: photo || undefined,
       contactInfo,
       status: "pending" as const,
-      priority:
-        category === "minor-crime" || category === "property-damage"
-          ? ("high" as const)
-          : ("medium" as const),
+      priority,
       coordinates: coordinates || undefined,
-      respondent: requiresRespondent ? respondent : undefined,
     };
 
-    onSubmit(complaint);
+    onSubmit(request);
 
     // Reset form
     setTitle("");
@@ -146,14 +136,13 @@ export function ComplaintForm({ onSubmit }: ComplaintFormProps) {
     setContactInfo("");
     setContactError(null);
     setCoordinates(null);
-    setRespondent("");
   };
 
   const handlePhotoUpload = () => {
     fileInputRef.current?.click();
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       const reader = new FileReader();
@@ -183,33 +172,34 @@ export function ComplaintForm({ onSubmit }: ComplaintFormProps) {
       <Card>
         <CardHeader className="bg-gradient-to-r from-primary to-accent text-primary-foreground pb-8">
           <CardTitle className="text-lg sm:text-xl">
-            {t("complaints.fileComplaint")}
+            Request Assistance
           </CardTitle>
-          <CardDescription className="text-primary-foreground/90 text-sm sm:text-base">
-            {t("complaints.complaintFormDescription")}
+          <CardDescription className="text-primary-foreground/90">
+            Submit a request for barangay assistance programs and services.
+            Provide as much detail as possible so we can help you effectively.
           </CardDescription>
         </CardHeader>
         <CardContent className="mt-6 px-4 sm:px-6 pb-8">
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="space-y-2">
-              <Label htmlFor="title">{t("complaints.complaintTitle")}</Label>
+              <Label htmlFor="assist-title">Title of Request</Label>
               <Input
-                id="title"
+                id="assist-title"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                placeholder={t("form.titlePlaceholder")}
+                placeholder="Brief description of the assistance needed"
                 required
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="category">{t("complaints.category")}</Label>
+              <Label htmlFor="assist-category">Category</Label>
               <Select value={category} onValueChange={setCategory} required>
                 <SelectTrigger>
-                  <SelectValue placeholder={t("form.selectOption")} />
+                  <SelectValue placeholder="Select assistance type" />
                 </SelectTrigger>
                 <SelectContent>
-                  {COMPLAINT_CATEGORIES.map((cat) => (
+                  {ASSISTANCE_CATEGORIES.map((cat) => (
                     <SelectItem key={cat.value} value={cat.value}>
                       {cat.label}
                     </SelectItem>
@@ -218,44 +208,27 @@ export function ComplaintForm({ onSubmit }: ComplaintFormProps) {
               </Select>
             </div>
 
-            {requiresRespondent && (
-              <div className="space-y-2">
-                <Label htmlFor="respondent">{t("complaints.respondent")}</Label>
-                <Input
-                  id="respondent"
-                  value={respondent}
-                  onChange={(e) => setRespondent(e.target.value)}
-                  placeholder={t("form.respondentPlaceholder")}
-                  required
-                />
-                <p className="text-xs text-muted-foreground">
-                  Please provide the name of the person involved in this dispute
-                  or offense.
-                </p>
-              </div>
-            )}
-
             <div className="space-y-2">
-              <Label htmlFor="description">{t("complaints.description")}</Label>
+              <Label htmlFor="assist-description">Description</Label>
               <Textarea
-                id="description"
+                id="assist-description"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                placeholder={t("form.descriptionPlaceholder")}
+                placeholder="Describe your situation and what kind of assistance you need..."
                 rows={4}
                 required
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="location">{t("residents.address")}</Label>
+              <Label htmlFor="assist-location">Address</Label>
               <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2">
                 <div className="flex-1 relative">
                   <Input
-                    id="location"
+                    id="assist-location"
                     value={location}
                     onChange={(e) => setLocation(e.target.value)}
-                    placeholder={t("form.addressPlaceholder")}
+                    placeholder="Your home address or location"
                     className="flex-1"
                     required
                   />
@@ -280,13 +253,13 @@ export function ComplaintForm({ onSubmit }: ComplaintFormProps) {
             </div>
 
             <div className="space-y-2">
-              <Label>{t("complaints.photoEvidence")} *</Label>
-              <div className="border-2 border-dashed border-border rounded-lg p-4 sm:p-6 text-center">
+              <Label>Photo Evidence</Label>
+              <div className="border-2 border-dashed border-sky-200 bg-sky-50/70 dark:border-sky-900/50 dark:bg-sky-950/20 rounded-lg p-4 sm:p-6 text-center">
                 {photo ? (
                   <div className="space-y-2">
                     <ImageWithFallback
                       src={photo}
-                      alt="Uploaded evidence"
+                      alt="Supporting document"
                       className="mx-auto rounded-lg max-w-full sm:max-w-xs h-auto"
                     />
                     <Button
@@ -300,18 +273,19 @@ export function ComplaintForm({ onSubmit }: ComplaintFormProps) {
                   </div>
                 ) : (
                   <div className="space-y-2 flex flex-col items-center">
-                    <Camera className="w-10 h-10 sm:w-12 sm:h-12 text-muted-foreground mx-auto" />
+                    <Camera className="w-10 h-10 sm:w-12 sm:h-12 text-sky-600 dark:text-sky-400 mx-auto" />
                     <Button
                       type="button"
                       variant="outline"
                       onClick={handlePhotoUpload}
-                      className="flex items-center space-x-2"
+                      className="flex items-center space-x-2 border-sky-300 text-sky-700 hover:bg-sky-100 dark:border-sky-800 dark:text-sky-300 dark:hover:bg-sky-950/40"
                     >
                       <Upload className="w-4 h-4" />
-                      <span>{t("common.upload")}</span>
+                      <span>Upload Photo / Document</span>
                     </Button>
                     <p className="text-xs sm:text-sm text-muted-foreground text-center">
-                      {t("complaints.photoHelpText")} (Required)
+                      Upload a photo or supporting document such as an ID,
+                      medical certificate, or related proof.
                     </p>
                     <input
                       ref={fileInputRef}
@@ -326,9 +300,9 @@ export function ComplaintForm({ onSubmit }: ComplaintFormProps) {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="contact">{t("residents.contactNumber")}</Label>
+              <Label htmlFor="assist-contact">Contact Number</Label>
               <Input
-                id="contact"
+                id="assist-contact"
                 value={contactInfo}
                 type="tel"
                 inputMode="numeric"
@@ -338,7 +312,7 @@ export function ComplaintForm({ onSubmit }: ComplaintFormProps) {
                   setContactInfo(normalized);
                   setContactError(validatePhone(normalized));
                 }}
-                placeholder={t("form.contactPlaceholder")}
+                placeholder="Phone Number or email for follow up"
                 className={
                   contactError
                     ? "border-destructive focus-visible:ring-destructive"
@@ -357,7 +331,7 @@ export function ComplaintForm({ onSubmit }: ComplaintFormProps) {
               size="lg"
               disabled={!isFormValid()}
             >
-              {t("common.submit")}
+              Submit Assistance
             </Button>
           </form>
         </CardContent>

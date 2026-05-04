@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Capacitor } from "@capacitor/core";
 import { Filesystem, Directory } from "@capacitor/filesystem";
 import { Share } from "@capacitor/share";
@@ -19,26 +19,42 @@ import {
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "./ui/table";
-import {
   BarChart3,
   TrendingUp,
   Calendar,
   RefreshCw,
   Download,
   Trophy,
-  TrendingDown,
-  AlertTriangle,
   Clock,
-  XCircle,
+  Heart,
+  MessageSquare,
+  CheckCircle,
+  ArrowRight,
   AlertCircle,
+  Zap,
+  RotateCw,
+  Info,
 } from "lucide-react";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  PieChart,
+  Pie,
+  Cell,
+  LineChart,
+  Line,
+  ResponsiveContainer,
+} from "recharts";
+import {
+  COMPLAINT_CATEGORIES,
+  ASSISTANCE_CATEGORIES,
+} from "../config/categories";
+import type { AssistanceRequest } from "./assistance-manager";
 
 interface Complaint {
   id: string;
@@ -59,466 +75,281 @@ interface Complaint {
 
 interface DataAnalyticsProps {
   complaints: Complaint[];
+  assistanceRequests?: AssistanceRequest[];
   onRefresh?: () => Promise<void> | void;
   refreshing?: boolean;
 }
 
-interface CategoryData {
-  category: string;
-  count: number;
-  percentage: number;
-  resolved: number;
-  pending: number;
-  inProgress: number;
-  rejected: number;
+type TimePeriod = "daily" | "weekly" | "monthly" | "yearly";
+
+const COMPLAINT_COLOR = "#6366f1";
+const ASSISTANCE_COLOR = "#10b981";
+const RESOLVED_COLOR = "#22c55e";
+const PENDING_COLOR = "#f59e0b";
+const IN_PROGRESS_COLOR = "#3b82f6";
+const REJECTED_COLOR = "#ef4444";
+
+function getComplaintLabel(cat: string) {
+  return COMPLAINT_CATEGORIES.find((c) => c.value === cat)?.label ?? cat;
+}
+function getAssistanceLabel(cat: string) {
+  return ASSISTANCE_CATEGORIES.find((c) => c.value === cat)?.label ?? cat;
+}
+
+function filterByPeriod<T extends { dateSubmitted: string }>(
+  items: T[],
+  period: TimePeriod,
+): T[] {
+  const now = new Date();
+  let cutoff: Date;
+  if (period === "daily")
+    cutoff = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+  else if (period === "weekly")
+    cutoff = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+  else if (period === "monthly")
+    cutoff = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate());
+  else cutoff = new Date(now.getFullYear() - 1, now.getMonth(), now.getDate());
+  return items.filter((i) => new Date(i.dateSubmitted) >= cutoff);
+}
+
+function buildCategoryData(
+  items: { category: string; status: string }[],
+  labelFn: (cat: string) => string,
+) {
+  const map: Record<
+    string,
+    {
+      total: number;
+      resolved: number;
+      pending: number;
+      inProgress: number;
+      rejected: number;
+    }
+  > = {};
+  for (const item of items) {
+    if (!map[item.category])
+      map[item.category] = {
+        total: 0,
+        resolved: 0,
+        pending: 0,
+        inProgress: 0,
+        rejected: 0,
+      };
+    map[item.category].total++;
+    if (item.status === "resolved") map[item.category].resolved++;
+    else if (item.status === "pending") map[item.category].pending++;
+    else if (item.status === "in-progress") map[item.category].inProgress++;
+    else if (item.status === "rejected") map[item.category].rejected++;
+  }
+  return Object.entries(map)
+    .map(([cat, v]) => ({ name: labelFn(cat), ...v }))
+    .sort((a, b) => b.total - a.total)
+    .slice(0, 8);
+}
+
+function buildVolumeOverTime(
+  complaints: Complaint[],
+  assistance: AssistanceRequest[],
+  period: TimePeriod,
+) {
+  const buckets: Record<
+    string,
+    { label: string; complaints: number; assistance: number }
+  > = {};
+
+  const addItem = (dateStr: string, type: "complaints" | "assistance") => {
+    const d = new Date(dateStr);
+    let key: string;
+    if (period === "daily")
+      key = `${d.getHours().toString().padStart(2, "0")}:00`;
+    else if (period === "weekly")
+      key = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][d.getDay()];
+    else if (period === "monthly")
+      key = `${(d.getMonth() + 1).toString().padStart(2, "0")}/${d.getDate().toString().padStart(2, "0")}`;
+    else
+      key = [
+        "Jan",
+        "Feb",
+        "Mar",
+        "Apr",
+        "May",
+        "Jun",
+        "Jul",
+        "Aug",
+        "Sep",
+        "Oct",
+        "Nov",
+        "Dec",
+      ][d.getMonth()];
+    if (!buckets[key])
+      buckets[key] = { label: key, complaints: 0, assistance: 0 };
+    buckets[key][type]++;
+  };
+
+  complaints.forEach((c) => addItem(c.dateSubmitted, "complaints"));
+  assistance.forEach((a) => addItem(a.dateSubmitted, "assistance"));
+
+  const entries = Object.values(buckets);
+  if (period === "weekly") {
+    const order = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+    entries.sort((a, b) => order.indexOf(a.label) - order.indexOf(b.label));
+  } else if (period === "yearly") {
+    const order = [
+      "Jan",
+      "Feb",
+      "Mar",
+      "Apr",
+      "May",
+      "Jun",
+      "Jul",
+      "Aug",
+      "Sep",
+      "Oct",
+      "Nov",
+      "Dec",
+    ];
+    entries.sort((a, b) => order.indexOf(a.label) - order.indexOf(b.label));
+  } else {
+    entries.sort((a, b) => a.label.localeCompare(b.label));
+  }
+  return entries;
+}
+
+function buildStatusPie(items: { status: string }[]) {
+  const map: Record<string, number> = {};
+  for (const i of items) map[i.status] = (map[i.status] ?? 0) + 1;
+  return Object.entries(map).map(([name, value]) => ({ name, value }));
 }
 
 export function DataAnalytics({
   complaints,
+  assistanceRequests = [],
   onRefresh,
   refreshing = false,
 }: DataAnalyticsProps) {
-  const [timePeriod, setTimePeriod] = useState<"weekly" | "monthly" | "yearly">(
-    "monthly",
+  const [timePeriod, setTimePeriod] = useState<TimePeriod>("monthly");
+  const [activeTab, setActiveTab] = useState<
+    "overview" | "complaints" | "assistance"
+  >("overview");
+
+  const filteredComplaints = filterByPeriod(complaints, timePeriod);
+  const filteredAssistance = filterByPeriod(assistanceRequests, timePeriod);
+
+  const totalComplaints = filteredComplaints.length;
+  const totalAssistance = filteredAssistance.length;
+  const resolvedComplaints = filteredComplaints.filter(
+    (c) => c.status === "resolved",
+  ).length;
+  const resolvedAssistance = filteredAssistance.filter(
+    (a) => a.status === "resolved",
+  ).length;
+  const resolutionRate =
+    totalComplaints + totalAssistance > 0
+      ? Math.round(
+          ((resolvedComplaints + resolvedAssistance) /
+            (totalComplaints + totalAssistance)) *
+            100,
+        )
+      : 0;
+  const pendingTotal =
+    filteredComplaints.filter((c) => c.status === "pending").length +
+    filteredAssistance.filter((a) => a.status === "pending").length;
+
+  const volumeData = buildVolumeOverTime(
+    filteredComplaints,
+    filteredAssistance,
+    timePeriod,
   );
-  const [categoryData, setCategoryData] = useState<CategoryData[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [exporting, setExporting] = useState(false);
-  const [unresolvedInsights, setUnresolvedInsights] = useState<{
-    avgUnresolvedDays: number;
-    topUnresolvedCategories: { category: string; count: number }[];
-    topRejectedCategories: { category: string; count: number }[];
-    rejectionReasons: { reason: string; count: number }[];
-  }>({
-    avgUnresolvedDays: 0,
-    topUnresolvedCategories: [],
-    topRejectedCategories: [],
-    rejectionReasons: [],
-  });
-
-  const categoryLabels = {
-    infrastructure: "Infrastructure",
-    sanitation: "Sanitation & Waste",
-    utilities: "Utilities",
-    security: "Security & Safety",
-    health: "Health Services",
-    emergency: "Emergency",
-    other: "Other",
-  };
-
-  useEffect(() => {
-    generateAnalytics();
-  }, [complaints, timePeriod]);
-
-  const getFilteredComplaints = () => {
-    const now = new Date();
-    let filteredComplaints = complaints;
-
-    if (timePeriod === "weekly") {
-      const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-      filteredComplaints = complaints.filter(
-        (c) => new Date(c.dateSubmitted) >= oneWeekAgo,
-      );
-    } else if (timePeriod === "monthly") {
-      const oneMonthAgo = new Date(
-        now.getFullYear(),
-        now.getMonth() - 1,
-        now.getDate(),
-      );
-      filteredComplaints = complaints.filter(
-        (c) => new Date(c.dateSubmitted) >= oneMonthAgo,
-      );
-    } else if (timePeriod === "yearly") {
-      const oneYearAgo = new Date(
-        now.getFullYear() - 1,
-        now.getMonth(),
-        now.getDate(),
-      );
-      filteredComplaints = complaints.filter(
-        (c) => new Date(c.dateSubmitted) >= oneYearAgo,
-      );
-    }
-
-    return filteredComplaints;
-  };
-
-  const generateAnalytics = () => {
-    setLoading(true);
-
-    const now = new Date();
-    const filteredComplaints = getFilteredComplaints();
-
-    // Generate category analytics
-    const categoryCounts: { [key: string]: CategoryData } = {};
-
-    filteredComplaints.forEach((complaint) => {
-      const category = complaint.category;
-      if (!categoryCounts[category]) {
-        categoryCounts[category] = {
-          category,
-          count: 0,
-          percentage: 0,
-          resolved: 0,
-          pending: 0,
-          inProgress: 0,
-          rejected: 0,
-        };
-      }
-
-      categoryCounts[category].count++;
-
-      switch (complaint.status) {
-        case "resolved":
-          categoryCounts[category].resolved++;
-          break;
-        case "pending":
-          categoryCounts[category].pending++;
-          break;
-        case "in-progress":
-          categoryCounts[category].inProgress++;
-          break;
-        case "rejected":
-          categoryCounts[category].rejected++;
-          break;
-      }
-    });
-
-    // Calculate percentages and sort by count
-    const totalComplaints = filteredComplaints.length;
-    const categoryAnalytics = Object.values(categoryCounts)
-      .map((cat) => ({
-        ...cat,
-        percentage:
-          totalComplaints > 0
-            ? Math.round((cat.count / totalComplaints) * 100)
-            : 0,
-      }))
-      .sort((a, b) => b.count - a.count);
-
-    setCategoryData(categoryAnalytics);
-
-    // Generate unresolved insights
-    const unresolvedComplaints = filteredComplaints.filter(
-      (c) => c.status === "pending" || c.status === "in-progress",
-    );
-    const rejectedComplaints = filteredComplaints.filter(
-      (c) => c.status === "rejected",
-    );
-
-    // Calculate average days unresolved
-    let totalUnresolvedDays = 0;
-    unresolvedComplaints.forEach((complaint) => {
-      const submittedDate = new Date(complaint.dateSubmitted);
-      const daysDiff = Math.floor(
-        (now.getTime() - submittedDate.getTime()) / (1000 * 60 * 60 * 24),
-      );
-      totalUnresolvedDays += daysDiff;
-    });
-    const avgUnresolvedDays =
-      unresolvedComplaints.length > 0
-        ? Math.round(totalUnresolvedDays / unresolvedComplaints.length)
-        : 0;
-
-    // Get top unresolved categories
-    const unresolvedByCategory: { [key: string]: number } = {};
-    unresolvedComplaints.forEach((c) => {
-      unresolvedByCategory[c.category] =
-        (unresolvedByCategory[c.category] || 0) + 1;
-    });
-    const topUnresolvedCategories = Object.entries(unresolvedByCategory)
-      .map(([category, count]) => ({ category, count }))
-      .sort((a, b) => b.count - a.count)
-      .slice(0, 3);
-
-    // Get top rejected categories
-    const rejectedByCategory: { [key: string]: number } = {};
-    rejectedComplaints.forEach((c) => {
-      rejectedByCategory[c.category] =
-        (rejectedByCategory[c.category] || 0) + 1;
-    });
-    const topRejectedCategories = Object.entries(rejectedByCategory)
-      .map(([category, count]) => ({ category, count }))
-      .sort((a, b) => b.count - a.count)
-      .slice(0, 3);
-
-    // Analyze rejection reasons from admin notes
-    const rejectionReasonPatterns = [
-      {
-        pattern: /incomplete|missing info|insufficient/i,
-        reason: "Incomplete Information",
-      },
-      {
-        pattern: /invalid|wrong category|incorrect/i,
-        reason: "Invalid Category",
-      },
-      {
-        pattern: /no photo|missing photo|photo evidence/i,
-        reason: "Missing Photo Evidence",
-      },
-      {
-        pattern: /duplicate|already reported|existing/i,
-        reason: "Duplicate Report",
-      },
-      {
-        pattern: /not.*jurisdiction|outside.*area|wrong.*barangay/i,
-        reason: "Outside Jurisdiction",
-      },
-      { pattern: /false|fake|spam/i, reason: "False or Spam Report" },
-    ];
-
-    const rejectionReasonCounts: { [key: string]: number } = {};
-    rejectedComplaints.forEach((c) => {
-      let matched = false;
-      if (c.adminNotes) {
-        for (const { pattern, reason } of rejectionReasonPatterns) {
-          if (pattern.test(c.adminNotes)) {
-            rejectionReasonCounts[reason] =
-              (rejectionReasonCounts[reason] || 0) + 1;
-            matched = true;
-            break;
-          }
-        }
-      }
-      if (!matched) {
-        rejectionReasonCounts["Other/Unspecified"] =
-          (rejectionReasonCounts["Other/Unspecified"] || 0) + 1;
-      }
-    });
-
-    const rejectionReasons = Object.entries(rejectionReasonCounts)
-      .map(([reason, count]) => ({ reason, count }))
-      .sort((a, b) => b.count - a.count);
-
-    setUnresolvedInsights({
-      avgUnresolvedDays,
-      topUnresolvedCategories,
-      topRejectedCategories,
-      rejectionReasons,
-    });
-
-    setLoading(false);
-  };
+  const complaintCatData = buildCategoryData(
+    filteredComplaints,
+    getComplaintLabel,
+  );
+  const assistanceCatData = buildCategoryData(
+    filteredAssistance,
+    getAssistanceLabel,
+  );
+  const complaintStatusPie = buildStatusPie(filteredComplaints);
+  const assistanceStatusPie = buildStatusPie(filteredAssistance);
 
   const handleRefreshAnalytics = async () => {
-    if (!onRefresh) {
-      generateAnalytics();
-      return;
-    }
-
-    try {
-      await onRefresh();
-    } finally {
-      generateAnalytics();
-    }
+    if (onRefresh) await onRefresh();
   };
 
   const handleExportData = async () => {
-    const filteredComplaints = getFilteredComplaints();
-    setExporting(true);
-
-    // Helper function to escape CSV values (handles commas, quotes, newlines)
-    const escapeCSVValue = (value: string | undefined | null): string => {
-      if (value === undefined || value === null) return "";
-      const stringValue = String(value);
-      // If the value contains comma, quote, or newline, wrap in quotes and escape internal quotes
-      if (
-        stringValue.includes(",") ||
-        stringValue.includes('"') ||
-        stringValue.includes("\n") ||
-        stringValue.includes("\r")
-      ) {
-        return `"${stringValue.replace(/"/g, '""')}"`;
-      }
-      return stringValue;
-    };
-
-    // Format status for display
-    const formatStatus = (status: string): string => {
-      switch (status) {
-        case "pending":
-          return "Pending";
-        case "in-progress":
-          return "In Progress";
-        case "resolved":
-          return "Resolved";
-        case "rejected":
-          return "Rejected";
-        default:
-          return status;
-      }
-    };
-
-    // Format priority for display
-    const formatPriority = (priority: string): string => {
-      switch (priority) {
-        case "low":
-          return "Low";
-        case "medium":
-          return "Medium";
-        case "high":
-          return "High";
-        default:
-          return priority;
-      }
-    };
-
-    // Format date for display
-    const formatDate = (dateString: string): string => {
-      try {
-        const date = new Date(dateString);
-        return date.toLocaleDateString("en-US", {
-          year: "numeric",
-          month: "short",
-          day: "numeric",
-          hour: "2-digit",
-          minute: "2-digit",
-        });
-      } catch {
-        return dateString;
-      }
-    };
-
-    // Determine action status based on complaint status
-    const getActionStatus = (status: string, adminNotes?: string): string => {
-      switch (status) {
-        case "pending":
-          return "Awaiting Review";
-        case "in-progress":
-          return adminNotes ? "Being Processed" : "Under Investigation";
-        case "resolved":
-          return "Completed";
-        case "rejected":
-          return "Closed - Rejected";
-        default:
-          return "No Action";
-      }
-    };
-
-    // Define CSV headers
     const headers = [
-      "Request",
-      "Complainant",
+      "Type",
+      "Title",
       "Category",
       "Location",
       "Status",
       "Priority",
       "Date",
-      "Actions",
+      "Submitted By",
     ];
-
-    // Generate row data for each complaint
-    const rows = filteredComplaints.map((complaint) => {
-      // Determine complainant name - prioritize userName, then contactInfo
-      // Show "Anonymous" for guest submissions or missing data
-      let complainant = "Anonymous";
-
-      if (complaint.userName && complaint.userName.trim() !== "") {
-        complainant = complaint.userName;
-      } else if (
-        complaint.contactInfo &&
-        complaint.contactInfo.trim() !== "" &&
-        complaint.contactInfo !== "Anonymous" &&
-        complaint.contactInfo !== "Guest User"
-      ) {
-        complainant = complaint.contactInfo;
-      }
-
-      return [
-        escapeCSVValue(complaint.title),
-        escapeCSVValue(complainant),
-        escapeCSVValue(
-          categoryLabels[complaint.category as keyof typeof categoryLabels] ||
-            complaint.category,
-        ),
-        escapeCSVValue(complaint.location),
-        escapeCSVValue(formatStatus(complaint.status)),
-        escapeCSVValue(formatPriority(complaint.priority)),
-        escapeCSVValue(formatDate(complaint.dateSubmitted)),
-        escapeCSVValue(getActionStatus(complaint.status, complaint.adminNotes)),
-      ].join(",");
-    });
-
-    // Combine headers and rows
-    const csvContent = [headers.join(","), ...rows].join("\n");
-
-    const fileName = `barangay-complaints-${timePeriod}-${
-      new Date().toISOString().split("T")[0]
-    }.csv`;
-
+    const cRows = filteredComplaints.map((c) =>
+      [
+        "Complaint",
+        c.title,
+        getComplaintLabel(c.category),
+        c.location,
+        c.status,
+        c.priority,
+        new Date(c.dateSubmitted).toLocaleDateString(),
+        c.userName || "Anonymous",
+      ]
+        .map((v) => `"${String(v).replace(/"/g, '""')}"`)
+        .join(","),
+    );
+    const aRows = filteredAssistance.map((a) =>
+      [
+        "Assistance",
+        a.title,
+        getAssistanceLabel(a.category),
+        a.location,
+        a.status,
+        a.priority,
+        new Date(a.dateSubmitted).toLocaleDateString(),
+        a.userName || "Anonymous",
+      ]
+        .map((v) => `"${String(v).replace(/"/g, '""')}"`)
+        .join(","),
+    );
+    const csv = [headers.join(","), ...cRows, ...aRows].join("\n");
+    const fileName = `barangaycare-${timePeriod}-${new Date().toISOString().split("T")[0]}.csv`;
     try {
       if (Capacitor.isNativePlatform()) {
-        const base64Content = btoa(unescape(encodeURIComponent(csvContent)));
-
-        const writeResult = await Filesystem.writeFile({
+        const b64 = btoa(unescape(encodeURIComponent(csv)));
+        const r = await Filesystem.writeFile({
           path: fileName,
-          data: base64Content,
+          data: b64,
           directory: Directory.Cache,
         });
-
         await Share.share({
-          title: "BarangayCARE Analytics Export",
-          text: "CSV export from BarangayCARE data analytics",
-          url: writeResult.uri,
-          dialogTitle: "Export Analytics CSV",
+          title: "BarangayCARE Export",
+          url: r.uri,
+          dialogTitle: "Export CSV",
         });
         return;
       }
-
-      // Web fallback: direct download
-      const BOM = "\uFEFF";
-      const blob = new Blob([BOM + csvContent], {
+      const blob = new Blob(["\uFEFF" + csv], {
         type: "text/csv;charset=utf-8",
       });
-      const url = window.URL.createObjectURL(blob);
+      const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
       a.download = fileName;
       a.click();
-      window.URL.revokeObjectURL(url);
+      URL.revokeObjectURL(url);
     } catch {
-      // Fallback for native failures: try web-style download
-      const BOM = "\uFEFF";
-      const blob = new Blob([BOM + csvContent], {
-        type: "text/csv;charset=utf-8",
-      });
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = fileName;
-      a.click();
-      window.URL.revokeObjectURL(url);
-    } finally {
-      setExporting(false);
+      /* silent */
     }
   };
 
-  const totalComplaints = categoryData.reduce((sum, cat) => sum + cat.count, 0);
-  const totalResolved = categoryData.reduce(
-    (sum, cat) => sum + cat.resolved,
-    0,
-  );
-  const totalRejected = categoryData.reduce(
-    (sum, cat) => sum + cat.rejected,
-    0,
-  );
-  const totalPending = categoryData.reduce((sum, cat) => sum + cat.pending, 0);
-  const totalInProgress = categoryData.reduce(
-    (sum, cat) => sum + cat.inProgress,
-    0,
-  );
-  const totalUnresolved = totalPending + totalInProgress;
-  const resolutionRate =
-    totalComplaints > 0
-      ? Math.round((totalResolved / totalComplaints) * 100)
-      : 0;
-  const unresolvedRate =
-    totalComplaints > 0
-      ? Math.round(((totalRejected + totalUnresolved) / totalComplaints) * 100)
-      : 0;
-  const rejectionRate =
-    totalComplaints > 0
-      ? Math.round((totalRejected / totalComplaints) * 100)
-      : 0;
+  const tabs = [
+    { key: "overview" as const, label: "Overview" },
+    { key: "complaints" as const, label: "Complaints" },
+    { key: "assistance" as const, label: "Assistance" },
+  ];
 
   return (
     <div className="space-y-6">
@@ -531,674 +362,796 @@ export function DataAnalytics({
               <span>Data Analytics</span>
             </h1>
             <p className="mt-2 opacity-90 text-sm sm:text-base">
-              Analyze complaint trends and category rankings to improve
-              community services
+              Analyze complaint and assistance trends to improve community
+              services
             </p>
           </div>
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center gap-2">
             <Button
               variant="secondary"
               size="sm"
               onClick={handleRefreshAnalytics}
-              disabled={loading || refreshing}
-              className="flex items-center space-x-2"
+              disabled={refreshing}
             >
               <RefreshCw
-                className={`w-4 h-4 ${loading || refreshing ? "animate-spin" : ""}`}
+                className={`w-4 h-4 mr-1 ${refreshing ? "animate-spin" : ""}`}
               />
-              <span>Refresh</span>
+              Refresh
             </Button>
             <Button
               variant="secondary"
               size="sm"
               onClick={() => void handleExportData()}
-              disabled={exporting}
-              className="flex items-center space-x-2"
             >
-              <Download
-                className={`w-4 h-4 ${exporting ? "animate-pulse" : ""}`}
-              />
-              <span>{exporting ? "Exporting..." : "Export"}</span>
+              <Download className="w-4 h-4 mr-1" />
+              Export
             </Button>
           </div>
         </div>
       </div>
 
       {/* Controls */}
-      <Card>
-        <CardContent className="p-4">
-          <div className="flex items-center space-x-4">
-            <div className="flex items-center space-x-2">
-              <Calendar className="w-4 h-4 text-muted-foreground" />
-              <span className="text-sm font-medium">Time Period:</span>
-            </div>
-            <Select
-              value={timePeriod}
-              onValueChange={(value: "weekly" | "monthly" | "yearly") =>
-                setTimePeriod(value)
-              }
+      <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
+        <div className="flex items-center gap-2">
+          <Calendar className="w-4 h-4 text-muted-foreground" />
+          <span className="text-sm font-medium">Time Period:</span>
+        </div>
+        <Select
+          value={timePeriod}
+          onValueChange={(v) => setTimePeriod(v as TimePeriod)}
+        >
+          <SelectTrigger className="w-36">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="daily">Daily</SelectItem>
+            <SelectItem value="weekly">Weekly</SelectItem>
+            <SelectItem value="monthly">Monthly</SelectItem>
+            <SelectItem value="yearly">Yearly</SelectItem>
+          </SelectContent>
+        </Select>
+        <div className="flex gap-1 ml-0 sm:ml-4 bg-muted rounded-lg p-1">
+          {tabs.map((tab) => (
+            <button
+              key={tab.key}
+              onClick={() => setActiveTab(tab.key)}
+              className={`px-3 py-1.5 rounded text-sm font-medium transition-all ${
+                activeTab === tab.key
+                  ? "bg-background shadow text-foreground"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
             >
-              <SelectTrigger className="w-32">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="weekly">Weekly</SelectItem>
-                <SelectItem value="monthly">Monthly</SelectItem>
-                <SelectItem value="yearly">Yearly</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </CardContent>
-      </Card>
+              {tab.label}
+            </button>
+          ))}
+        </div>
+      </div>
 
-      {/* Summary Statistics */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card>
+      {/* Summary Cards */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <Card className="border-2 border-indigo-200 dark:border-indigo-700 shadow-md bg-gradient-to-br from-indigo-50 to-indigo-100/50 dark:from-indigo-950/60 dark:to-indigo-900/40">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm flex items-center gap-2">
-              <BarChart3 className="w-4 h-4 text-primary" />
-              Total Complaints
+              <MessageSquare className="w-4 h-4 text-indigo-500 dark:text-indigo-300" />
+              Complaints
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-primary">
+            <div className="text-3xl font-bold text-indigo-700 dark:text-indigo-300">
               {totalComplaints}
             </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              {timePeriod.charAt(0).toUpperCase() + timePeriod.slice(1)} period
+            <p className="text-xs text-muted-foreground mt-2">
+              <span className="font-semibold text-green-700 dark:text-green-300">
+                {resolvedComplaints}
+              </span>{" "}
+              resolved
             </p>
           </CardContent>
         </Card>
-
-        <Card>
+        <Card className="border-2 border-emerald-200 dark:border-emerald-700 shadow-md bg-gradient-to-br from-emerald-50 to-emerald-100/50 dark:from-emerald-950/60 dark:to-emerald-900/40">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm flex items-center gap-2">
-              <TrendingUp className="w-4 h-4 text-green-600" />
+              <Heart className="w-4 h-4 text-emerald-500 dark:text-emerald-300" />
+              Assistance
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold text-emerald-700 dark:text-emerald-300">
+              {totalAssistance}
+            </div>
+            <p className="text-xs text-muted-foreground mt-2">
+              <span className="font-semibold text-green-700 dark:text-green-300">
+                {resolvedAssistance}
+              </span>{" "}
+              resolved
+            </p>
+          </CardContent>
+        </Card>
+        <Card className="border-2 border-green-200 dark:border-green-700 shadow-md bg-gradient-to-br from-green-50 to-green-100/50 dark:from-green-950/60 dark:to-green-900/40">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <TrendingUp className="w-4 h-4 text-green-500 dark:text-green-300" />
               Resolution Rate
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-600">
+            <div className="text-3xl font-bold text-green-700 dark:text-green-300">
               {resolutionRate}%
             </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              {totalResolved} of {totalComplaints} resolved
+            <p className="text-xs text-muted-foreground mt-2">
+              {resolvedComplaints + resolvedAssistance} of{" "}
+              {totalComplaints + totalAssistance}
             </p>
           </CardContent>
         </Card>
-
-        <Card>
+        <Card className="border-2 border-amber-200 dark:border-amber-700 shadow-md bg-gradient-to-br from-amber-50 to-amber-100/50 dark:from-amber-950/60 dark:to-amber-900/40">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm flex items-center gap-2">
-              <AlertTriangle className="w-4 h-4 text-orange-500" />
-              Unresolved Rate
+              <Clock className="w-4 h-4 text-amber-500 dark:text-amber-300" />
+              Pending
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-orange-500">
-              {unresolvedRate}%
+            <div className="text-3xl font-bold text-amber-700 dark:text-amber-300">
+              {pendingTotal}
             </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              {totalUnresolved + totalRejected} of {totalComplaints}{" "}
-              unresolved/rejected
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm flex items-center gap-2">
-              <XCircle className="w-4 h-4 text-red-500" />
-              Rejection Rate
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-red-500">
-              {rejectionRate}%
-            </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              {totalRejected} of {totalComplaints} rejected
+            <p className="text-xs text-muted-foreground mt-2">
+              Awaiting review
             </p>
           </CardContent>
         </Card>
       </div>
 
-      {/* Additional Metrics Row */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm flex items-center gap-2">
-              <Trophy className="w-4 h-4 text-yellow-500" />
-              Top Category
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-lg font-bold">
-              {categoryData.length > 0
-                ? categoryLabels[
-                    categoryData[0].category as keyof typeof categoryLabels
-                  ] || categoryData[0].category
-                : "N/A"}
+      {/* Volume Over Time — always shown */}
+      <Card className="border-2 border-slate-200 dark:border-slate-600 shadow-md bg-gradient-to-br from-slate-50 to-slate-100/50 dark:from-slate-900/40 dark:to-slate-800/30">
+        <CardHeader className="pb-2">
+          <CardTitle className="flex items-center gap-2">
+            <TrendingUp className="w-5 h-5 text-primary" />
+            Request Volume Over Time
+          </CardTitle>
+          <CardDescription>
+            Complaints vs assistance requests — {timePeriod} view
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {volumeData.length === 0 ? (
+            <div className="py-12 text-center text-muted-foreground">
+              <BarChart3 className="w-10 h-10 mx-auto mb-2 opacity-40" />
+              <p>No data for this period</p>
             </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              {categoryData.length > 0
-                ? `${categoryData[0].count} complaints (${categoryData[0].percentage}%)`
-                : "No data"}
-            </p>
-          </CardContent>
-        </Card>
+          ) : (
+            <ResponsiveContainer width="100%" height={280}>
+              <BarChart
+                data={volumeData}
+                margin={{ top: 12, right: 12, left: 0, bottom: 4 }}
+              >
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  className="opacity-20"
+                  stroke="hsl(var(--primary)/0.2)"
+                />
+                <XAxis
+                  dataKey="label"
+                  tick={{ fontSize: 12, fill: "hsl(var(--muted-foreground))" }}
+                />
+                <YAxis
+                  tick={{ fontSize: 12, fill: "hsl(var(--muted-foreground))" }}
+                  allowDecimals={false}
+                />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: "hsl(var(--card))",
+                    border: "1px solid hsl(var(--border))",
+                    borderRadius: "8px",
+                  }}
+                  cursor={{ fill: "hsl(var(--primary)/0.05)" }}
+                />
+                <Legend />
+                <Bar
+                  dataKey="complaints"
+                  name="Complaints"
+                  fill="#6366f1"
+                  radius={[8, 8, 0, 0]}
+                />
+                <Bar
+                  dataKey="assistance"
+                  name="Assistance"
+                  fill="#10b981"
+                  radius={[8, 8, 0, 0]}
+                />
+              </BarChart>
+            </ResponsiveContainer>
+          )}
+        </CardContent>
+      </Card>
 
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm flex items-center gap-2">
-              <Clock className="w-4 h-4 text-blue-500" />
-              Avg. Days Unresolved
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-blue-500">
-              {unresolvedInsights.avgUnresolvedDays}
-            </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              Average time pending/in-progress
-            </p>
-          </CardContent>
-        </Card>
+      {/* Insights & Suggestions Section */}
+      <Card className="border-2 border-purple-200 dark:border-purple-600 shadow-md bg-gradient-to-br from-blue-50/70 via-purple-50/50 to-pink-50/40 dark:from-slate-900/50 dark:via-slate-800/40 dark:to-slate-800/30">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Trophy className="w-5 h-5 text-amber-500" />
+            Insights & Recommendations
+          </CardTitle>
+          <CardDescription>
+            Data-driven suggestions to improve service delivery
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {(() => {
+            const getIconComponent = (iconName: string) => {
+              const iconMap: Record<string, React.ReactNode> = {
+                check: <CheckCircle className="w-5 h-5" />,
+                arrow: <ArrowRight className="w-5 h-5" />,
+                alert: <AlertCircle className="w-5 h-5" />,
+                zap: <Zap className="w-5 h-5" />,
+                hourglass: <Clock className="w-5 h-5" />,
+                heart: <Heart className="w-5 h-5" />,
+                refresh: <RotateCw className="w-5 h-5" />,
+                info: <Info className="w-5 h-5" />,
+              };
+              return iconMap[iconName] || <Info className="w-5 h-5" />;
+            };
 
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm flex items-center gap-2">
-              <AlertCircle className="w-4 h-4 text-amber-500" />
-              Pending Review
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-amber-500">
-              {totalPending}
-            </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              {totalInProgress} currently in progress
-            </p>
-          </CardContent>
-        </Card>
-      </div>
+            const insights = [];
 
-      {/* Category Rankings */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Detailed Table */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center space-x-2">
-              <BarChart3 className="w-5 h-5" />
-              <span>
-                Category Rankings -{" "}
-                {timePeriod.charAt(0).toUpperCase() + timePeriod.slice(1)} View
-              </span>
-            </CardTitle>
-            <CardDescription>
-              Complaint categories ranked by frequency and resolution status
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {loading ? (
-              <div className="flex items-center justify-center py-8">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-12">Rank</TableHead>
-                      <TableHead>Category</TableHead>
-                      <TableHead className="text-right">Total</TableHead>
-                      <TableHead className="text-right">Resolved</TableHead>
-                      <TableHead className="text-right">Success Rate</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {categoryData.length === 0 ? (
-                      <TableRow>
-                        <TableCell
-                          colSpan={5}
-                          className="text-center text-muted-foreground py-8"
-                        >
-                          No data available for the selected time period
-                        </TableCell>
-                      </TableRow>
-                    ) : (
-                      categoryData.map((category, index) => {
-                        const successRate =
-                          category.count > 0
-                            ? Math.round(
-                                (category.resolved / category.count) * 100,
-                              )
-                            : 0;
-                        return (
-                          <TableRow key={category.category}>
-                            <TableCell>
-                              <div className="flex items-center space-x-2">
-                                {index === 0 && (
-                                  <Trophy className="w-4 h-4 text-yellow-500" />
-                                )}
-                                <span className="font-medium">
-                                  #{index + 1}
-                                </span>
-                              </div>
-                            </TableCell>
-                            <TableCell className="font-medium">
-                              {categoryLabels[
-                                category.category as keyof typeof categoryLabels
-                              ] || category.category}
-                            </TableCell>
-                            <TableCell className="text-right">
-                              <Badge variant="outline">{category.count}</Badge>
-                            </TableCell>
-                            <TableCell className="text-right">
-                              <Badge
-                                variant="outline"
-                                className="text-green-600"
-                              >
-                                {category.resolved}
-                              </Badge>
-                            </TableCell>
-                            <TableCell className="text-right">
-                              <div className="flex items-center justify-end space-x-1">
-                                {successRate >= 80 ? (
-                                  <TrendingUp className="w-3 h-3 text-green-500" />
-                                ) : successRate >= 50 ? (
-                                  <TrendingUp className="w-3 h-3 text-yellow-500" />
-                                ) : (
-                                  <TrendingDown className="w-3 h-3 text-red-500" />
-                                )}
-                                <span
-                                  className={`font-medium ${
-                                    successRate >= 80
-                                      ? "text-green-600"
-                                      : successRate >= 50
-                                        ? "text-yellow-600"
-                                        : "text-red-600"
-                                  }`}
-                                >
-                                  {successRate}%
-                                </span>
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        );
-                      })
-                    )}
-                  </TableBody>
-                </Table>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+            // Insight 1: Resolution rate
+            if (resolutionRate >= 80) {
+              insights.push({
+                icon: "check",
+                color: "text-black",
+                bgColor: "bg-green-100 dark:bg-green-800/80",
+                title: "Excellent Resolution Rate",
+                description: `Your resolution rate of ${resolutionRate}% is outstanding. Keep up this momentum!`,
+              });
+            } else if (resolutionRate >= 50) {
+              insights.push({
+                icon: "arrow",
+                color: "text-black",
+                bgColor: "bg-amber-100 dark:bg-amber-800/80",
+                title: "Room for Improvement",
+                description: `Current resolution rate is ${resolutionRate}%. Focus on pending cases to improve efficiency.`,
+              });
+            } else if (resolutionRate > 0) {
+              insights.push({
+                icon: "alert",
+                color: "text-black",
+                bgColor: "bg-red-100 dark:bg-red-800/80",
+                title: "Priority: Low Resolution Rate",
+                description: `Only ${resolutionRate}% of cases are resolved. Consider allocating more resources.`,
+              });
+            }
 
-        {/* Summary Cards */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Summary Statistics</CardTitle>
-            <CardDescription>
-              Key insights from the {timePeriod} data
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {categoryData.length > 0 && (
-                <>
-                  {/* Top 3 Categories */}
-                  <div>
-                    <h4 className="font-medium mb-3 flex items-center space-x-2">
-                      <Trophy className="w-4 h-4 text-yellow-500" />
-                      <span>Top 3 Categories</span>
-                    </h4>
-                    <div className="space-y-2">
-                      {categoryData.slice(0, 3).map((category, index) => (
-                        <div
-                          key={category.category}
-                          className="flex items-center justify-between p-2 bg-muted rounded"
-                        >
-                          <div className="flex items-center space-x-2">
-                            <div className="w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs font-medium flex items-center justify-center">
-                              {index + 1}
-                            </div>
-                            <span className="text-sm font-medium">
-                              {categoryLabels[
-                                category.category as keyof typeof categoryLabels
-                              ] || category.category}
-                            </span>
-                          </div>
-                          <div className="text-right">
-                            <div className="text-sm font-medium">
-                              {category.count} complaints
-                            </div>
-                            <div className="text-xs text-muted-foreground">
-                              {category.percentage}% of total
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
+            // Insight 2: Most common issue
+            if (complaintCatData.length > 0) {
+              const topComplaint = complaintCatData[0];
+              insights.push({
+                icon: "zap",
+                color: "text-black",
+                bgColor: "bg-indigo-100 dark:bg-indigo-800/80",
+                title: `Peak Issue: ${topComplaint.name}`,
+                description: `${topComplaint.total} complaints in this category. Consider targeted interventions.`,
+              });
+            }
 
-                  {/* Overall Statistics */}
-                  <div className="grid grid-cols-2 gap-4 pt-4 border-t">
-                    <div className="text-center p-3 bg-muted rounded-lg">
-                      <div className="text-lg font-bold text-primary">
-                        {categoryData.length}
-                      </div>
-                      <div className="text-xs text-muted-foreground">
-                        Active Categories
-                      </div>
-                    </div>
-                    <div className="text-center p-3 bg-muted rounded-lg">
-                      <div className="text-lg font-bold text-green-600">
-                        {resolutionRate}%
-                      </div>
-                      <div className="text-xs text-muted-foreground">
-                        Overall Success Rate
-                      </div>
-                    </div>
-                  </div>
+            // Insight 3: Pending backlog
+            if (pendingTotal > (totalComplaints + totalAssistance) * 0.3) {
+              insights.push({
+                icon: "hourglass",
+                color: "text-black",
+                bgColor: "bg-orange-100 dark:bg-orange-800/80",
+                title: "High Pending Backlog",
+                description: `${pendingTotal} cases awaiting review. Review workflow to reduce wait times.`,
+              });
+            }
 
-                  {/* Performance Insights */}
-                  <div className="pt-4 border-t">
-                    <h4 className="font-medium mb-2">Performance Insights</h4>
-                    <div className="space-y-2 text-sm">
-                      {categoryData.length > 0 && (
-                        <>
-                          <p className="text-muted-foreground">
-                            •{" "}
-                            <span className="font-medium text-foreground">
-                              {categoryLabels[
-                                categoryData[0]
-                                  .category as keyof typeof categoryLabels
-                              ] || categoryData[0].category}
-                            </span>{" "}
-                            is the most reported issue (
-                            {categoryData[0].percentage}% of complaints)
-                          </p>
-                          {categoryData.find((c) => c.resolved > 0) && (
-                            <p className="text-muted-foreground">
-                              •{" "}
-                              <span className="font-medium text-green-600">
-                                {categoryData.reduce(
-                                  (sum, c) => sum + c.resolved,
-                                  0,
-                                )}{" "}
-                                total complaints resolved
-                              </span>{" "}
-                              in this period
-                            </p>
-                          )}
-                          <p className="text-muted-foreground">
-                            • Performance tracked across{" "}
-                            <span className="font-medium text-foreground">
-                              {timePeriod}
-                            </span>{" "}
-                            timeframe
-                          </p>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                </>
-              )}
+            // Insight 4: Assistance vs Complaints
+            if (totalAssistance > totalComplaints && totalComplaints > 0) {
+              insights.push({
+                icon: "heart",
+                color: "text-black",
+                bgColor: "bg-emerald-100 dark:bg-emerald-800/80",
+                title: "Strong Community Support",
+                description: `Assistance requests (${totalAssistance}) exceed complaints (${totalComplaints}). Community engagement is active.`,
+              });
+            }
 
-              {categoryData.length === 0 && (
-                <div className="text-center py-8 text-muted-foreground">
-                  <BarChart3 className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                  <p>
-                    No complaint data available for the selected time period
+            // Insight 5: Recent activity
+            if (volumeData.length > 0) {
+              const lastEntry = volumeData[volumeData.length - 1];
+              const totalRecent =
+                (lastEntry.complaints || 0) + (lastEntry.assistance || 0);
+              if (totalRecent === 0) {
+                insights.push({
+                  icon: "refresh",
+                  color: "text-black",
+                  bgColor: "bg-slate-100 dark:bg-slate-700",
+                  title: "No Recent Activity",
+                  description:
+                    "No new requests in the latest period. Consider outreach initiatives.",
+                });
+              }
+            }
+
+            // Default if no insights
+            if (insights.length === 0) {
+              insights.push({
+                icon: "info",
+                color: "text-black",
+                bgColor: "bg-blue-100 dark:bg-blue-800/80",
+                title: "Data Loading",
+                description:
+                  "Insights will appear once data is available for analysis.",
+              });
+            }
+
+            return insights.map((insight, idx) => (
+              <div
+                key={idx}
+                className="flex items-start gap-3 p-3 rounded-lg bg-white/50 dark:bg-slate-900/50 border border-white/80 dark:border-slate-700/50 backdrop-blur-sm"
+              >
+                <div
+                  className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${insight.color} ${insight.bgColor}`}
+                >
+                  {getIconComponent(insight.icon)}
+                </div>
+                <div className="flex-1">
+                  <h4 className="text-sm font-semibold text-foreground">
+                    {insight.title}
+                  </h4>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {insight.description}
                   </p>
                 </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+              </div>
+            ));
+          })()}
+        </CardContent>
+      </Card>
 
-      {/* Unresolved & Rejected Insights */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Rejection Analysis */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center space-x-2">
-              <XCircle className="w-5 h-5 text-red-500" />
-              <span>Rejection Analysis</span>
-            </CardTitle>
-            <CardDescription>
-              Common reasons and categories for rejected complaints
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {loading ? (
-              <div className="flex items-center justify-center py-8">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-              </div>
-            ) : totalRejected === 0 ? (
-              <div className="text-center py-8 text-muted-foreground">
-                <XCircle className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                <p>No rejected complaints in this period</p>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {/* Rejection Reasons */}
-                <div>
-                  <h4 className="font-medium mb-3 text-sm text-muted-foreground uppercase tracking-wide">
-                    Common Rejection Reasons
-                  </h4>
-                  <div className="space-y-2">
-                    {unresolvedInsights.rejectionReasons.length > 0 ? (
-                      unresolvedInsights.rejectionReasons
-                        .slice(0, 5)
-                        .map((item, index) => (
-                          <div
-                            key={item.reason}
-                            className="flex items-center justify-between p-2 bg-red-50 dark:bg-red-950/20 rounded border border-red-100 dark:border-red-900/30"
-                          >
-                            <div className="flex items-center space-x-2">
-                              <div className="w-5 h-5 rounded-full bg-red-100 dark:bg-red-900/50 text-red-600 dark:text-red-400 text-xs font-medium flex items-center justify-center">
-                                {index + 1}
-                              </div>
-                              <span className="text-sm font-medium">
-                                {item.reason}
-                              </span>
-                            </div>
-                            <Badge
-                              variant="outline"
-                              className="text-red-600 border-red-200"
-                            >
-                              {item.count}
-                            </Badge>
-                          </div>
-                        ))
-                    ) : (
-                      <p className="text-sm text-muted-foreground">
-                        No rejection data available
-                      </p>
-                    )}
-                  </div>
+      {/* Overview Tab */}
+      {activeTab === "overview" && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <Card className="border-2 border-indigo-200 dark:border-indigo-700 shadow-md bg-gradient-to-br from-indigo-50/70 to-indigo-100/50 dark:from-slate-900/50 dark:to-slate-800/40">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <MessageSquare className="w-5 h-5 text-indigo-500 dark:text-indigo-300" />
+                Complaint Status Breakdown
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {complaintStatusPie.length === 0 ? (
+                <div className="py-8 text-center text-muted-foreground">
+                  No complaint data
                 </div>
-
-                {/* Top Rejected Categories */}
-                {unresolvedInsights.topRejectedCategories.length > 0 && (
-                  <div className="pt-4 border-t">
-                    <h4 className="font-medium mb-3 text-sm text-muted-foreground uppercase tracking-wide">
-                      Categories with Most Rejections
-                    </h4>
-                    <div className="space-y-2">
-                      {unresolvedInsights.topRejectedCategories.map((item) => (
-                        <div
-                          key={item.category}
-                          className="flex items-center justify-between text-sm"
-                        >
-                          <span>
-                            {categoryLabels[
-                              item.category as keyof typeof categoryLabels
-                            ] || item.category}
-                          </span>
-                          <Badge variant="destructive" className="text-xs">
-                            {item.count} rejected
-                          </Badge>
-                        </div>
+              ) : (
+                <ResponsiveContainer width="100%" height={240}>
+                  <PieChart>
+                    <Pie
+                      data={complaintStatusPie}
+                      dataKey="value"
+                      nameKey="name"
+                      cx="50%"
+                      cy="50%"
+                      outerRadius={85}
+                      label={({ name, percent }) =>
+                        `${name} ${Math.round(percent * 100)}%`
+                      }
+                      labelLine={false}
+                    >
+                      {complaintStatusPie.map((_, i) => (
+                        <Cell
+                          key={i}
+                          fill={
+                            [
+                              PENDING_COLOR,
+                              IN_PROGRESS_COLOR,
+                              RESOLVED_COLOR,
+                              REJECTED_COLOR,
+                            ][i % 4]
+                          }
+                        />
                       ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+                    </Pie>
+                    <Tooltip formatter={(value) => `${value} cases`} />
+                  </PieChart>
+                </ResponsiveContainer>
+              )}
+            </CardContent>
+          </Card>
 
-        {/* Unresolved Analysis */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center space-x-2">
-              <AlertTriangle className="w-5 h-5 text-orange-500" />
-              <span>Unresolved Complaints Analysis</span>
-            </CardTitle>
-            <CardDescription>
-              Bottlenecks and areas needing attention
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {loading ? (
-              <div className="flex items-center justify-center py-8">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-              </div>
-            ) : totalUnresolved === 0 ? (
-              <div className="text-center py-8 text-muted-foreground">
-                <AlertTriangle className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                <p>No unresolved complaints in this period</p>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {/* Time Insights */}
-                <div className="p-4 bg-orange-50 dark:bg-orange-950/20 rounded-lg border border-orange-100 dark:border-orange-900/30">
-                  <div className="flex items-center space-x-3">
-                    <Clock className="w-8 h-8 text-orange-500" />
-                    <div>
-                      <div className="text-2xl font-bold text-orange-600">
-                        {unresolvedInsights.avgUnresolvedDays} days
+          <Card className="border-2 border-emerald-200 dark:border-emerald-700 shadow-md bg-gradient-to-br from-emerald-50/70 to-emerald-100/50 dark:from-slate-900/50 dark:to-slate-800/40">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Heart className="w-5 h-5 text-emerald-500 dark:text-emerald-300" />
+                Assistance Status Breakdown
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {assistanceStatusPie.length === 0 ? (
+                <div className="py-8 text-center text-muted-foreground">
+                  No assistance data
+                </div>
+              ) : (
+                <ResponsiveContainer width="100%" height={240}>
+                  <PieChart>
+                    <Pie
+                      data={assistanceStatusPie}
+                      dataKey="value"
+                      nameKey="name"
+                      cx="50%"
+                      cy="50%"
+                      outerRadius={85}
+                      label={({ name, percent }) =>
+                        `${name} ${Math.round(percent * 100)}%`
+                      }
+                      labelLine={false}
+                    >
+                      {assistanceStatusPie.map((_, i) => (
+                        <Cell
+                          key={i}
+                          fill={
+                            [
+                              PENDING_COLOR,
+                              IN_PROGRESS_COLOR,
+                              RESOLVED_COLOR,
+                              REJECTED_COLOR,
+                            ][i % 4]
+                          }
+                        />
+                      ))}
+                    </Pie>
+                    <Tooltip formatter={(value) => `${value} cases`} />
+                  </PieChart>
+                </ResponsiveContainer>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card className="lg:col-span-2 border-2 border-cyan-200 dark:border-cyan-700 shadow-md bg-gradient-to-br from-cyan-50/70 to-cyan-100/50 dark:from-slate-900/50 dark:to-slate-800/40">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <TrendingUp className="w-5 h-5 text-cyan-500 dark:text-cyan-300" />
+                Volume Comparison Over Time
+              </CardTitle>
+              <CardDescription>
+                Detailed trend analysis of requests throughout the period
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {volumeData.length === 0 ? (
+                <div className="py-8 text-center text-muted-foreground">
+                  No data for this period
+                </div>
+              ) : (
+                <ResponsiveContainer width="100%" height={240}>
+                  <LineChart
+                    data={volumeData}
+                    margin={{ top: 12, right: 12, left: 0, bottom: 4 }}
+                  >
+                    <CartesianGrid
+                      strokeDasharray="3 3"
+                      className="opacity-20"
+                      stroke="hsl(var(--primary)/0.2)"
+                    />
+                    <XAxis
+                      dataKey="label"
+                      tick={{
+                        fontSize: 12,
+                        fill: "hsl(var(--muted-foreground))",
+                      }}
+                    />
+                    <YAxis
+                      tick={{
+                        fontSize: 12,
+                        fill: "hsl(var(--muted-foreground))",
+                      }}
+                      allowDecimals={false}
+                    />
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: "hsl(var(--card))",
+                        border: "1px solid hsl(var(--border))",
+                        borderRadius: "8px",
+                      }}
+                    />
+                    <Legend />
+                    <Line
+                      type="monotone"
+                      dataKey="complaints"
+                      name="Complaints"
+                      stroke="#6366f1"
+                      strokeWidth={3}
+                      dot={{ fill: "#6366f1", r: 5 }}
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="assistance"
+                      name="Assistance"
+                      stroke="#10b981"
+                      strokeWidth={3}
+                      dot={{ fill: "#10b981", r: 5 }}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Complaints Tab */}
+      {activeTab === "complaints" && (
+        <div className="space-y-6">
+          <Card className="border-2 border-indigo-200 dark:border-indigo-700 shadow-md bg-gradient-to-br from-indigo-50/70 to-indigo-100/50 dark:from-slate-900/50 dark:to-slate-800/40">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Trophy className="w-5 h-5 text-yellow-500 dark:text-yellow-300" />
+                Complaint Category Analysis
+              </CardTitle>
+              <CardDescription>
+                Breakdown by category and resolution status — {timePeriod} view
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {complaintCatData.length === 0 ? (
+                <div className="py-8 text-center text-muted-foreground">
+                  No complaint data for this period
+                </div>
+              ) : (
+                <ResponsiveContainer width="100%" height={320}>
+                  <BarChart
+                    data={complaintCatData}
+                    layout="vertical"
+                    margin={{ top: 8, right: 16, left: 8, bottom: 8 }}
+                  >
+                    <CartesianGrid
+                      strokeDasharray="3 3"
+                      className="opacity-20"
+                      stroke="hsl(var(--primary)/0.2)"
+                    />
+                    <XAxis
+                      type="number"
+                      tick={{
+                        fontSize: 11,
+                        fill: "hsl(var(--muted-foreground))",
+                      }}
+                      allowDecimals={false}
+                    />
+                    <YAxis
+                      type="category"
+                      dataKey="name"
+                      tick={{
+                        fontSize: 11,
+                        fill: "hsl(var(--muted-foreground))",
+                      }}
+                      width={140}
+                    />
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: "hsl(var(--card))",
+                        border: "1px solid hsl(var(--border))",
+                        borderRadius: "8px",
+                      }}
+                    />
+                    <Legend />
+                    <Bar
+                      dataKey="resolved"
+                      name="Resolved"
+                      stackId="a"
+                      fill="#22c55e"
+                      radius={[0, 4, 4, 0]}
+                    />
+                    <Bar
+                      dataKey="inProgress"
+                      name="In Progress"
+                      stackId="a"
+                      fill="#3b82f6"
+                    />
+                    <Bar
+                      dataKey="pending"
+                      name="Pending"
+                      stackId="a"
+                      fill="#f59e0b"
+                    />
+                    <Bar
+                      dataKey="rejected"
+                      name="Rejected"
+                      stackId="a"
+                      fill="#ef4444"
+                    />
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
+            </CardContent>
+          </Card>
+          {complaintCatData.length > 0 && (
+            <Card className="border-2 border-indigo-200 dark:border-indigo-700 shadow-md bg-gradient-to-br from-indigo-50/70 to-indigo-100/50 dark:from-slate-900/50 dark:to-slate-800/40">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <BarChart3 className="w-5 h-5 text-indigo-500 dark:text-indigo-300" />
+                  Top Complaint Categories
+                </CardTitle>
+                <CardDescription>
+                  Ranked by frequency and impact
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                {complaintCatData.slice(0, 5).map((cat, i) => {
+                  const resolutionPct =
+                    cat.total > 0
+                      ? Math.round((cat.resolved / cat.total) * 100)
+                      : 0;
+                  return (
+                    <div
+                      key={cat.name}
+                      className="flex items-center justify-between p-3 bg-gradient-to-r from-indigo-50/80 to-transparent dark:from-indigo-900/50 dark:to-slate-900/30 rounded-lg border border-indigo-200/70 dark:border-indigo-700/70"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-7 h-7 rounded-full bg-gradient-to-br from-indigo-400 to-indigo-600 text-white text-xs font-bold flex items-center justify-center">
+                          {i + 1}
+                        </div>
+                        <div>
+                          <p className="text-sm font-semibold text-foreground">
+                            {cat.name}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {resolutionPct}% resolved
+                          </p>
+                        </div>
                       </div>
-                      <p className="text-sm text-muted-foreground">
-                        Average time complaints remain unresolved
-                      </p>
+                      <div className="flex items-center gap-2">
+                        <Badge className="bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300">
+                          {cat.total}
+                        </Badge>
+                        <Badge className="bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300">
+                          {cat.resolved}✓
+                        </Badge>
+                      </div>
                     </div>
-                  </div>
-                </div>
+                  );
+                })}
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      )}
 
-                {/* Breakdown */}
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="p-3 bg-amber-50 dark:bg-amber-950/20 rounded-lg text-center">
-                    <div className="text-xl font-bold text-amber-600">
-                      {totalPending}
-                    </div>
-                    <p className="text-xs text-muted-foreground">
-                      Pending Review
-                    </p>
-                  </div>
-                  <div className="p-3 bg-blue-50 dark:bg-blue-950/20 rounded-lg text-center">
-                    <div className="text-xl font-bold text-blue-600">
-                      {totalInProgress}
-                    </div>
-                    <p className="text-xs text-muted-foreground">In Progress</p>
-                  </div>
+      {/* Assistance Tab */}
+      {activeTab === "assistance" && (
+        <div className="space-y-6">
+          <Card className="border-2 border-emerald-200 dark:border-emerald-700 shadow-md bg-gradient-to-br from-emerald-50/70 to-emerald-100/50 dark:from-slate-900/50 dark:to-slate-800/40">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Heart className="w-5 h-5 text-emerald-500 dark:text-emerald-300" />
+                Assistance Request Analysis
+              </CardTitle>
+              <CardDescription>
+                Breakdown by type and resolution status — {timePeriod} view
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {assistanceCatData.length === 0 ? (
+                <div className="py-8 text-center text-muted-foreground">
+                  No assistance data for this period
                 </div>
-
-                {/* Top Unresolved Categories */}
-                {unresolvedInsights.topUnresolvedCategories.length > 0 && (
-                  <div className="pt-4 border-t">
-                    <h4 className="font-medium mb-3 text-sm text-muted-foreground uppercase tracking-wide">
-                      Categories with Most Unresolved
-                    </h4>
-                    <div className="space-y-2">
-                      {unresolvedInsights.topUnresolvedCategories.map(
-                        (item, index) => (
-                          <div
-                            key={item.category}
-                            className="flex items-center justify-between p-2 bg-muted rounded"
-                          >
-                            <div className="flex items-center space-x-2">
-                              <div
-                                className={`w-5 h-5 rounded-full text-xs font-medium flex items-center justify-center ${
-                                  index === 0
-                                    ? "bg-orange-100 text-orange-600 dark:bg-orange-900/50 dark:text-orange-400"
-                                    : "bg-muted-foreground/20 text-muted-foreground"
-                                }`}
-                              >
-                                {index + 1}
-                              </div>
-                              <span className="text-sm font-medium">
-                                {categoryLabels[
-                                  item.category as keyof typeof categoryLabels
-                                ] || item.category}
-                              </span>
-                            </div>
-                            <Badge
-                              variant="outline"
-                              className="text-orange-600 border-orange-200"
-                            >
-                              {item.count} pending
-                            </Badge>
-                          </div>
-                        ),
-                      )}
+              ) : (
+                <ResponsiveContainer width="100%" height={320}>
+                  <BarChart
+                    data={assistanceCatData}
+                    layout="vertical"
+                    margin={{ top: 8, right: 16, left: 8, bottom: 8 }}
+                  >
+                    <CartesianGrid
+                      strokeDasharray="3 3"
+                      className="opacity-20"
+                      stroke="hsl(var(--primary)/0.2)"
+                    />
+                    <XAxis
+                      type="number"
+                      tick={{
+                        fontSize: 11,
+                        fill: "hsl(var(--muted-foreground))",
+                      }}
+                      allowDecimals={false}
+                    />
+                    <YAxis
+                      type="category"
+                      dataKey="name"
+                      tick={{
+                        fontSize: 11,
+                        fill: "hsl(var(--muted-foreground))",
+                      }}
+                      width={160}
+                    />
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: "hsl(var(--card))",
+                        border: "1px solid hsl(var(--border))",
+                        borderRadius: "8px",
+                      }}
+                    />
+                    <Legend />
+                    <Bar
+                      dataKey="resolved"
+                      name="Resolved"
+                      stackId="a"
+                      fill="#22c55e"
+                      radius={[0, 4, 4, 0]}
+                    />
+                    <Bar
+                      dataKey="inProgress"
+                      name="In Progress"
+                      stackId="a"
+                      fill="#3b82f6"
+                    />
+                    <Bar
+                      dataKey="pending"
+                      name="Pending"
+                      stackId="a"
+                      fill="#f59e0b"
+                    />
+                    <Bar
+                      dataKey="rejected"
+                      name="Rejected"
+                      stackId="a"
+                      fill="#ef4444"
+                    />
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
+            </CardContent>
+          </Card>
+          {assistanceCatData.length > 0 && (
+            <Card className="border-2 border-emerald-200 dark:border-emerald-700 shadow-md bg-gradient-to-br from-emerald-50/70 to-emerald-100/50 dark:from-slate-900/50 dark:to-slate-800/40">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Heart className="w-5 h-5 text-emerald-500 dark:text-emerald-300" />
+                  Most Requested Assistance
+                </CardTitle>
+                <CardDescription>
+                  Ranked by frequency and impact
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                {assistanceCatData.slice(0, 5).map((cat, i) => {
+                  const resolutionPct =
+                    cat.total > 0
+                      ? Math.round((cat.resolved / cat.total) * 100)
+                      : 0;
+                  return (
+                    <div
+                      key={cat.name}
+                      className="flex items-center justify-between p-3 bg-gradient-to-r from-emerald-50/80 to-transparent dark:from-emerald-900/50 dark:to-slate-900/30 rounded-lg border border-emerald-200/70 dark:border-emerald-700/70"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-7 h-7 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 text-white text-xs font-bold flex items-center justify-center">
+                          {i + 1}
+                        </div>
+                        <div>
+                          <p className="text-sm font-semibold text-foreground">
+                            {cat.name}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {resolutionPct}% resolved
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Badge className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
+                          {cat.total}
+                        </Badge>
+                        <Badge className="bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300">
+                          {cat.resolved}✓
+                        </Badge>
+                      </div>
                     </div>
-                  </div>
-                )}
-
-                {/* Actionable Insights */}
-                <div className="pt-4 border-t">
-                  <h4 className="font-medium mb-2 text-sm">
-                    Actionable Insights
-                  </h4>
-                  <div className="space-y-2 text-sm">
-                    {unresolvedInsights.avgUnresolvedDays > 7 && (
-                      <p className="text-orange-600 dark:text-orange-400 flex items-start gap-2">
-                        <AlertTriangle className="w-4 h-4 mt-0.5 flex-shrink-0" />
-                        <span>
-                          Complaints are taking over a week to resolve on
-                          average. Consider prioritizing older cases.
-                        </span>
-                      </p>
-                    )}
-                    {unresolvedInsights.topUnresolvedCategories.length > 0 && (
-                      <p className="text-muted-foreground flex items-start gap-2">
-                        <TrendingUp className="w-4 h-4 mt-0.5 flex-shrink-0" />
-                        <span>
-                          <strong>
-                            {categoryLabels[
-                              unresolvedInsights.topUnresolvedCategories[0]
-                                .category as keyof typeof categoryLabels
-                            ] ||
-                              unresolvedInsights.topUnresolvedCategories[0]
-                                .category}
-                          </strong>{" "}
-                          has the most backlog (
-                          {unresolvedInsights.topUnresolvedCategories[0].count}{" "}
-                          cases). Focus resources here.
-                        </span>
-                      </p>
-                    )}
-                    {totalPending > totalInProgress && (
-                      <p className="text-muted-foreground flex items-start gap-2">
-                        <Clock className="w-4 h-4 mt-0.5 flex-shrink-0" />
-                        <span>
-                          {totalPending - totalInProgress} complaints awaiting
-                          initial review. Consider assigning more reviewers.
-                        </span>
-                      </p>
-                    )}
-                  </div>
-                </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+                  );
+                })}
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      )}
     </div>
   );
 }

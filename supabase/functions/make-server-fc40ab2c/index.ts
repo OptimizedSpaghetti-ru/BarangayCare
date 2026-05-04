@@ -29,6 +29,11 @@ function isAllowedOrigin(origin: string): boolean {
     return true;
   }
 
+  // Allow any local dev port so Vite can fall back when a port is busy.
+  if (/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(origin)) {
+    return true;
+  }
+
   // Allow Vercel preview and production subdomains by default.
   if (/^https:\/\/[a-z0-9-]+\.vercel\.app$/i.test(origin)) {
     return true;

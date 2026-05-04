@@ -72,7 +72,7 @@
   },
   "scripts": {
     "vercel-build": "npm ci && npm run build",
-    "dev": "vite",
+    "dev": "vite --port 5173",
     "build": "vite build"
   }
 }

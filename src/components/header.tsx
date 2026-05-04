@@ -15,6 +15,7 @@ import {
   Users,
   BarChart3,
   X,
+  Heart,
 } from "lucide-react";
 import { useTheme } from "./theme-provider";
 import { useAuth } from "./auth/auth-context";
@@ -60,6 +61,12 @@ export function Header({
       label: t("complaints.fileComplaint"),
       icon: PlusCircle,
       shortLabel: t("common.submit"),
+    });
+    navigationItems.push({
+      key: "assistance",
+      label: "Request Assistance",
+      icon: Heart,
+      shortLabel: "Assistance",
     });
   }
 
@@ -390,6 +397,15 @@ export function Header({
                     >
                       <PlusCircle className="w-5 h-5" />
                       <span>{t("complaints.fileComplaint")}</span>
+                    </Button>
+
+                    <Button
+                      variant="ghost"
+                      onClick={() => handleNavClick("assistance")}
+                      className="w-full justify-start space-x-3 h-12 text-primary"
+                    >
+                      <Heart className="w-5 h-5" />
+                      <span>Submit Assistance</span>
                     </Button>
                   </>
                 )}
