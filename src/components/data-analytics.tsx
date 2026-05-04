@@ -80,7 +80,7 @@ interface DataAnalyticsProps {
   refreshing?: boolean;
 }
 
-type TimePeriod = "daily" | "weekly" | "monthly" | "yearly";
+type TimePeriod = "daily" | "weekly" | "monthly" | "yearly" | "previous-years";
 
 const COMPLAINT_COLOR = "#6366f1";
 const ASSISTANCE_COLOR = "#10b981";
@@ -108,7 +108,13 @@ function filterByPeriod<T extends { dateSubmitted: string }>(
     cutoff = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
   else if (period === "monthly")
     cutoff = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate());
-  else cutoff = new Date(now.getFullYear() - 1, now.getMonth(), now.getDate());
+  else if (period === "yearly")
+    cutoff = new Date(now.getFullYear() - 1, now.getMonth(), now.getDate());
+  else {
+    const startOfCurrentYear = new Date(now.getFullYear(), 0, 1);
+    return items.filter((i) => new Date(i.dateSubmitted) < startOfCurrentYear);
+  }
+
   return items.filter((i) => new Date(i.dateSubmitted) >= cutoff);
 }
 
@@ -166,6 +172,7 @@ function buildVolumeOverTime(
       key = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][d.getDay()];
     else if (period === "monthly")
       key = `${(d.getMonth() + 1).toString().padStart(2, "0")}/${d.getDate().toString().padStart(2, "0")}`;
+    else if (period === "previous-years") key = `${d.getFullYear()}`;
     else
       key = [
         "Jan",
@@ -209,6 +216,8 @@ function buildVolumeOverTime(
       "Dec",
     ];
     entries.sort((a, b) => order.indexOf(a.label) - order.indexOf(b.label));
+  } else if (period === "previous-years") {
+    entries.sort((a, b) => Number(a.label) - Number(b.label));
   } else {
     entries.sort((a, b) => a.label.localeCompare(b.label));
   }
@@ -408,6 +417,7 @@ export function DataAnalytics({
             <SelectItem value="weekly">Weekly</SelectItem>
             <SelectItem value="monthly">Monthly</SelectItem>
             <SelectItem value="yearly">Yearly</SelectItem>
+            <SelectItem value="previous-years">Previous Years</SelectItem>
           </SelectContent>
         </Select>
         <div className="flex gap-1 ml-0 sm:ml-4 bg-muted rounded-lg p-1">
