@@ -121,9 +121,9 @@ export function AdminPanel({
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [categoryFilter, setCategoryFilter] = useState("all");
-  const [typeFilter, setTypeFilter] = useState<
-    "all" | "complaint" | "assistance"
-  >("all");
+  const [typeFilter, setTypeFilter] = useState<"complaint" | "assistance">(
+    "complaint",
+  );
   const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
   const [manualStartDate, setManualStartDate] = useState("");
   const [manualEndDate, setManualEndDate] = useState("");
@@ -137,11 +137,7 @@ export function AdminPanel({
   >("medium");
   const [deleteTarget, setDeleteTarget] = useState<Complaint | null>(null);
   const availableCategories =
-    typeFilter === "complaint"
-      ? COMPLAINT_CATEGORIES
-      : typeFilter === "assistance"
-        ? ASSISTANCE_CATEGORIES
-        : [...COMPLAINT_CATEGORIES, ...ASSISTANCE_CATEGORIES];
+    typeFilter === "complaint" ? COMPLAINT_CATEGORIES : ASSISTANCE_CATEGORIES;
 
   useEffect(() => {
     if (
@@ -195,7 +191,7 @@ export function AdminPanel({
     }
   };
 
-  const filteredComplaints = complaints.filter((complaint) => {
+  const baseComplaints = complaints.filter((complaint) => {
     // Enhanced search - search across all text fields including complainant name
     const searchLower = searchTerm.toLowerCase();
     const matchesSearch =
@@ -213,8 +209,6 @@ export function AdminPanel({
       (complaint.adminNotes &&
         complaint.adminNotes.toLowerCase().includes(searchLower));
 
-    const matchesStatus =
-      statusFilter === "all" || complaint.status === statusFilter;
     const matchesCategory =
       categoryFilter === "all" || complaint.category === categoryFilter;
 
@@ -237,10 +231,14 @@ export function AdminPanel({
       }
     }
 
-    return matchesSearch && matchesStatus && matchesCategory && matchesDate;
+    return matchesSearch && matchesCategory && matchesDate;
   });
 
-  const filteredAssistance = assistanceRequests.filter((req) => {
+  const filteredComplaints = baseComplaints.filter(
+    (complaint) => statusFilter === "all" || complaint.status === statusFilter,
+  );
+
+  const baseAssistance = assistanceRequests.filter((req) => {
     const searchLower = searchTerm.toLowerCase();
     const matchesSearch =
       !searchTerm ||
@@ -254,7 +252,6 @@ export function AdminPanel({
       (req.respondent && req.respondent.toLowerCase().includes(searchLower)) ||
       (req.adminNotes && req.adminNotes.toLowerCase().includes(searchLower));
 
-    const matchesStatus = statusFilter === "all" || req.status === statusFilter;
     const matchesCategory =
       categoryFilter === "all" || req.category === categoryFilter;
 
@@ -275,8 +272,12 @@ export function AdminPanel({
       }
     }
 
-    return matchesSearch && matchesStatus && matchesCategory && matchesDate;
+    return matchesSearch && matchesCategory && matchesDate;
   });
+
+  const filteredAssistance = baseAssistance.filter(
+    (req) => statusFilter === "all" || req.status === statusFilter,
+  );
 
   const handleStatusUpdate = (id: string, newStatus: string) => {
     if (typeFilter === "assistance") {
@@ -360,12 +361,17 @@ export function AdminPanel({
     setDeleteTarget(null);
   };
 
+  const activeRequests =
+    typeFilter === "assistance" ? filteredAssistance : filteredComplaints;
+  const statsSource =
+    typeFilter === "assistance" ? baseAssistance : baseComplaints;
+
   const stats = {
-    total: complaints.length,
-    pending: complaints.filter((c) => c.status === "pending").length,
-    inProgress: complaints.filter((c) => c.status === "in-progress").length,
-    resolved: complaints.filter((c) => c.status === "resolved").length,
-    rejected: complaints.filter((c) => c.status === "rejected").length,
+    total: statsSource.length,
+    pending: statsSource.filter((c) => c.status === "pending").length,
+    inProgress: statsSource.filter((c) => c.status === "in-progress").length,
+    resolved: statsSource.filter((c) => c.status === "resolved").length,
+    rejected: statsSource.filter((c) => c.status === "rejected").length,
   };
 
   return (
@@ -494,14 +500,19 @@ export function AdminPanel({
           <div className="flex items-center gap-2">
             <Map className="w-5 h-5 text-primary" />
             <div>
-              <p className="text-sm font-medium">Complaint Heatmap</p>
+              <p className="text-sm font-medium">
+                Complaint and Assistance Heatmap
+              </p>
               <p className="text-xs text-muted-foreground">
                 {
-                  complaints.filter(
-                    (c) => c.latitude != null && c.longitude != null,
+                  [...complaints, ...assistanceRequests].filter(
+                    (request) =>
+                      (request.latitude != null && request.longitude != null) ||
+                      (request.coordinates?.lat != null &&
+                        request.coordinates?.lng != null),
                   ).length
                 }{" "}
-                complaints with location pins
+                requests with location pins
               </p>
             </div>
           </div>
@@ -536,22 +547,11 @@ export function AdminPanel({
               >
                 Assistance
               </Button>
-              <Button
-                size="sm"
-                variant={typeFilter === "all" ? "default" : "outline"}
-                onClick={() => setTypeFilter("all")}
-              >
-                All
-              </Button>
             </div>
             <div>
               <p className="text-sm text-muted-foreground">
                 Showing:{" "}
-                {typeFilter === "all"
-                  ? "All requests"
-                  : typeFilter === "complaint"
-                    ? "Complaints"
-                    : "Assistance"}
+                {typeFilter === "complaint" ? "Complaints" : "Assistance"}
               </p>
             </div>
           </div>
@@ -613,20 +613,6 @@ export function AdminPanel({
                       {c.label}
                     </SelectItem>
                   ))}
-                </SelectContent>
-              </Select>
-
-              <Select
-                value={typeFilter}
-                onValueChange={(v) => setTypeFilter(v as any)}
-              >
-                <SelectTrigger className="w-full sm:w-40">
-                  <SelectValue placeholder="Type" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Types</SelectItem>
-                  <SelectItem value="complaint">Complaints Only</SelectItem>
-                  <SelectItem value="assistance">Assistance Only</SelectItem>
                 </SelectContent>
               </Select>
 
@@ -743,10 +729,7 @@ export function AdminPanel({
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {(typeFilter === "assistance"
-                    ? filteredAssistance
-                    : filteredComplaints
-                  ).map((complaint) => (
+                  {activeRequests.map((complaint) => (
                     <TableRow key={complaint.id}>
                       <TableCell>
                         <div className="max-w-48">
@@ -1138,7 +1121,7 @@ export function AdminPanel({
 
           {/* Mobile Card View */}
           <div className="lg:hidden space-y-4">
-            {filteredComplaints.map((complaint) => (
+            {activeRequests.map((complaint) => (
               <Card key={complaint.id}>
                 <CardContent className="p-4">
                   <div className="space-y-3">
@@ -1511,7 +1494,7 @@ export function AdminPanel({
             ))}
           </div>
 
-          {filteredComplaints.length === 0 && (
+          {activeRequests.length === 0 && (
             <div className="text-center py-8 text-muted-foreground">
               No requests match your current filters
             </div>

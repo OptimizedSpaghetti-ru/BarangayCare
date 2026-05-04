@@ -1,10 +1,14 @@
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Badge } from "./ui/badge";
 import { MapPin, RefreshCw } from "lucide-react";
 import "leaflet/dist/leaflet.css";
+import {
+  ASSISTANCE_CATEGORIES,
+  COMPLAINT_CATEGORIES,
+} from "../config/categories";
 
-interface Complaint {
+interface HeatmapRequest {
   id: string;
   category: string;
   status: string;
@@ -13,10 +17,11 @@ interface Complaint {
   coordinates?: { lat: number; lng: number };
   latitude?: number;
   longitude?: number;
+  recordType?: "complaint" | "assistance";
 }
 
 interface HeatmapPanelProps {
-  complaints: Complaint[];
+  requests: HeatmapRequest[];
   expanded?: boolean;
   mapHeight?: number;
   minZoom?: number;
@@ -46,54 +51,54 @@ const POLYGON_COORDS: [number, number][] = [
   [14.6828, 120.9788],
 ];
 
-const CATEGORY_INTENSITY: Record<string, number> = {
-  emergency: 1.0,
-  security: 0.9,
-  "minor-criminal": 0.85,
-  infrastructure: 0.75,
-  sanitation: 0.7,
-  utilities: 0.65,
-  health: 0.65,
-  "civil-disputes": 0.6,
-  other: 0.5,
-};
-
-const ALL_CATEGORIES = [
-  "all",
-  "infrastructure",
-  "sanitation",
-  "utilities",
-  "security",
-  "health",
-  "emergency",
-  "civil-disputes",
-  "minor-criminal",
-  "other",
+const CATEGORY_OPTIONS = [
+  { value: "all", label: "All" },
+  ...COMPLAINT_CATEGORIES,
+  ...ASSISTANCE_CATEGORIES,
 ];
 
-const CATEGORY_COLORS: Record<string, string> = {
-  emergency: "bg-red-500",
-  security: "bg-orange-500",
-  "minor-criminal": "bg-orange-400",
-  infrastructure: "bg-yellow-500",
-  sanitation: "bg-lime-500",
-  utilities: "bg-blue-400",
-  health: "bg-purple-500",
-  "civil-disputes": "bg-pink-500",
-  other: "bg-gray-400",
-};
+const CATEGORY_LABELS = CATEGORY_OPTIONS.reduce<Record<string, string>>(
+  (acc, category) => {
+    acc[category.value] = category.label;
+    return acc;
+  },
+  {},
+);
 
-const CATEGORY_DOT_COLORS: Record<string, string> = {
-  emergency: "#ef4444",
-  security: "#f97316",
-  "minor-criminal": "#fb923c",
-  infrastructure: "#eab308",
-  sanitation: "#84cc16",
-  utilities: "#38bdf8",
-  health: "#a855f7",
-  "civil-disputes": "#ec4899",
-  other: "#9ca3af",
-};
+const CATEGORY_COLOR_PALETTE = [
+  "#ef4444",
+  "#f97316",
+  "#eab308",
+  "#84cc16",
+  "#22c55e",
+  "#14b8a6",
+  "#38bdf8",
+  "#6366f1",
+  "#a855f7",
+  "#ec4899",
+  "#f43f5e",
+  "#64748b",
+];
+
+const CATEGORY_DOT_COLORS = CATEGORY_OPTIONS.reduce<Record<string, string>>(
+  (acc, category, index) => {
+    if (category.value === "all") return acc;
+    acc[category.value] =
+      CATEGORY_COLOR_PALETTE[index % CATEGORY_COLOR_PALETTE.length];
+    return acc;
+  },
+  {},
+);
+
+const CATEGORY_INTENSITY = CATEGORY_OPTIONS.reduce<Record<string, number>>(
+  (acc, category, index) => {
+    if (category.value === "all") return acc;
+    const intensity = 0.6 + (index % 5) * 0.08;
+    acc[category.value] = Math.min(intensity, 0.98);
+    return acc;
+  },
+  {},
+);
 
 const POINTS_PANE = "complaint-points-pane";
 
@@ -190,12 +195,12 @@ function extractCoordinates(
   return toCoordinatePair(pair[1], pair[2]) ?? null;
 }
 
-function getComplaintLatLng(c: Complaint): [number, number] | null {
+function getRequestLatLng(request: HeatmapRequest): [number, number] | null {
   const extracted = extractCoordinates({
-    latitude: c.latitude,
-    longitude: c.longitude,
-    coordinates: c.coordinates,
-    location: c.location,
+    latitude: request.latitude,
+    longitude: request.longitude,
+    coordinates: request.coordinates,
+    location: request.location,
   });
 
   if (!extracted) return null;
@@ -210,7 +215,7 @@ type HeatPoint = {
 };
 
 export function HeatmapPanel({
-  complaints,
+  requests,
   expanded = true,
   mapHeight = 320,
   minZoom = 15,
@@ -224,24 +229,26 @@ export function HeatmapPanel({
   const [mapReady, setMapReady] = useState(false);
   const [pointCount, setPointCount] = useState(0);
 
+  const visibleCategories = useMemo(() => CATEGORY_OPTIONS, []);
+
   const buildPoints = useCallback(
     (cat: string): HeatPoint[] => {
-      return complaints
-        .filter((c) => {
-          const ll = getComplaintLatLng(c);
-          return ll !== null && (cat === "all" || c.category === cat);
+      return requests
+        .filter((request) => {
+          const ll = getRequestLatLng(request);
+          return ll !== null && (cat === "all" || request.category === cat);
         })
-        .map((c) => {
-          const ll = getComplaintLatLng(c)!;
+        .map((request) => {
+          const ll = getRequestLatLng(request)!;
           return {
             lat: ll[0],
             lng: ll[1],
-            intensity: CATEGORY_INTENSITY[c.category] ?? 0.5,
-            category: c.category,
+            intensity: CATEGORY_INTENSITY[request.category] ?? 0.5,
+            category: request.category,
           };
         });
     },
-    [complaints],
+    [requests],
   );
 
   // Rebuild the heat layer from scratch (more reliable than setLatLngs on
@@ -413,12 +420,12 @@ export function HeatmapPanel({
     };
   }, [minZoom]);
 
-  // ── Rebuild heat layer when complaints, map readiness, or filter changes ─────
+  // ── Rebuild heat layer when requests, map readiness, or filter changes ─────
   useEffect(() => {
     if (mapReady) {
       rebuildHeatLayer(categoryFilter);
     }
-  }, [complaints, mapReady, categoryFilter, rebuildHeatLayer]);
+  }, [requests, mapReady, categoryFilter, rebuildHeatLayer]);
 
   useEffect(() => {
     if (!mapRef.current || !expanded) return;
@@ -442,7 +449,7 @@ export function HeatmapPanel({
       <CardHeader className="pb-2">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <CardTitle className="flex items-center gap-2 text-base">
-            Complaint Heatmap
+            Complaint and Assistance Heatmap
             <Badge variant="outline" className="text-xs font-normal">
               {pointCount} point{pointCount !== 1 ? "s" : ""}
             </Badge>
@@ -451,24 +458,28 @@ export function HeatmapPanel({
 
         {/* Category filter chips */}
         <div className="flex flex-wrap gap-1.5 pt-1">
-          {ALL_CATEGORIES.map((cat) => (
+          {visibleCategories.map((cat) => (
             <button
-              key={cat}
-              onClick={() => handleCategoryChange(cat)}
+              key={cat.value}
+              onClick={() => handleCategoryChange(cat.value)}
               className={`px-2.5 py-1 rounded-full text-xs font-medium border transition-all ${
-                categoryFilter === cat
+                categoryFilter === cat.value
                   ? "bg-primary text-primary-foreground border-primary shadow-sm"
                   : "bg-background text-muted-foreground border-border hover:border-primary/50 hover:text-foreground"
               }`}
             >
-              {cat === "all" ? (
-                "All"
+              {cat.value === "all" ? (
+                cat.label
               ) : (
                 <span className="flex items-center gap-1">
                   <span
-                    className={`w-1.5 h-1.5 rounded-full ${CATEGORY_COLORS[cat] ?? "bg-gray-400"}`}
+                    className="w-1.5 h-1.5 rounded-full"
+                    style={{
+                      backgroundColor:
+                        CATEGORY_DOT_COLORS[cat.value] ?? "#9ca3af",
+                    }}
                   />
-                  {cat}
+                  {cat.label}
                 </span>
               )}
             </button>
@@ -520,8 +531,8 @@ export function HeatmapPanel({
                 </p>
                 <p className="text-xs text-muted-foreground mt-0.5">
                   {categoryFilter === "all"
-                    ? "Complaints with pinned locations will appear here"
-                    : `No "${categoryFilter}" complaints with location data`}
+                    ? "Requests with pinned locations will appear here"
+                    : `No "${CATEGORY_LABELS[categoryFilter] ?? categoryFilter}" requests with location data`}
                 </p>
               </div>
             </div>

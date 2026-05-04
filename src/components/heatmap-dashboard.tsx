@@ -6,6 +6,7 @@ import {
   CardTitle,
 } from "./ui/card";
 import { HeatmapPanel } from "./heatmap-panel";
+import type { AssistanceRequest } from "./assistance-manager";
 
 interface Complaint {
   id: string;
@@ -19,15 +20,32 @@ interface Complaint {
 
 interface HeatmapDashboardProps {
   complaints: Complaint[];
+  assistanceRequests: AssistanceRequest[];
 }
 
-export function HeatmapDashboard({ complaints }: HeatmapDashboardProps) {
+export function HeatmapDashboard({
+  complaints,
+  assistanceRequests,
+}: HeatmapDashboardProps) {
+  const requests = [
+    ...complaints.map((complaint) => ({
+      ...complaint,
+      recordType: "complaint" as const,
+    })),
+    ...assistanceRequests.map((request) => ({
+      ...request,
+      recordType: "assistance" as const,
+    })),
+  ];
+
   return (
     <div className="space-y-6">
       <div className="bg-gradient-to-r from-secondary to-primary text-secondary-foreground p-4 sm:p-6 rounded-lg">
-        <h1 className="text-xl sm:text-2xl">Complaint Heatmap</h1>
+        <h1 className="text-xl sm:text-2xl">
+          Complaint and Assistance Heatmap
+        </h1>
         <p className="mt-2 opacity-90 text-sm sm:text-base">
-          Focused map view for Barangay Marulas complaints
+          Focused map view for Barangay Marulas requests
         </p>
       </div>
 
@@ -42,7 +60,7 @@ export function HeatmapDashboard({ complaints }: HeatmapDashboardProps) {
         <CardContent>
           <div className="w-full max-w-[520px] mx-auto aspect-square">
             <HeatmapPanel
-              complaints={complaints}
+              requests={requests}
               expanded
               mapHeight={500}
               minZoom={15.5}

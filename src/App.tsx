@@ -90,6 +90,7 @@ function AppContent() {
   } = useComplaints();
   const {
     assistanceRequests,
+    loading: assistanceLoading,
     addAssistanceRequest,
     fetchAssistanceRequests,
     updateAssistanceRequest,
@@ -108,6 +109,9 @@ function AppContent() {
   >("complaint");
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const previousComplaintSnapshot = useRef<
+    Map<string, { status: string; adminNotes: string | null }>
+  >(new Map());
+  const previousAssistanceSnapshot = useRef<
     Map<string, { status: string; adminNotes: string | null }>
   >(new Map());
   const notificationsInitialized = useRef(false);
@@ -133,15 +137,17 @@ function AppContent() {
     return next;
   };
 
-  const buildSnapshot = () => {
+  const buildSnapshot = (
+    items: Array<{ id: string; status: string; adminNotes?: string | null }>,
+  ) => {
     const snapshot = new Map<
       string,
       { status: string; adminNotes: string | null }
     >();
-    for (const complaint of complaints) {
-      snapshot.set(complaint.id, {
-        status: complaint.status,
-        adminNotes: complaint.adminNotes || null,
+    for (const item of items) {
+      snapshot.set(item.id, {
+        status: item.status,
+        adminNotes: item.adminNotes || null,
       });
     }
     return snapshot;
@@ -177,7 +183,7 @@ function AppContent() {
           await LocalNotifications.createChannel({
             id: "barangaycare-alerts",
             name: "BarangayCARE Alerts",
-            description: "Status updates and complaint activity alerts",
+            description: "Status updates and community request activity alerts",
             importance: 4,
             visibility: 1,
           });
@@ -230,6 +236,7 @@ function AppContent() {
     if (!notificationsStorageKey) {
       setNotifications([]);
       previousComplaintSnapshot.current = new Map();
+      previousAssistanceSnapshot.current = new Map();
       notificationsInitialized.current = false;
       localNotifPermissionRef.current = false;
       return;
@@ -248,19 +255,22 @@ function AppContent() {
     }
 
     previousComplaintSnapshot.current = new Map();
+    previousAssistanceSnapshot.current = new Map();
     notificationsInitialized.current = false;
   }, [notificationsStorageKey]);
-
   useEffect(() => {
     if (!user) return;
-    void ensureNativeNotificationAccess();
-  }, [user]);
+    if (complaintsLoading || assistanceLoading) return;
 
-  useEffect(() => {
-    if (!user) return;
+    const statusLabel = (value: string) => value.replace("-", " ");
+    const assistanceStatusTitle = (value: string) => {
+      if (value === "resolved") return "Assistance request approved";
+      if (value === "rejected") return "Assistance request rejected";
+      return "Assistance request updated";
+    };
 
     if (!notificationsInitialized.current) {
-      const seeded = complaints
+      const complaintSeeds = complaints
         .filter((complaint) => {
           if (isAdmin) return true;
           return complaint.userId === user.id;
@@ -269,38 +279,73 @@ function AppContent() {
         .map((complaint) => {
           if (isAdmin) {
             return {
-              id: `seed-admin-${complaint.id}`,
+              id: `seed-admin-complaint-${complaint.id}`,
               title: "New complaint submitted",
-              message: `${complaint.userName || "A resident"} filed "${complaint.title}" (${complaint.status})`,
+              message: `${complaint.userName || "A resident"} filed "${complaint.title}" (${complaint.status}).`,
               createdAt: complaint.dateSubmitted,
               read: true,
             } as AppNotification;
           }
 
           return {
-            id: `seed-user-${complaint.id}`,
+            id: `seed-user-complaint-${complaint.id}`,
             title: "Complaint status",
-            message: `"${complaint.title}" is currently ${complaint.status.replace("-", " ")}.`,
+            message: `"${complaint.title}" is currently ${statusLabel(complaint.status)}.`,
             createdAt: complaint.dateSubmitted,
             read: true,
           } as AppNotification;
         });
+
+      const assistanceSeeds = assistanceRequests
+        .filter((request) => {
+          if (isAdmin) return true;
+          return request.userId === user.id;
+        })
+        .slice(0, 10)
+        .map((request) => {
+          if (isAdmin) {
+            return {
+              id: `seed-admin-assistance-${request.id}`,
+              title: "New assistance request submitted",
+              message: `${request.userName || "A resident"} requested "${request.title}" (${request.status}).`,
+              createdAt: request.dateSubmitted,
+              read: true,
+            } as AppNotification;
+          }
+
+          return {
+            id: `seed-user-assistance-${request.id}`,
+            title: "Assistance request status",
+            message: `"${request.title}" is currently ${statusLabel(request.status)}.`,
+            createdAt: request.dateSubmitted,
+            read: true,
+          } as AppNotification;
+        });
+
+      const seeded = [...complaintSeeds, ...assistanceSeeds]
+        .sort(
+          (a, b) =>
+            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+        )
+        .slice(0, 20);
 
       setNotifications((prev) => {
         if (prev.length > 0) return prev;
         return persistNotifications(seeded);
       });
 
-      previousComplaintSnapshot.current = buildSnapshot();
+      previousComplaintSnapshot.current = buildSnapshot(complaints);
+      previousAssistanceSnapshot.current = buildSnapshot(assistanceRequests);
       notificationsInitialized.current = true;
       return;
     }
 
-    const prev = previousComplaintSnapshot.current;
+    const prevComplaints = previousComplaintSnapshot.current;
+    const prevAssistance = previousAssistanceSnapshot.current;
     const fresh: AppNotification[] = [];
 
     for (const complaint of complaints) {
-      const previous = prev.get(complaint.id);
+      const previous = prevComplaints.get(complaint.id);
 
       if (isAdmin) {
         if (!previous) {
@@ -311,36 +356,101 @@ function AppContent() {
             ),
           );
         }
+      } else {
+        if (complaint.userId !== user.id) continue;
+
+        if (!previous) {
+          fresh.push(
+            createNotification(
+              "Complaint received",
+              `Your complaint "${complaint.title}" was recorded as ${statusLabel(complaint.status)}.`,
+            ),
+          );
+          continue;
+        }
+
+        if (previous.status !== complaint.status) {
+          fresh.push(
+            createNotification(
+              "Complaint status updated",
+              `"${complaint.title}" changed from ${statusLabel(previous.status)} to ${statusLabel(complaint.status)}.`,
+            ),
+          );
+        }
+
+        const currentNotes = complaint.adminNotes || null;
+        if (currentNotes && previous.adminNotes !== currentNotes) {
+          fresh.push(
+            createNotification(
+              "Admin response received",
+              `An admin updated "${complaint.title}" with new notes.`,
+            ),
+          );
+        }
+      }
+    }
+
+    for (const request of assistanceRequests) {
+      const previous = prevAssistance.get(request.id);
+
+      if (isAdmin) {
+        if (!previous) {
+          fresh.push(
+            createNotification(
+              "New assistance request submitted",
+              `${request.userName || "A resident"} requested "${request.title}" in ${request.category}.`,
+            ),
+          );
+        }
+
+        if (previous && previous.status !== request.status) {
+          fresh.push(
+            createNotification(
+              "Assistance request status changed",
+              `"${request.title}" moved from ${statusLabel(previous.status)} to ${statusLabel(request.status)}.`,
+            ),
+          );
+        }
+
+        const currentNotes = request.adminNotes || null;
+        if (currentNotes && previous?.adminNotes !== currentNotes) {
+          fresh.push(
+            createNotification(
+              "Assistance request updated",
+              `Notes were updated for "${request.title}".`,
+            ),
+          );
+        }
         continue;
       }
 
-      if (complaint.userId !== user.id) continue;
+      if (request.userId !== user.id) continue;
 
       if (!previous) {
         fresh.push(
           createNotification(
-            "Complaint received",
-            `Your complaint "${complaint.title}" was recorded as ${complaint.status.replace("-", " ")}.`,
+            "Assistance request submitted",
+            `Your assistance request "${request.title}" was recorded as ${statusLabel(request.status)}.`,
           ),
         );
         continue;
       }
 
-      if (previous.status !== complaint.status) {
+      if (previous.status !== request.status) {
         fresh.push(
           createNotification(
-            "Complaint status updated",
-            `"${complaint.title}" changed from ${previous.status.replace("-", " ")} to ${complaint.status.replace("-", " ")}.`,
+            assistanceStatusTitle(request.status),
+            `"${request.title}" changed from ${statusLabel(previous.status)} to ${statusLabel(request.status)}.`,
           ),
         );
       }
 
-      const currentNotes = complaint.adminNotes || null;
+      const currentNotes = request.adminNotes || null;
       if (currentNotes && previous.adminNotes !== currentNotes) {
         fresh.push(
           createNotification(
-            "Admin response received",
-            `An admin updated "${complaint.title}" with new notes.`,
+            "Assistance response received",
+            `An admin updated "${request.title}" with new notes.`,
           ),
         );
       }
@@ -354,8 +464,16 @@ function AppContent() {
       void pushNativeNotifications(fresh);
     }
 
-    previousComplaintSnapshot.current = buildSnapshot();
-  }, [complaints, isAdmin, user]);
+    previousComplaintSnapshot.current = buildSnapshot(complaints);
+    previousAssistanceSnapshot.current = buildSnapshot(assistanceRequests);
+  }, [
+    complaints,
+    assistanceRequests,
+    complaintsLoading,
+    assistanceLoading,
+    isAdmin,
+    user,
+  ]);
 
   const markAllNotificationsRead = () => {
     setNotifications((prev) =>
@@ -718,7 +836,10 @@ function AppContent() {
         )}
 
         {currentView === "heatmap" && isAdmin && (
-          <HeatmapDashboard complaints={complaints} />
+          <HeatmapDashboard
+            complaints={complaints}
+            assistanceRequests={assistanceRequests}
+          />
         )}
 
         {currentView === "notifications" && (
@@ -732,8 +853,8 @@ function AppContent() {
                   </h1>
                   <p className="mt-2 opacity-90 text-sm sm:text-base">
                     {isAdmin
-                      ? "Monitor newly submitted complaints and recent resident activities"
-                      : "Track complaint status updates and responses from admins"}
+                      ? "Monitor newly submitted complaints and assistance requests, plus recent updates"
+                      : "Track complaint and assistance request status updates and responses"}
                   </p>
                 </div>
                 <Button
@@ -752,7 +873,13 @@ function AppContent() {
 
             <Card>
               <CardContent className="p-4 sm:p-6 space-y-3">
-                {notifications.length === 0 ? (
+                {notifications.length === 0 &&
+                (complaintsLoading || assistanceLoading) ? (
+                  <div className="py-12 text-center text-muted-foreground">
+                    <Bell className="w-10 h-10 mx-auto mb-3 opacity-60" />
+                    Loading notifications...
+                  </div>
+                ) : notifications.length === 0 ? (
                   <div className="py-12 text-center text-muted-foreground">
                     <Bell className="w-10 h-10 mx-auto mb-3 opacity-60" />
                     No notifications yet
