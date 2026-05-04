@@ -82,7 +82,11 @@ export function ComplaintForm({ onSubmit }: ComplaintFormProps) {
 
   // Check if category requires respondent field
   const requiresRespondent =
-    category === "neighborhood-disputes" || category === "minor-crime";
+    category === "neighborhood-disputes" ||
+    category === "minor-crime" ||
+    category === "public-disturbance" ||
+    category === "noise-complaints" ||
+    category === "property-damage";
 
   // Validation: Check if all required fields are filled
   const isFormValid = () => {
