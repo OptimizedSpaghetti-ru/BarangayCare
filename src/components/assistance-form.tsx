@@ -1,4 +1,5 @@
 import { useState, useRef, type ChangeEvent, type FormEvent } from "react";
+import { useTranslation } from "react-i18next";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Textarea } from "./ui/textarea";
@@ -50,6 +51,7 @@ interface AssistanceFormProps {
 }
 
 export function AssistanceForm({ onSubmit }: AssistanceFormProps) {
+  const { t } = useTranslation();
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [category, setCategory] = useState("");
@@ -69,10 +71,10 @@ export function AssistanceForm({ onSubmit }: AssistanceFormProps) {
 
   const validatePhone = (value: string): string | null => {
     if (!/^\d+$/.test(value)) {
-      return "Contact number must contain digits only";
+      return t("messages.invalidPhoneDigits");
     }
     if (value.length !== 11) {
-      return "Contact number must be exactly 11 digits";
+      return t("messages.invalidPhoneLength");
     }
     return null;
   };
@@ -96,7 +98,7 @@ export function AssistanceForm({ onSubmit }: AssistanceFormProps) {
 
     if (!isFormValid()) {
       toast.error(
-        "Please fill in all required fields including uploading a photo.",
+        t("messages.requiredAssistancePhoto"),
       );
       return;
     }
@@ -150,7 +152,7 @@ export function AssistanceForm({ onSubmit }: AssistanceFormProps) {
         setPhoto(event.target?.result as string);
       };
       reader.readAsDataURL(file);
-      toast.success("Photo uploaded successfully!");
+      toast.success(t("messages.photoUploadSuccess"));
     }
   };
 
@@ -164,7 +166,7 @@ export function AssistanceForm({ onSubmit }: AssistanceFormProps) {
       result.address || `${result.lat.toFixed(6)}, ${result.lng.toFixed(6)}`,
     );
     setShowMap(false);
-    toast.success("📍 Location pinned successfully!");
+    toast.success(t("map.locationPinned"));
   };
 
   return (
@@ -172,36 +174,37 @@ export function AssistanceForm({ onSubmit }: AssistanceFormProps) {
       <Card>
         <CardHeader className="bg-gradient-to-r from-primary to-accent text-primary-foreground pb-8">
           <CardTitle className="text-lg sm:text-xl">
-            Request Assistance
+            {t("assistance.requestAssistance")}
           </CardTitle>
           <CardDescription className="text-primary-foreground/90">
-            Submit a request for barangay assistance programs and services.
-            Provide as much detail as possible so we can help you effectively.
+            {t("assistance.formDescription")}
           </CardDescription>
         </CardHeader>
         <CardContent className="mt-6 px-4 sm:px-6 pb-8">
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="space-y-2">
-              <Label htmlFor="assist-title">Title of Request</Label>
+              <Label htmlFor="assist-title">{t("assistance.titleLabel")}</Label>
               <Input
                 id="assist-title"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                placeholder="Brief description of the assistance needed"
+                placeholder={t("assistance.titlePlaceholder")}
                 required
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="assist-category">Category</Label>
+              <Label htmlFor="assist-category">{t("common.category")}</Label>
               <Select value={category} onValueChange={setCategory} required>
                 <SelectTrigger>
-                  <SelectValue placeholder="Select assistance type" />
+                  <SelectValue placeholder={t("assistance.selectType")} />
                 </SelectTrigger>
                 <SelectContent>
                   {ASSISTANCE_CATEGORIES.map((cat) => (
                     <SelectItem key={cat.value} value={cat.value}>
-                      {cat.label}
+                      {t(`categories.${cat.value}`, {
+                        defaultValue: cat.label,
+                      })}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -209,33 +212,35 @@ export function AssistanceForm({ onSubmit }: AssistanceFormProps) {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="assist-description">Description</Label>
+              <Label htmlFor="assist-description">
+                {t("complaints.description")}
+              </Label>
               <Textarea
                 id="assist-description"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                placeholder="Describe your situation and what kind of assistance you need..."
+                placeholder={t("assistance.descriptionPlaceholder")}
                 rows={4}
                 required
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="assist-location">Address</Label>
+              <Label htmlFor="assist-location">{t("assistance.address")}</Label>
               <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2">
                 <div className="flex-1 relative">
                   <Input
                     id="assist-location"
                     value={location}
                     onChange={(e) => setLocation(e.target.value)}
-                    placeholder="Your home address or location"
+                    placeholder={t("assistance.addressPlaceholder")}
                     className="flex-1"
                     required
                   />
                   {coordinates && (
                     <Badge className="absolute right-2 top-1/2 -translate-y-1/2 text-xs bg-green-500 text-white hover:bg-green-600 border-0 pointer-events-none">
                       <MapPin className="w-3 h-3 mr-1" />
-                      Pinned
+                      {t("common.pinned")}
                     </Badge>
                   )}
                 </div>
@@ -253,13 +258,13 @@ export function AssistanceForm({ onSubmit }: AssistanceFormProps) {
             </div>
 
             <div className="space-y-2">
-              <Label>Photo Evidence</Label>
+              <Label>{t("assistance.photoEvidence")}</Label>
               <div className="border-2 border-dashed border-sky-200 bg-sky-50/70 dark:border-sky-900/50 dark:bg-sky-950/20 rounded-lg p-4 sm:p-6 text-center">
                 {photo ? (
                   <div className="space-y-2">
                     <ImageWithFallback
                       src={photo}
-                      alt="Supporting document"
+                      alt={t("assistance.supportingDocumentAlt")}
                       className="mx-auto rounded-lg max-w-full sm:max-w-xs h-auto"
                     />
                     <Button
@@ -268,7 +273,7 @@ export function AssistanceForm({ onSubmit }: AssistanceFormProps) {
                       size="sm"
                       onClick={() => setPhoto(null)}
                     >
-                      Remove Photo
+                      {t("assistance.removePhoto")}
                     </Button>
                   </div>
                 ) : (
@@ -281,11 +286,10 @@ export function AssistanceForm({ onSubmit }: AssistanceFormProps) {
                       className="flex items-center space-x-2 border-sky-300 text-sky-700 hover:bg-sky-100 dark:border-sky-800 dark:text-sky-300 dark:hover:bg-sky-950/40"
                     >
                       <Upload className="w-4 h-4" />
-                      <span>Upload Photo / Document</span>
+                      <span>{t("assistance.uploadPhotoDocument")}</span>
                     </Button>
                     <p className="text-xs sm:text-sm text-muted-foreground text-center">
-                      Upload a photo or supporting document such as an ID,
-                      medical certificate, or related proof.
+                      {t("assistance.uploadHelp")}
                     </p>
                     <input
                       ref={fileInputRef}
@@ -300,7 +304,9 @@ export function AssistanceForm({ onSubmit }: AssistanceFormProps) {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="assist-contact">Contact Number</Label>
+              <Label htmlFor="assist-contact">
+                {t("assistance.contactNumber")}
+              </Label>
               <Input
                 id="assist-contact"
                 value={contactInfo}
@@ -312,7 +318,7 @@ export function AssistanceForm({ onSubmit }: AssistanceFormProps) {
                   setContactInfo(normalized);
                   setContactError(validatePhone(normalized));
                 }}
-                placeholder="Phone Number or email for follow up"
+                placeholder={t("assistance.contactPlaceholder")}
                 className={
                   contactError
                     ? "border-destructive focus-visible:ring-destructive"
@@ -331,7 +337,7 @@ export function AssistanceForm({ onSubmit }: AssistanceFormProps) {
               size="lg"
               disabled={!isFormValid()}
             >
-              Submit Assistance
+              {t("assistance.submit")}
             </Button>
           </form>
         </CardContent>
@@ -343,11 +349,10 @@ export function AssistanceForm({ onSubmit }: AssistanceFormProps) {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <MapPin className="w-5 h-5 text-primary" />
-              Pin Your Location
+              {t("map.pinYourLocation")}
             </DialogTitle>
             <DialogDescription>
-              Click anywhere within the <strong>Barangay Marulas</strong>{" "}
-              boundary to pin your exact location. Drag the marker to adjust.
+              {t("map.pinInstruction")}
             </DialogDescription>
           </DialogHeader>
 

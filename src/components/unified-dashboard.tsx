@@ -85,10 +85,10 @@ export function UnifiedDashboard({
 
   const getTimeBasedGreeting = () => {
     const hour = new Date().getHours();
-    if (hour >= 5 && hour < 12) return "Good morning";
-    if (hour >= 12 && hour < 13) return "Good noon";
-    if (hour >= 13 && hour < 18) return "Good afternoon";
-    return "Good evening";
+    if (hour >= 5 && hour < 12) return t("greetings.morning");
+    if (hour >= 12 && hour < 13) return t("greetings.noon");
+    if (hour >= 13 && hour < 18) return t("greetings.afternoon");
+    return t("greetings.evening");
   };
 
   // Show all complaints
@@ -200,11 +200,22 @@ export function UnifiedDashboard({
   });
 
   const formatCategoryLabel = (category: string) =>
-    category
-      .split("-")
-      .filter(Boolean)
-      .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-      .join(" ");
+    t(`categories.${category}`, {
+      defaultValue: category
+        .split("-")
+        .filter(Boolean)
+        .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+        .join(" "),
+    });
+
+  const formatStatusLabel = (status: string) =>
+    status === "in-progress"
+      ? t("complaints.investigating")
+      : status === "rejected"
+        ? t("complaints.dismissed")
+        : t(`complaints.${status}`, {
+            defaultValue: status.replace("-", " "),
+          });
 
   const applySummaryStatusFilter = (status: string) => {
     setStatusFilter(status);
@@ -251,7 +262,7 @@ export function UnifiedDashboard({
             <RefreshCw
               className={`w-4 h-4 mr-2 ${refreshing ? "animate-spin" : ""}`}
             />
-            Refresh
+            {t("common.refresh")}
           </Button>
         </div>
       </div>
@@ -268,7 +279,7 @@ export function UnifiedDashboard({
         >
           <CardHeader className="pb-2 sm:pb-3">
             <CardTitle className="text-xs sm:text-sm text-muted-foreground">
-              Total Requests
+              {t("dashboard.totalRequests")}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -345,7 +356,7 @@ export function UnifiedDashboard({
         <Card className="col-span-2 sm:col-span-3 lg:col-span-1">
           <CardHeader className="pb-2 sm:pb-3">
             <CardTitle className="text-xs sm:text-sm text-muted-foreground">
-              Success Rate
+              {t("dashboard.successRate")}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -428,7 +439,7 @@ export function UnifiedDashboard({
                     </SelectItem>
                     {categories.map((category) => (
                       <SelectItem key={category} value={category}>
-                        {category.charAt(0).toUpperCase() + category.slice(1)}
+                        {formatCategoryLabel(category)}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -443,13 +454,13 @@ export function UnifiedDashboard({
                   <MessageSquare className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
                   <h3 className="text-lg font-medium text-foreground mb-2">
                     {baseComplaints.length === 0
-                      ? "No requests in the system"
-                      : "No requests match your filters"}
+                      ? t("dashboard.noRequests")
+                      : t("dashboard.noRequestsMatch")}
                   </h3>
                   <p className="text-muted-foreground mb-4">
                     {baseComplaints.length === 0
-                      ? "The community hasn't submitted any requests yet"
-                      : "Try adjusting your search or filter criteria"}
+                      ? t("dashboard.noRequestsDescription")
+                      : t("common.tryAdjustingFilters")}
                   </p>
                 </div>
               ) : (
@@ -478,7 +489,7 @@ export function UnifiedDashboard({
                               >
                                 {getStatusIcon(complaint.status)}
                                 <span className="capitalize">
-                                  {complaint.status.replace("-", " ")}
+                                  {formatStatusLabel(complaint.status)}
                                 </span>
                               </Badge>
                             </div>
@@ -491,8 +502,7 @@ export function UnifiedDashboard({
                           <div className="flex flex-col gap-2">
                             <div className="flex flex-wrap items-center gap-2 text-xs">
                               <Badge variant="secondary" className="text-xs">
-                                {complaint.category.charAt(0).toUpperCase() +
-                                  complaint.category.slice(1)}
+                                {formatCategoryLabel(complaint.category)}
                               </Badge>
                             </div>
                             <div className="flex items-center space-x-4 text-xs text-muted-foreground">
@@ -516,7 +526,7 @@ export function UnifiedDashboard({
                           {complaint.photo && (
                             <ImageWithFallback
                               src={complaint.photo}
-                              alt="Request evidence"
+                              alt={t("complaints.photoEvidenceLabel")}
                               className="w-12 h-12 sm:w-16 sm:h-16 object-cover rounded-lg flex-shrink-0"
                             />
                           )}
@@ -545,10 +555,10 @@ export function UnifiedDashboard({
         <CardHeader>
           <CardTitle className="flex items-center space-x-2">
             <Heart className="w-5 h-5" />
-            <span>Assistance </span>
+            <span>{t("assistance.title")}</span>
           </CardTitle>
           <CardDescription>
-            View all assistance requests and their current status
+            {t("assistance.listDescription")}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -557,7 +567,7 @@ export function UnifiedDashboard({
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
                 <Input
-                  placeholder="Search assistance requests..."
+                  placeholder={t("assistance.searchPlaceholder")}
                   value={assistanceSearchTerm}
                   onChange={(e) => setAssistanceSearchTerm(e.target.value)}
                   className="pl-10"
@@ -570,14 +580,22 @@ export function UnifiedDashboard({
                   onValueChange={setAssistanceStatusFilter}
                 >
                   <SelectTrigger className="w-full sm:w-40">
-                    <SelectValue placeholder="Status" />
+                    <SelectValue placeholder={t("common.status")} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">Status</SelectItem>
-                    <SelectItem value="pending">Pending</SelectItem>
-                    <SelectItem value="in-progress">In Progress</SelectItem>
-                    <SelectItem value="resolved">Resolved</SelectItem>
-                    <SelectItem value="rejected">Rejected</SelectItem>
+                    <SelectItem value="all">{t("common.status")}</SelectItem>
+                    <SelectItem value="pending">
+                      {t("complaints.pending")}
+                    </SelectItem>
+                    <SelectItem value="in-progress">
+                      {t("complaints.investigating")}
+                    </SelectItem>
+                    <SelectItem value="resolved">
+                      {t("complaints.resolved")}
+                    </SelectItem>
+                    <SelectItem value="rejected">
+                      {t("complaints.dismissed")}
+                    </SelectItem>
                   </SelectContent>
                 </Select>
 
@@ -586,10 +604,10 @@ export function UnifiedDashboard({
                   onValueChange={setAssistanceTypeFilter}
                 >
                   <SelectTrigger className="w-full sm:w-48">
-                    <SelectValue placeholder="Assistance Type" />
+                    <SelectValue placeholder={t("assistance.type")} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">Assistance Type</SelectItem>
+                    <SelectItem value="all">{t("assistance.type")}</SelectItem>
                     {assistanceTypes.map((type) => (
                       <SelectItem key={type} value={type}>
                         {formatCategoryLabel(type)}
@@ -606,10 +624,15 @@ export function UnifiedDashboard({
                   <Heart className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
                   <h3 className="text-lg font-medium text-foreground mb-2">
                     {assistanceRequests.length === 0
-                      ? "No assistance requests in the system"
-                      : "No assistance requests match your filters"}
+                      ? t("assistance.noRequests")
+                      : t("assistance.noRequestsMatch")}
                   </h3>
                   <p className="text-muted-foreground mb-4">
+                    {assistanceRequests.length === 0
+                      ? t("assistance.noRequestsDescription")
+                      : t("common.tryAdjustingFilters")}
+                  </p>
+                  <p className="hidden">
                     {assistanceRequests.length === 0
                       ? "The community hasn’t submitted any assistance requests yet"
                       : "Try adjusting your search or filter criteria"}
@@ -641,7 +664,7 @@ export function UnifiedDashboard({
                               >
                                 {getStatusIcon(request.status)}
                                 <span className="capitalize">
-                                  {request.status.replace("-", " ")}
+                                  {formatStatusLabel(request.status)}
                                 </span>
                               </Badge>
                             </div>
@@ -676,7 +699,7 @@ export function UnifiedDashboard({
                           {request.photo && (
                             <ImageWithFallback
                               src={request.photo}
-                              alt="Assistance evidence"
+                              alt={t("assistance.evidenceAlt")}
                               className="w-12 h-12 sm:w-16 sm:h-16 object-cover rounded-lg flex-shrink-0"
                             />
                           )}
@@ -687,7 +710,7 @@ export function UnifiedDashboard({
                             className="flex items-center space-x-2"
                           >
                             <Eye className="w-4 h-4" />
-                            <span>View</span>
+                            <span>{t("common.view")}</span>
                           </Button>
                         </div>
                       </div>

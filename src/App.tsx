@@ -1076,12 +1076,12 @@ function AppContent() {
                 <div>
                   <h1 className="text-xl sm:text-2xl flex items-center gap-2">
                     <Bell className="w-6 h-6" />
-                    Notifications
+                    {t("notificationsPage.title")}
                   </h1>
                   <p className="mt-2 opacity-90 text-sm sm:text-base">
                     {isAdmin
-                      ? "Monitor newly submitted complaints and assistance requests, plus recent updates"
-                      : "Track complaint and assistance request status updates and responses"}
+                      ? t("notificationsPage.adminDescription")
+                      : t("notificationsPage.residentDescription")}
                   </p>
                 </div>
                 <Button
@@ -1093,7 +1093,7 @@ function AppContent() {
                   disabled={unreadNotificationCount === 0}
                 >
                   <CheckCheck className="w-4 h-4 mr-2" />
-                  Mark all read
+                  {t("notificationsPage.markAllReadShort")}
                 </Button>
               </div>
             </div>
@@ -1104,12 +1104,12 @@ function AppContent() {
                 (complaintsLoading || assistanceLoading) ? (
                   <div className="py-12 text-center text-muted-foreground">
                     <Bell className="w-10 h-10 mx-auto mb-3 opacity-60" />
-                    Loading notifications...
+                    {t("notificationsPage.loading")}
                   </div>
                 ) : notifications.length === 0 ? (
                   <div className="py-12 text-center text-muted-foreground">
                     <Bell className="w-10 h-10 mx-auto mb-3 opacity-60" />
-                    No notifications yet
+                    {t("notificationsPage.empty")}
                   </div>
                 ) : (
                   notifications.map((notification) => (
@@ -1139,7 +1139,7 @@ function AppContent() {
                                 variant="default"
                                 className="text-[10px] px-1.5 py-0 h-5"
                               >
-                                New
+                                {t("notificationsPage.new")}
                               </Badge>
                             )}
                           </div>

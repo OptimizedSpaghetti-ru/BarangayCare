@@ -46,6 +46,13 @@ export const fil = {
       apply: "Ilapat",
       reset: "I-reset",
       actions: "Mga Aksyon",
+      all: "Lahat",
+      status: "Katayuan",
+      category: "Kategorya",
+      type: "Uri",
+      remove: "Alisin",
+      pinned: "Naka-pin",
+      tryAdjustingFilters: "Subukang baguhin ang iyong paghahanap o mga filter",
     },
     // Settings
     settings: {
@@ -87,6 +94,12 @@ export const fil = {
       official: "Opisyal",
     },
     // Dashboard
+    greetings: {
+      morning: "Magandang umaga",
+      noon: "Magandang tanghali",
+      afternoon: "Magandang hapon",
+      evening: "Magandang gabi",
+    },
     dashboard: {
       title: "Dashboard",
       overview: "Pangkalahatang Tingin",
@@ -107,6 +120,11 @@ export const fil = {
         "Subaybayan at pamahalaan ang lahat ng mga reklamo sa barangay",
       residentComplaintsDescription:
         "Tingnan ang lahat ng mga reklamo sa barangay at ang kanilang kasalukuyang katayuan",
+      totalRequests: "Kabuuang Kahilingan",
+      successRate: "Antas ng Tagumpay",
+      noRequests: "Wala pang kahilingan sa sistema",
+      noRequestsMatch: "Walang kahilingang tumugma sa iyong mga filter",
+      noRequestsDescription: "Wala pang naipapasang kahilingan ang komunidad",
     },
     // Residents
     residents: {
@@ -190,6 +208,79 @@ export const fil = {
       requestRejected: "Ang reklamong ito ay tinanggihan",
       priorityLabel: "prayoridad",
     },
+    assistance: {
+      title: "Mga Kahilingan ng Tulong",
+      shortTitle: "Tulong",
+      requestAssistance: "Humingi ng tulong",
+      formDescription:
+        "Magsumite ng kahilingan para sa mga programa at serbisyo ng barangay. Magbigay ng sapat na detalye upang mas matulungan ka namin.",
+      titleLabel: "Pamagat ng Kahilingan",
+      titlePlaceholder: "Maikling paglalarawan ng kailangang tulong",
+      type: "Uri ng Tulong",
+      selectType: "Pumili ng uri ng tulong",
+      descriptionPlaceholder:
+        "Ilarawan ang iyong sitwasyon at kung anong uri ng tulong ang kailangan mo...",
+      address: "Address",
+      addressPlaceholder: "Iyong tirahan o lokasyon",
+      pinLocationTitle: "I-pin ang lokasyon sa mapa",
+      photoEvidence: "Litrato ng Ebidensiya",
+      removePhoto: "Alisin ang Litrato",
+      uploadPhotoDocument: "Mag-upload ng Litrato / Dokumento",
+      uploadHelp:
+        "Mag-upload ng litrato o suportang dokumento gaya ng ID, medical certificate, o kaugnay na patunay.",
+      contactNumber: "Numero ng Pakikipag-ugnayan",
+      contactPlaceholder: "Numero ng telepono o email para sa follow-up",
+      submit: "Isumite ang Kahilingan ng Tulong",
+      listDescription:
+        "Tingnan ang lahat ng kahilingan ng tulong at ang kasalukuyang katayuan ng mga ito",
+      searchPlaceholder: "Maghanap ng mga kahilingan ng tulong...",
+      noRequests: "Wala pang kahilingan ng tulong sa sistema",
+      noRequestsMatch:
+        "Walang kahilingan ng tulong na tumugma sa iyong mga filter",
+      noRequestsDescription:
+        "Wala pang naisusumiteng kahilingan ng tulong ang komunidad",
+      evidenceAlt: "Ebidensiya para sa tulong",
+      supportingDocumentAlt: "Suportang dokumento",
+    },
+    categories: {
+      "minor-crime": "Magaan na Krimen",
+      "garbage-sanitation": "Basura at Kalinisan",
+      "noise-complaints": "Reklamo sa Ingay",
+      "property-damage": "Pinsala sa Ari-arian",
+      "neighborhood-disputes": "Alitan sa Kapitbahay",
+      "illegal-parking": "Ilegal na Paradahan",
+      "public-disturbance": "Panggugulo sa Publiko",
+      "drainage-issues": "Problema sa Daluyan ng Tubig",
+      "street-light-issues": "Problema sa Ilaw sa Kalsada",
+      "health-services": "Tulong sa Serbisyong Pangkalusugan",
+      "emergency-assistance": "Agarang Tulong",
+      "financial-assistance": "Tulong Pinansyal",
+      "medical-assistance": "Tulong Medikal",
+      "senior-citizen-support": "Suporta para sa Senior Citizen",
+      "pwd-assistance": "Tulong para sa PWD",
+      "food-assistance": "Tulong sa Pagkain",
+      "disaster-relief": "Tulong sa Sakuna",
+      "burial-assistance": "Tulong sa Libing",
+      "scholarship-assistance": "Tulong sa Scholarship/Edukasyon",
+    },
+    map: {
+      pinYourLocation: "I-pin ang Iyong Lokasyon",
+      pinInstruction:
+        "Pindutin ang anumang bahagi sa loob ng hangganan ng Barangay Marulas upang i-pin ang eksaktong lokasyon. I-drag ang marker para ayusin.",
+      locationPinned: "Matagumpay na na-pin ang lokasyon!",
+    },
+    notificationsPage: {
+      title: "Mga Notipikasyon",
+      loading: "Naglo-load ang mga notipikasyon...",
+      empty: "Wala pang notipikasyon",
+      markAllRead: "Markahan lahat bilang nabasa",
+      markAllReadShort: "Markahan lahat bilang nabasa",
+      new: "Bago",
+      adminDescription:
+        "Subaybayan ang bagong naisumiteng mga reklamo at kahilingan ng tulong, pati ang mga kamakailang update",
+      residentDescription:
+        "Subaybayan ang mga update at tugon sa katayuan ng reklamo at kahilingan ng tulong",
+    },
     // Reports
     reports: {
       title: "Mga Ulat",
@@ -264,6 +355,11 @@ export const fil = {
       noPermission: "Walang pahintulot na gawin ito",
       sessionExpired: "Nag-expire na ang iyong session. Mag-login ulit.",
       networkError: "May error sa network. Pakisuri ang iyong koneksyon.",
+      invalidPhoneDigits: "Dapat numero lamang ang contact number",
+      invalidPhoneLength: "Dapat eksaktong 11 digit ang contact number",
+      requiredAssistancePhoto:
+        "Pakipunan ang lahat ng kailangang field kasama ang pag-upload ng litrato.",
+      photoUploadSuccess: "Matagumpay na na-upload ang litrato!",
     },
     // Data Analytics
     analytics: {

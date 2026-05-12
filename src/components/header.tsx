@@ -64,9 +64,9 @@ export function Header({
     });
     navigationItems.push({
       key: "assistance",
-      label: "Request Assistance",
+      label: t("assistance.requestAssistance"),
       icon: Heart,
-      shortLabel: "Assistance",
+      shortLabel: t("assistance.shortTitle"),
     });
   }
 
@@ -405,7 +405,7 @@ export function Header({
                       className="w-full justify-start space-x-3 h-12 text-primary"
                     >
                       <Heart className="w-5 h-5" />
-                      <span>Submit Assistance</span>
+                      <span>{t("assistance.submit")}</span>
                     </Button>
                   </>
                 )}

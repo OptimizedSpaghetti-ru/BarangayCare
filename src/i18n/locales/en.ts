@@ -46,6 +46,13 @@ export const en = {
       apply: "Apply",
       reset: "Reset",
       actions: "Actions",
+      all: "All",
+      status: "Status",
+      category: "Category",
+      type: "Type",
+      remove: "Remove",
+      pinned: "Pinned",
+      tryAdjustingFilters: "Try adjusting your search or filter criteria",
     },
     // Settings
     settings: {
@@ -87,6 +94,12 @@ export const en = {
       official: "Official",
     },
     // Dashboard
+    greetings: {
+      morning: "Good morning",
+      noon: "Good noon",
+      afternoon: "Good afternoon",
+      evening: "Good evening",
+    },
     dashboard: {
       title: "Dashboard",
       overview: "Overview",
@@ -106,6 +119,12 @@ export const en = {
       adminComplaintsDescription: "Monitor and manage all community requests",
       residentComplaintsDescription:
         "View all community requests and their current status",
+      totalRequests: "Total Requests",
+      successRate: "Success Rate",
+      noRequests: "No requests in the system",
+      noRequestsMatch: "No requests match your filters",
+      noRequestsDescription:
+        "The community hasn't submitted any requests yet",
     },
     // Residents
     residents: {
@@ -189,6 +208,77 @@ export const en = {
       requestRejected: "This request has been rejected",
       priorityLabel: "priority",
     },
+    assistance: {
+      title: "Assistance Requests",
+      shortTitle: "Assistance",
+      requestAssistance: "Request Assistance",
+      formDescription:
+        "Submit a request for barangay assistance programs and services. Provide as much detail as possible so we can help you effectively.",
+      titleLabel: "Title of Request",
+      titlePlaceholder: "Brief description of the assistance needed",
+      type: "Assistance Type",
+      selectType: "Select assistance type",
+      descriptionPlaceholder:
+        "Describe your situation and what kind of assistance you need...",
+      address: "Address",
+      addressPlaceholder: "Your home address or location",
+      pinLocationTitle: "Pin location on map",
+      photoEvidence: "Photo Evidence",
+      removePhoto: "Remove Photo",
+      uploadPhotoDocument: "Upload Photo / Document",
+      uploadHelp:
+        "Upload a photo or supporting document such as an ID, medical certificate, or related proof.",
+      contactNumber: "Contact Number",
+      contactPlaceholder: "Phone Number or email for follow up",
+      submit: "Submit Assistance",
+      listDescription: "View all assistance requests and their current status",
+      searchPlaceholder: "Search assistance requests...",
+      noRequests: "No assistance requests in the system",
+      noRequestsMatch: "No assistance requests match your filters",
+      noRequestsDescription:
+        "The community hasn't submitted any assistance requests yet",
+      evidenceAlt: "Assistance evidence",
+      supportingDocumentAlt: "Supporting document",
+    },
+    categories: {
+      "minor-crime": "Minor Crime",
+      "garbage-sanitation": "Garbage and Sanitation",
+      "noise-complaints": "Noise Complaints",
+      "property-damage": "Property Damage",
+      "neighborhood-disputes": "Neighborhood Disputes",
+      "illegal-parking": "Illegal Parking",
+      "public-disturbance": "Public Disturbance",
+      "drainage-issues": "Drainage Issues",
+      "street-light-issues": "Street Light Issues",
+      "health-services": "Health Services Assistance",
+      "emergency-assistance": "Emergency Assistance",
+      "financial-assistance": "Financial Assistance",
+      "medical-assistance": "Medical Assistance",
+      "senior-citizen-support": "Senior Citizen Support",
+      "pwd-assistance": "PWD Assistance",
+      "food-assistance": "Food Assistance",
+      "disaster-relief": "Disaster Relief Assistance",
+      "burial-assistance": "Burial Assistance",
+      "scholarship-assistance": "Scholarship/Educational Assistance",
+    },
+    map: {
+      pinYourLocation: "Pin Your Location",
+      pinInstruction:
+        "Click anywhere within the Barangay Marulas boundary to pin your exact location. Drag the marker to adjust.",
+      locationPinned: "Location pinned successfully!",
+    },
+    notificationsPage: {
+      title: "Notifications",
+      loading: "Loading notifications...",
+      empty: "No notifications yet",
+      markAllRead: "Mark all as read",
+      markAllReadShort: "Mark all read",
+      new: "New",
+      adminDescription:
+        "Monitor newly submitted complaints and assistance requests, plus recent updates",
+      residentDescription:
+        "Track complaint and assistance request status updates and responses",
+    },
     // Reports
     reports: {
       title: "Reports",
@@ -263,6 +353,11 @@ export const en = {
       noPermission: "You don't have permission to perform this action",
       sessionExpired: "Your session has expired. Please login again.",
       networkError: "Network error. Please check your connection.",
+      invalidPhoneDigits: "Contact number must contain digits only",
+      invalidPhoneLength: "Contact number must be exactly 11 digits",
+      requiredAssistancePhoto:
+        "Please fill in all required fields including uploading a photo.",
+      photoUploadSuccess: "Photo uploaded successfully!",
     },
     // Data Analytics
     analytics: {
