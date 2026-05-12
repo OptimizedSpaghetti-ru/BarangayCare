@@ -1,6 +1,12 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { Capacitor, type PluginListenerHandle } from "@capacitor/core";
 import { LocalNotifications } from "@capacitor/local-notifications";
+import {
+  PushNotifications,
+  type Token,
+  type PushNotificationSchema,
+  type ActionPerformed,
+} from "@capacitor/push-notifications";
 import { useTranslation } from "react-i18next";
 import { ThemeProvider } from "./components/theme-provider";
 import { AuthProvider, useAuth } from "./components/auth/auth-context";
@@ -12,6 +18,7 @@ import {
   AssistanceProvider,
   useAssistance,
 } from "./components/assistance-manager";
+import { getSupabaseClient } from "./utils/supabase/client";
 import { LoginForm } from "./components/auth/login-form";
 import { SignupForm } from "./components/auth/signup-form";
 import { ProfileManagement } from "./components/auth/profile-management";
@@ -81,6 +88,7 @@ interface AppNotification {
 const LOCAL_NOTIFICATION_CHANNEL_ID = "barangaycare-alerts";
 const LOCAL_NOTIFICATION_GROUP_ADMIN = "barangaycare-admin-alerts";
 const LOCAL_NOTIFICATION_GROUP_USER = "barangaycare-user-alerts";
+const DEVICE_PUSH_TOKENS_TABLE = "device_push_tokens";
 
 // No sample data - only real data will be displayed
 
@@ -115,6 +123,7 @@ function AppContent() {
     "complaint" | "assistance"
   >("complaint");
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
+  const supabase = getSupabaseClient();
   const previousComplaintSnapshot = useRef<
     Map<string, { status: string; adminNotes: string | null }>
   >(new Map());
@@ -128,6 +137,8 @@ function AppContent() {
   const mainScrollRef = useRef<HTMLElement | null>(null);
   const pullStartYRef = useRef<number | null>(null);
   const isPullingRef = useRef(false);
+  const pushListenersReadyRef = useRef(false);
+  const latestPushTokenRef = useRef<string | null>(null);
 
   const unreadNotificationCount = useMemo(
     () => notifications.filter((n) => !n.read).length,
@@ -252,7 +263,7 @@ function AppContent() {
       largeBody: item.message,
       summaryText: item.title,
       schedule: {
-        at: new Date(now + 1000 + index * 500),
+        at: new Date(now + 75 + index * 125),
         allowWhileIdle: true,
       },
       channelId: LOCAL_NOTIFICATION_CHANNEL_ID,
@@ -279,6 +290,81 @@ function AppContent() {
     } catch {
       // Ignore scheduling failures to avoid blocking app flow.
     }
+  };
+
+  const savePushToken = async (token: string) => {
+    if (!user || !Capacitor.isNativePlatform()) return;
+    if (!token || latestPushTokenRef.current === token) return;
+
+    const platform = Capacitor.getPlatform();
+    const role = isAdmin ? "admin" : "resident";
+
+    const { error } = await supabase.from(DEVICE_PUSH_TOKENS_TABLE).upsert(
+      {
+        user_id: user.id,
+        token,
+        platform,
+        role,
+        updated_at: new Date().toISOString(),
+      },
+      {
+        onConflict: "token",
+      },
+    );
+
+    if (!error) {
+      latestPushTokenRef.current = token;
+    }
+  };
+
+  const rememberPushNotification = (
+    notification: PushNotificationSchema,
+    markRead = false,
+  ) => {
+    const data =
+      notification.data && typeof notification.data === "object"
+        ? (notification.data as Record<string, unknown>)
+        : {};
+
+    const appNotificationId =
+      typeof data.appNotificationId === "string"
+        ? data.appNotificationId
+        : `push-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const title =
+      typeof data.title === "string"
+        ? data.title
+        : notification.title || "BarangayCare update";
+    const message =
+      typeof data.message === "string"
+        ? data.message
+        : notification.body || "You have a new update";
+    const type =
+      data.type === "complaint" ||
+      data.type === "assistance" ||
+      data.type === "system"
+        ? data.type
+        : "system";
+    const sourceId =
+      typeof data.sourceId === "string" ? data.sourceId : undefined;
+
+    setNotifications((prev) => {
+      if (prev.some((item) => item.id === appNotificationId)) return prev;
+
+      const next = [
+        {
+          id: appNotificationId,
+          title,
+          message,
+          createdAt: new Date().toISOString(),
+          read: markRead,
+          type,
+          sourceId,
+        } as AppNotification,
+        ...prev,
+      ].slice(0, 100);
+
+      return persistNotifications(next);
+    });
   };
 
   // Redirect admins to Admin Panel after login
@@ -321,6 +407,110 @@ function AppContent() {
 
     void ensureNativeNotificationAccess();
   }, [notificationsStorageKey]);
+
+  useEffect(() => {
+    if (!user || !notificationsStorageKey || !Capacitor.isNativePlatform()) {
+      pushListenersReadyRef.current = false;
+      latestPushTokenRef.current = null;
+      return;
+    }
+
+    let mounted = true;
+    let registrationHandle: PluginListenerHandle | undefined;
+    let registrationErrorHandle: PluginListenerHandle | undefined;
+    let receivedHandle: PluginListenerHandle | undefined;
+    let actionHandle: PluginListenerHandle | undefined;
+
+    const setupPush = async () => {
+      if (pushListenersReadyRef.current) return;
+
+      const permissionStatus = await PushNotifications.checkPermissions();
+      if (permissionStatus.receive !== "granted") {
+        const requested = await PushNotifications.requestPermissions();
+        if (requested.receive !== "granted") {
+          return;
+        }
+      }
+
+      registrationHandle = await PushNotifications.addListener(
+        "registration",
+        (token: Token) => {
+          void savePushToken(token.value);
+        },
+      );
+
+      registrationErrorHandle = await PushNotifications.addListener(
+        "registrationError",
+        (error) => {
+          console.error("Push registration error", error);
+        },
+      );
+
+      receivedHandle = await PushNotifications.addListener(
+        "pushNotificationReceived",
+        (notification: PushNotificationSchema) => {
+          rememberPushNotification(notification);
+        },
+      );
+
+      actionHandle = await PushNotifications.addListener(
+        "pushNotificationActionPerformed",
+        (action: ActionPerformed) => {
+          rememberPushNotification(action.notification, true);
+          setCurrentView("notifications");
+        },
+      );
+
+      if (!mounted) {
+        void registrationHandle?.remove();
+        void registrationErrorHandle?.remove();
+        void receivedHandle?.remove();
+        void actionHandle?.remove();
+        return;
+      }
+
+      pushListenersReadyRef.current = true;
+      await PushNotifications.register();
+    };
+
+    void setupPush();
+
+    return () => {
+      mounted = false;
+      pushListenersReadyRef.current = false;
+      void registrationHandle?.remove();
+      void registrationErrorHandle?.remove();
+      void receivedHandle?.remove();
+      void actionHandle?.remove();
+    };
+  }, [user, isAdmin, notificationsStorageKey]);
+
+  useEffect(() => {
+    if (!user) return;
+
+    const refreshLatest = () => {
+      void Promise.all([fetchComplaints(), fetchAssistanceRequests()]);
+    };
+
+    const intervalId = window.setInterval(refreshLatest, 15000);
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        refreshLatest();
+      }
+    };
+    const onFocus = () => {
+      refreshLatest();
+    };
+
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    window.addEventListener("focus", onFocus);
+
+    return () => {
+      window.clearInterval(intervalId);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+      window.removeEventListener("focus", onFocus);
+    };
+  }, [user, fetchComplaints, fetchAssistanceRequests]);
 
   useEffect(() => {
     if (!notificationsStorageKey || !Capacitor.isNativePlatform()) return;
@@ -645,7 +835,9 @@ function AppContent() {
     user,
   ]);
 
-  const clearDeliveredNativeNotifications = async (appNotificationId?: string) => {
+  const clearDeliveredNativeNotifications = async (
+    appNotificationId?: string,
+  ) => {
     if (!Capacitor.isNativePlatform()) return;
 
     try {
