@@ -215,7 +215,7 @@ export function ComplaintForm({ onSubmit }: ComplaintFormProps) {
                 <SelectContent>
                   {COMPLAINT_CATEGORIES.map((cat) => (
                     <SelectItem key={cat.value} value={cat.value}>
-                      {cat.label}
+                      {t(`categories.${cat.value}`)}
                     </SelectItem>
                   ))}
                 </SelectContent>

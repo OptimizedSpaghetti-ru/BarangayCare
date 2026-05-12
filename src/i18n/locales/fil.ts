@@ -177,7 +177,7 @@ export const fil = {
       categoryMinorCriminal: "Magaan na Krimen",
       categoryOther: "Iba Pa",
       description: "Paglalarawan",
-      photoEvidence: "Litrato ng Ebidensiya (Opsyonal)",
+      photoEvidence: "Litrato ng Ebidensiya",
       photoHelpText:
         "Ang mga litrato ay tumutulong sa amin na maunawaan at malutas ang iyong reklamo nang mas mabilis",
       complainant: "Nagreklamo",
@@ -243,12 +243,12 @@ export const fil = {
       supportingDocumentAlt: "Suportang dokumento",
     },
     categories: {
-      "minor-crime": "Magaan na Krimen",
+      "minor-crime": "Maliit na Krimen",
       "garbage-sanitation": "Basura at Kalinisan",
       "noise-complaints": "Reklamo sa Ingay",
       "property-damage": "Pinsala sa Ari-arian",
       "neighborhood-disputes": "Alitan sa Kapitbahay",
-      "illegal-parking": "Ilegal na Paradahan",
+      "illegal-parking": "Ilegal na Pagparada",
       "public-disturbance": "Panggugulo sa Publiko",
       "drainage-issues": "Problema sa Daluyan ng Tubig",
       "street-light-issues": "Problema sa Ilaw sa Kalsada",
