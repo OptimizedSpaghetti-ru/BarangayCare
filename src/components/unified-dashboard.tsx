@@ -545,7 +545,7 @@ export function UnifiedDashboard({
         <CardHeader>
           <CardTitle className="flex items-center space-x-2">
             <Heart className="w-5 h-5" />
-            <span>Assistance Requests</span>
+            <span>Assistance </span>
           </CardTitle>
           <CardDescription>
             View all assistance requests and their current status
@@ -666,9 +666,7 @@ export function UnifiedDashboard({
                               </div>
                               <div className="flex items-center space-x-1">
                                 <Calendar className="w-3 h-3" />
-                                <span>
-                                  {formatDate(request.dateSubmitted)}
-                                </span>
+                                <span>{formatDate(request.dateSubmitted)}</span>
                               </div>
                             </div>
                           </div>
