@@ -1,4 +1,8 @@
 import { useEffect, useRef, useState } from "react";
+import "leaflet/dist/leaflet.css";
+import markerIcon2x from "leaflet/dist/images/marker-icon-2x.png";
+import markerIcon from "leaflet/dist/images/marker-icon.png";
+import markerShadow from "leaflet/dist/images/marker-shadow.png";
 import { Button } from "./ui/button";
 import { Alert, AlertDescription } from "./ui/alert";
 import { MapPin, Navigation, AlertTriangle } from "lucide-react";
@@ -176,9 +180,9 @@ export function MapPicker({ initialCoordinates, onLocationSelect, onClose }: Map
       // Fix default icon paths broken by Vite
       delete (L.Icon.Default.prototype as any)._getIconUrl;
       L.Icon.Default.mergeOptions({
-        iconRetinaUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png",
-        iconUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png",
-        shadowUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png",
+        iconRetinaUrl: markerIcon2x,
+        iconUrl: markerIcon,
+        shadowUrl: markerShadow,
       });
 
       const map = L.map(mapContainerRef.current!, {
@@ -268,17 +272,7 @@ export function MapPicker({ initialCoordinates, onLocationSelect, onClose }: Map
   return (
     <div className="flex flex-col gap-3">
       {/* Map */}
-      <div className="relative rounded-lg overflow-hidden border" style={{ height: 380 }}>
-        {/* Leaflet CSS — loaded once per page */}
-        {!document.getElementById("leaflet-css") && (() => {
-          const link = document.createElement("link");
-          link.id = "leaflet-css";
-          link.rel = "stylesheet";
-          link.href = "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css";
-          document.head.appendChild(link);
-          return null;
-        })()}
-
+      <div className="relative rounded-lg overflow-hidden border h-[320px] sm:h-[380px]">
         <div ref={mapContainerRef} className="w-full h-full" />
 
         {!mapReady && (
@@ -301,7 +295,7 @@ export function MapPicker({ initialCoordinates, onLocationSelect, onClose }: Map
         </button>
 
         {/* Instruction banner */}
-        <div className="absolute bottom-3 left-3 right-12 z-[1000]">
+        <div className="absolute bottom-3 left-3 right-12 z-[1000] pointer-events-none">
           <div className="bg-background/90 backdrop-blur-sm rounded-md px-3 py-2 text-xs text-muted-foreground text-center border border-border shadow-sm">
             {selectedCoords
               ? geocoding

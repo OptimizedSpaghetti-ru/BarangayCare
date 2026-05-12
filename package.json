@@ -3,11 +3,11 @@
   "version": "0.1.0",
   "private": true,
   "dependencies": {
-    "@capacitor/android": "^8.0.2",
-    "@capacitor/cli": "^8.0.2",
-    "@capacitor/core": "^8.0.2",
+    "@capacitor/android": "^8.3.3",
+    "@capacitor/cli": "^8.3.3",
+    "@capacitor/core": "^8.3.3",
     "@capacitor/filesystem": "^8.1.2",
-    "@capacitor/local-notifications": "^8.0.2",
+    "@capacitor/local-notifications": "^8.1.0",
     "@capacitor/share": "^8.0.1",
     "@jsr/supabase__supabase-js": "^2.49.8",
     "@radix-ui/react-accordion": "^1.2.3",
@@ -73,6 +73,10 @@
   "scripts": {
     "vercel-build": "npm ci && npm run build",
     "dev": "vite --port 5173",
-    "build": "vite build"
+    "build": "vite build",
+    "android:add": "cap add android",
+    "android:sync": "npm run build && cap sync android",
+    "android:open": "cap open android",
+    "android:build": "npm run android:sync && cd android && gradlew.bat assembleDebug"
   }
 }

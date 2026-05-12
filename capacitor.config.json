@@ -9,6 +9,9 @@
       "sound": "beep"
     }
   },
+  "server": {
+    "androidScheme": "https"
+  },
   "android": {
     "allowMixedContent": true
   },
