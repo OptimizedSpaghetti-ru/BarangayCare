@@ -88,6 +88,17 @@ const RESOLVED_COLOR = "#22c55e";
 const PENDING_COLOR = "#f59e0b";
 const IN_PROGRESS_COLOR = "#3b82f6";
 const REJECTED_COLOR = "#ef4444";
+const CHART_TEXT = "hsl(var(--foreground))";
+const CHART_MUTED = "hsl(var(--muted-foreground))";
+const CHART_GRID = "hsl(var(--border))";
+const TOOLTIP_STYLE = {
+  backgroundColor: "hsl(var(--card))",
+  border: "1px solid hsl(var(--border))",
+  borderRadius: "8px",
+  color: "hsl(var(--foreground))",
+};
+const TOOLTIP_LABEL_STYLE = { color: "hsl(var(--foreground))" };
+const TOOLTIP_ITEM_STYLE = { color: "hsl(var(--foreground))" };
 
 function getComplaintLabel(cat: string) {
   return COMPLAINT_CATEGORIES.find((c) => c.value === cat)?.label ?? cat;
@@ -512,69 +523,6 @@ export function DataAnalytics({
         </Card>
       </div>
 
-      {/* Volume Over Time — always shown */}
-      <Card className="border-2 border-slate-200 dark:border-slate-600 shadow-md bg-gradient-to-br from-slate-50 to-slate-100/50 dark:from-slate-900/40 dark:to-slate-800/30">
-        <CardHeader className="pb-2">
-          <CardTitle className="flex items-center gap-2">
-            <TrendingUp className="w-5 h-5 text-primary" />
-            Request Volume Over Time
-          </CardTitle>
-          <CardDescription>
-            Complaints vs assistance requests — {timePeriod} view
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {volumeData.length === 0 ? (
-            <div className="py-12 text-center text-muted-foreground">
-              <BarChart3 className="w-10 h-10 mx-auto mb-2 opacity-40" />
-              <p>No data for this period</p>
-            </div>
-          ) : (
-            <ResponsiveContainer width="100%" height={280}>
-              <BarChart
-                data={volumeData}
-                margin={{ top: 12, right: 12, left: 0, bottom: 4 }}
-              >
-                <CartesianGrid
-                  strokeDasharray="3 3"
-                  className="opacity-20"
-                  stroke="hsl(var(--primary)/0.2)"
-                />
-                <XAxis
-                  dataKey="label"
-                  tick={{ fontSize: 12, fill: "hsl(var(--muted-foreground))" }}
-                />
-                <YAxis
-                  tick={{ fontSize: 12, fill: "hsl(var(--muted-foreground))" }}
-                  allowDecimals={false}
-                />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: "hsl(var(--card))",
-                    border: "1px solid hsl(var(--border))",
-                    borderRadius: "8px",
-                  }}
-                  cursor={{ fill: "hsl(var(--primary)/0.05)" }}
-                />
-                <Legend />
-                <Bar
-                  dataKey="complaints"
-                  name="Complaints"
-                  fill="#6366f1"
-                  radius={[8, 8, 0, 0]}
-                />
-                <Bar
-                  dataKey="assistance"
-                  name="Assistance"
-                  fill="#10b981"
-                  radius={[8, 8, 0, 0]}
-                />
-              </BarChart>
-            </ResponsiveContainer>
-          )}
-        </CardContent>
-      </Card>
-
       {/* Insights & Suggestions Section */}
       <Card className="border-2 border-purple-200 dark:border-purple-600 shadow-md bg-gradient-to-br from-blue-50/70 via-purple-50/50 to-pink-50/40 dark:from-slate-900/50 dark:via-slate-800/40 dark:to-slate-800/30">
         <CardHeader>
@@ -608,7 +556,7 @@ export function DataAnalytics({
             if (resolutionRate >= 80) {
               insights.push({
                 icon: "check",
-                color: "text-black",
+                color: "text-foreground",
                 bgColor: "bg-green-100 dark:bg-green-800/80",
                 title: "Excellent Resolution Rate",
                 description: `Your resolution rate of ${resolutionRate}% is outstanding. Keep up this momentum!`,
@@ -616,7 +564,7 @@ export function DataAnalytics({
             } else if (resolutionRate >= 50) {
               insights.push({
                 icon: "arrow",
-                color: "text-black",
+                color: "text-foreground",
                 bgColor: "bg-amber-100 dark:bg-amber-800/80",
                 title: "Room for Improvement",
                 description: `Current resolution rate is ${resolutionRate}%. Focus on pending cases to improve efficiency.`,
@@ -624,8 +572,8 @@ export function DataAnalytics({
             } else if (resolutionRate > 0) {
               insights.push({
                 icon: "alert",
-                color: "text-black",
-                bgColor: "bg-red-100 dark:bg-red-800/80",
+                color: "text-red-700 dark:text-red-300",
+                bgColor: "bg-transparent",
                 title: "Priority: Low Resolution Rate",
                 description: `Only ${resolutionRate}% of cases are resolved. Consider allocating more resources.`,
               });
@@ -636,7 +584,7 @@ export function DataAnalytics({
               const topComplaint = complaintCatData[0];
               insights.push({
                 icon: "zap",
-                color: "text-black",
+                color: "text-foreground",
                 bgColor: "bg-indigo-100 dark:bg-indigo-800/80",
                 title: `Peak Issue: ${topComplaint.name}`,
                 description: `${topComplaint.total} complaints in this category. Consider targeted interventions.`,
@@ -647,7 +595,7 @@ export function DataAnalytics({
             if (pendingTotal > (totalComplaints + totalAssistance) * 0.3) {
               insights.push({
                 icon: "hourglass",
-                color: "text-black",
+                color: "text-foreground",
                 bgColor: "bg-orange-100 dark:bg-orange-800/80",
                 title: "High Pending Backlog",
                 description: `${pendingTotal} cases awaiting review. Review workflow to reduce wait times.`,
@@ -658,7 +606,7 @@ export function DataAnalytics({
             if (totalAssistance > totalComplaints && totalComplaints > 0) {
               insights.push({
                 icon: "heart",
-                color: "text-black",
+                color: "text-foreground",
                 bgColor: "bg-emerald-100 dark:bg-emerald-800/80",
                 title: "Strong Community Support",
                 description: `Assistance requests (${totalAssistance}) exceed complaints (${totalComplaints}). Community engagement is active.`,
@@ -673,7 +621,7 @@ export function DataAnalytics({
               if (totalRecent === 0) {
                 insights.push({
                   icon: "refresh",
-                  color: "text-black",
+                  color: "text-foreground",
                   bgColor: "bg-slate-100 dark:bg-slate-700",
                   title: "No Recent Activity",
                   description:
@@ -686,7 +634,7 @@ export function DataAnalytics({
             if (insights.length === 0) {
               insights.push({
                 icon: "info",
-                color: "text-black",
+                color: "text-foreground",
                 bgColor: "bg-blue-100 dark:bg-blue-800/80",
                 title: "Data Loading",
                 description:
@@ -721,6 +669,72 @@ export function DataAnalytics({
       {/* Overview Tab */}
       {activeTab === "overview" && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <Card className="lg:col-span-2 border-2 border-slate-200 dark:border-slate-600 shadow-md bg-gradient-to-br from-slate-50 to-slate-100/50 dark:from-slate-900/40 dark:to-slate-800/30">
+            <CardHeader className="pb-2">
+              <CardTitle className="flex items-center gap-2">
+                <TrendingUp className="w-5 h-5 text-primary" />
+                Request Volume Over Time
+              </CardTitle>
+              <CardDescription>
+                Complaints vs assistance requests — {timePeriod} view
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {volumeData.length === 0 ? (
+                <div className="py-12 text-center text-muted-foreground">
+                  <BarChart3 className="w-10 h-10 mx-auto mb-2 opacity-40" />
+                  <p>No data for this period</p>
+                </div>
+              ) : (
+                <ResponsiveContainer width="100%" height={280}>
+                  <BarChart
+                    data={volumeData}
+                    margin={{ top: 12, right: 12, left: 0, bottom: 4 }}
+                  >
+                    <CartesianGrid
+                      strokeDasharray="3 3"
+                      className="opacity-20"
+                      stroke="hsl(var(--primary)/0.2)"
+                    />
+                    <XAxis
+                      dataKey="label"
+                      tick={{
+                        fontSize: 12,
+                        fill: "hsl(var(--muted-foreground))",
+                      }}
+                    />
+                    <YAxis
+                      tick={{
+                        fontSize: 12,
+                        fill: "hsl(var(--muted-foreground))",
+                      }}
+                      allowDecimals={false}
+                    />
+                    <Tooltip
+                      contentStyle={TOOLTIP_STYLE}
+                      labelStyle={TOOLTIP_LABEL_STYLE}
+                      itemStyle={TOOLTIP_ITEM_STYLE}
+                      cursor={{ fill: "hsl(var(--muted)/0.15)" }}
+                    />
+                    <Legend wrapperStyle={{ color: CHART_MUTED }} />
+                    <Bar
+                      dataKey="complaints"
+                      name="Complaints"
+                      fill="#6366f1"
+                      radius={[8, 8, 0, 0]}
+                    />
+                    <Bar
+                      dataKey="assistance"
+                      name="Assistance"
+                      fill="#10b981"
+                      radius={[8, 8, 0, 0]}
+                    />
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
+            </CardContent>
+          </Card>
+
           <Card className="border-2 border-indigo-200 dark:border-indigo-700 shadow-md bg-gradient-to-br from-indigo-50/70 to-indigo-100/50 dark:from-slate-900/50 dark:to-slate-800/40">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -743,10 +757,18 @@ export function DataAnalytics({
                       cx="50%"
                       cy="50%"
                       outerRadius={85}
-                      label={({ name, percent }) =>
-                        `${name} ${Math.round(percent * 100)}%`
-                      }
                       labelLine={false}
+                      label={({ name, percent, x, y, textAnchor }) => (
+                        <text
+                          x={x}
+                          y={y}
+                          textAnchor={textAnchor}
+                          fill={CHART_TEXT}
+                          fontSize={12}
+                        >
+                          {`${name} ${Math.round(percent * 100)}%`}
+                        </text>
+                      )}
                     >
                       {complaintStatusPie.map((_, i) => (
                         <Cell
@@ -762,7 +784,13 @@ export function DataAnalytics({
                         />
                       ))}
                     </Pie>
-                    <Tooltip formatter={(value) => `${value} cases`} />
+                    <Tooltip
+                      formatter={(value) => `${value} cases`}
+                      contentStyle={TOOLTIP_STYLE}
+                      labelStyle={TOOLTIP_LABEL_STYLE}
+                      itemStyle={TOOLTIP_ITEM_STYLE}
+                    />
+                    <Legend wrapperStyle={{ color: CHART_MUTED }} />
                   </PieChart>
                 </ResponsiveContainer>
               )}
@@ -791,10 +819,18 @@ export function DataAnalytics({
                       cx="50%"
                       cy="50%"
                       outerRadius={85}
-                      label={({ name, percent }) =>
-                        `${name} ${Math.round(percent * 100)}%`
-                      }
                       labelLine={false}
+                      label={({ name, percent, x, y, textAnchor }) => (
+                        <text
+                          x={x}
+                          y={y}
+                          textAnchor={textAnchor}
+                          fill={CHART_TEXT}
+                          fontSize={12}
+                        >
+                          {`${name} ${Math.round(percent * 100)}%`}
+                        </text>
+                      )}
                     >
                       {assistanceStatusPie.map((_, i) => (
                         <Cell
@@ -810,7 +846,13 @@ export function DataAnalytics({
                         />
                       ))}
                     </Pie>
-                    <Tooltip formatter={(value) => `${value} cases`} />
+                    <Tooltip
+                      formatter={(value) => `${value} cases`}
+                      contentStyle={TOOLTIP_STYLE}
+                      labelStyle={TOOLTIP_LABEL_STYLE}
+                      itemStyle={TOOLTIP_ITEM_STYLE}
+                    />
+                    <Legend wrapperStyle={{ color: CHART_MUTED }} />
                   </PieChart>
                 </ResponsiveContainer>
               )}
@@ -845,26 +887,18 @@ export function DataAnalytics({
                     />
                     <XAxis
                       dataKey="label"
-                      tick={{
-                        fontSize: 12,
-                        fill: "hsl(var(--muted-foreground))",
-                      }}
+                      tick={{ fontSize: 12, fill: CHART_MUTED }}
                     />
                     <YAxis
-                      tick={{
-                        fontSize: 12,
-                        fill: "hsl(var(--muted-foreground))",
-                      }}
+                      tick={{ fontSize: 12, fill: CHART_MUTED }}
                       allowDecimals={false}
                     />
                     <Tooltip
-                      contentStyle={{
-                        backgroundColor: "hsl(var(--card))",
-                        border: "1px solid hsl(var(--border))",
-                        borderRadius: "8px",
-                      }}
+                      contentStyle={TOOLTIP_STYLE}
+                      labelStyle={TOOLTIP_LABEL_STYLE}
+                      itemStyle={TOOLTIP_ITEM_STYLE}
                     />
-                    <Legend />
+                    <Legend wrapperStyle={{ color: CHART_MUTED }} />
                     <Line
                       type="monotone"
                       dataKey="complaints"
@@ -921,29 +955,21 @@ export function DataAnalytics({
                     />
                     <XAxis
                       type="number"
-                      tick={{
-                        fontSize: 11,
-                        fill: "hsl(var(--muted-foreground))",
-                      }}
+                      tick={{ fontSize: 11, fill: CHART_MUTED }}
                       allowDecimals={false}
                     />
                     <YAxis
                       type="category"
                       dataKey="name"
-                      tick={{
-                        fontSize: 11,
-                        fill: "hsl(var(--muted-foreground))",
-                      }}
+                      tick={{ fontSize: 11, fill: CHART_MUTED }}
                       width={140}
                     />
                     <Tooltip
-                      contentStyle={{
-                        backgroundColor: "hsl(var(--card))",
-                        border: "1px solid hsl(var(--border))",
-                        borderRadius: "8px",
-                      }}
+                      contentStyle={TOOLTIP_STYLE}
+                      labelStyle={TOOLTIP_LABEL_STYLE}
+                      itemStyle={TOOLTIP_ITEM_STYLE}
                     />
-                    <Legend />
+                    <Legend wrapperStyle={{ color: CHART_MUTED }} />
                     <Bar
                       dataKey="resolved"
                       name="Resolved"
@@ -997,7 +1023,7 @@ export function DataAnalytics({
                       className="flex items-center justify-between p-3 bg-gradient-to-r from-indigo-50/80 to-transparent dark:from-indigo-900/50 dark:to-slate-900/30 rounded-lg border border-indigo-200/70 dark:border-indigo-700/70"
                     >
                       <div className="flex items-center gap-3">
-                        <div className="w-7 h-7 rounded-full bg-gradient-to-br from-indigo-400 to-indigo-600 text-white text-xs font-bold flex items-center justify-center">
+                        <div className="w-7 h-7 rounded-full bg-gradient-to-br from-indigo-200 to-indigo-400 text-slate-900 dark:from-indigo-400 dark:to-indigo-600 dark:text-white text-xs font-bold flex items-center justify-center">
                           {i + 1}
                         </div>
                         <div>
@@ -1013,8 +1039,11 @@ export function DataAnalytics({
                         <Badge className="bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300">
                           {cat.total}
                         </Badge>
-                        <Badge className="bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300">
-                          {cat.resolved}✓
+                        <Badge className="bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-200">
+                          <span className="flex items-center gap-1">
+                            <CheckCircle className="w-3 h-3 text-green-600 dark:text-green-400" />
+                            {cat.resolved}
+                          </span>
                         </Badge>
                       </div>
                     </div>
@@ -1058,29 +1087,21 @@ export function DataAnalytics({
                     />
                     <XAxis
                       type="number"
-                      tick={{
-                        fontSize: 11,
-                        fill: "hsl(var(--muted-foreground))",
-                      }}
+                      tick={{ fontSize: 11, fill: CHART_MUTED }}
                       allowDecimals={false}
                     />
                     <YAxis
                       type="category"
                       dataKey="name"
-                      tick={{
-                        fontSize: 11,
-                        fill: "hsl(var(--muted-foreground))",
-                      }}
+                      tick={{ fontSize: 11, fill: CHART_MUTED }}
                       width={160}
                     />
                     <Tooltip
-                      contentStyle={{
-                        backgroundColor: "hsl(var(--card))",
-                        border: "1px solid hsl(var(--border))",
-                        borderRadius: "8px",
-                      }}
+                      contentStyle={TOOLTIP_STYLE}
+                      labelStyle={TOOLTIP_LABEL_STYLE}
+                      itemStyle={TOOLTIP_ITEM_STYLE}
                     />
-                    <Legend />
+                    <Legend wrapperStyle={{ color: CHART_MUTED }} />
                     <Bar
                       dataKey="resolved"
                       name="Resolved"
@@ -1134,7 +1155,7 @@ export function DataAnalytics({
                       className="flex items-center justify-between p-3 bg-gradient-to-r from-emerald-50/80 to-transparent dark:from-emerald-900/50 dark:to-slate-900/30 rounded-lg border border-emerald-200/70 dark:border-emerald-700/70"
                     >
                       <div className="flex items-center gap-3">
-                        <div className="w-7 h-7 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 text-white text-xs font-bold flex items-center justify-center">
+                        <div className="w-7 h-7 rounded-full bg-gradient-to-br from-emerald-200 to-emerald-400 text-slate-900 dark:from-emerald-400 dark:to-emerald-600 dark:text-white text-xs font-bold flex items-center justify-center">
                           {i + 1}
                         </div>
                         <div>
@@ -1150,8 +1171,11 @@ export function DataAnalytics({
                         <Badge className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
                           {cat.total}
                         </Badge>
-                        <Badge className="bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300">
-                          {cat.resolved}✓
+                        <Badge className="bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-200">
+                          <span className="flex items-center gap-1">
+                            <CheckCircle className="w-3 h-3 text-green-600 dark:text-green-400" />
+                            {cat.resolved}
+                          </span>
                         </Badge>
                       </div>
                     </div>
