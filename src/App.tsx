@@ -248,6 +248,7 @@ function AppContent() {
 
   const pushNativeNotifications = async (items: AppNotification[]) => {
     if (!Capacitor.isNativePlatform() || items.length === 0) return;
+    if (document.visibilityState === "visible") return;
 
     const granted = await ensureNativeNotificationAccess();
     if (!granted) return;
@@ -263,14 +264,11 @@ function AppContent() {
       largeBody: item.message,
       summaryText: item.title,
       schedule: {
-        at: new Date(now + 75 + index * 125),
-        allowWhileIdle: true,
+        at: new Date(now + 1000 + index * 500),
       },
       channelId: LOCAL_NOTIFICATION_CHANNEL_ID,
       group: notificationGroup,
       autoCancel: true,
-      smallIcon: "ic_notification",
-      iconColor: "#1e88e5",
       extra: {
         appNotificationId: item.id,
         title: item.title,
@@ -424,53 +422,58 @@ function AppContent() {
     const setupPush = async () => {
       if (pushListenersReadyRef.current) return;
 
-      const permissionStatus = await PushNotifications.checkPermissions();
-      if (permissionStatus.receive !== "granted") {
-        const requested = await PushNotifications.requestPermissions();
-        if (requested.receive !== "granted") {
+      try {
+        const permissionStatus = await PushNotifications.checkPermissions();
+        if (permissionStatus.receive !== "granted") {
+          const requested = await PushNotifications.requestPermissions();
+          if (requested.receive !== "granted") {
+            return;
+          }
+        }
+
+        registrationHandle = await PushNotifications.addListener(
+          "registration",
+          (token: Token) => {
+            void savePushToken(token.value);
+          },
+        );
+
+        registrationErrorHandle = await PushNotifications.addListener(
+          "registrationError",
+          (error) => {
+            console.error("Push registration error", error);
+          },
+        );
+
+        receivedHandle = await PushNotifications.addListener(
+          "pushNotificationReceived",
+          (notification: PushNotificationSchema) => {
+            rememberPushNotification(notification);
+          },
+        );
+
+        actionHandle = await PushNotifications.addListener(
+          "pushNotificationActionPerformed",
+          (action: ActionPerformed) => {
+            rememberPushNotification(action.notification, true);
+            setCurrentView("notifications");
+          },
+        );
+
+        if (!mounted) {
+          void registrationHandle?.remove();
+          void registrationErrorHandle?.remove();
+          void receivedHandle?.remove();
+          void actionHandle?.remove();
           return;
         }
+
+        pushListenersReadyRef.current = true;
+        await PushNotifications.register();
+      } catch (error) {
+        console.warn("Push notifications are unavailable", error);
+        pushListenersReadyRef.current = false;
       }
-
-      registrationHandle = await PushNotifications.addListener(
-        "registration",
-        (token: Token) => {
-          void savePushToken(token.value);
-        },
-      );
-
-      registrationErrorHandle = await PushNotifications.addListener(
-        "registrationError",
-        (error) => {
-          console.error("Push registration error", error);
-        },
-      );
-
-      receivedHandle = await PushNotifications.addListener(
-        "pushNotificationReceived",
-        (notification: PushNotificationSchema) => {
-          rememberPushNotification(notification);
-        },
-      );
-
-      actionHandle = await PushNotifications.addListener(
-        "pushNotificationActionPerformed",
-        (action: ActionPerformed) => {
-          rememberPushNotification(action.notification, true);
-          setCurrentView("notifications");
-        },
-      );
-
-      if (!mounted) {
-        void registrationHandle?.remove();
-        void registrationErrorHandle?.remove();
-        void receivedHandle?.remove();
-        void actionHandle?.remove();
-        return;
-      }
-
-      pushListenersReadyRef.current = true;
-      await PushNotifications.register();
     };
 
     void setupPush();
