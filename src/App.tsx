@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from "react";
-import { Capacitor } from "@capacitor/core";
+import { Capacitor, type PluginListenerHandle } from "@capacitor/core";
 import { LocalNotifications } from "@capacitor/local-notifications";
 import { useTranslation } from "react-i18next";
 import { ThemeProvider } from "./components/theme-provider";
@@ -73,7 +73,14 @@ interface AppNotification {
   message: string;
   createdAt: string;
   read: boolean;
+  nativeId?: number;
+  type?: "complaint" | "assistance" | "system";
+  sourceId?: string;
 }
+
+const LOCAL_NOTIFICATION_CHANNEL_ID = "barangaycare-alerts";
+const LOCAL_NOTIFICATION_GROUP_ADMIN = "barangaycare-admin-alerts";
+const LOCAL_NOTIFICATION_GROUP_USER = "barangaycare-user-alerts";
 
 // No sample data - only real data will be displayed
 
@@ -117,6 +124,7 @@ function AppContent() {
   const notificationsInitialized = useRef(false);
   const localNotifSetupDoneRef = useRef(false);
   const localNotifPermissionRef = useRef(false);
+  const nativeNotificationIdRef = useRef(Date.now() % 2147480000);
   const mainScrollRef = useRef<HTMLElement | null>(null);
   const pullStartYRef = useRef<number | null>(null);
   const isPullingRef = useRef(false);
@@ -156,13 +164,41 @@ function AppContent() {
   const createNotification = (
     title: string,
     message: string,
+    meta: Pick<AppNotification, "type" | "sourceId"> = {},
   ): AppNotification => ({
     id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     title,
     message,
     createdAt: new Date().toISOString(),
     read: false,
+    ...meta,
   });
+
+  const nextNativeNotificationId = () => {
+    nativeNotificationIdRef.current += 1;
+    if (nativeNotificationIdRef.current >= 2147480000) {
+      nativeNotificationIdRef.current = 1;
+    }
+    return nativeNotificationIdRef.current;
+  };
+
+  const getNotificationExtra = (notification: {
+    extra?: unknown;
+    data?: unknown;
+  }) => {
+    const extra =
+      notification.extra && typeof notification.extra === "object"
+        ? notification.extra
+        : notification.data && typeof notification.data === "object"
+          ? notification.data
+          : {};
+
+    return extra as Partial<AppNotification> & {
+      appNotificationId?: string;
+      targetView?: string;
+      accountRole?: string;
+    };
+  };
 
   const ensureNativeNotificationAccess = async () => {
     if (!Capacitor.isNativePlatform()) return false;
@@ -181,7 +217,7 @@ function AppContent() {
       if (localNotifPermissionRef.current && !localNotifSetupDoneRef.current) {
         try {
           await LocalNotifications.createChannel({
-            id: "barangaycare-alerts",
+            id: LOCAL_NOTIFICATION_CHANNEL_ID,
             name: "BarangayCARE Alerts",
             description: "Status updates and community request activity alerts",
             importance: 4,
@@ -206,14 +242,34 @@ function AppContent() {
     if (!granted) return;
 
     const now = Date.now();
-    const notificationsToSchedule = items.slice(0, 3).map((item, index) => ({
-      id: Math.floor(now / 1000) + index,
+    const notificationGroup = isAdmin
+      ? LOCAL_NOTIFICATION_GROUP_ADMIN
+      : LOCAL_NOTIFICATION_GROUP_USER;
+    const notificationsToSchedule = items.slice(0, 8).map((item, index) => ({
+      id: item.nativeId || nextNativeNotificationId(),
       title: item.title,
       body: item.message,
+      largeBody: item.message,
+      summaryText: item.title,
       schedule: {
-        at: new Date(now + index * 300),
+        at: new Date(now + 1000 + index * 500),
+        allowWhileIdle: true,
       },
-      channelId: "barangaycare-alerts",
+      channelId: LOCAL_NOTIFICATION_CHANNEL_ID,
+      group: notificationGroup,
+      autoCancel: true,
+      smallIcon: "ic_notification",
+      iconColor: "#1e88e5",
+      extra: {
+        appNotificationId: item.id,
+        title: item.title,
+        message: item.message,
+        createdAt: item.createdAt,
+        type: item.type || "system",
+        sourceId: item.sourceId,
+        targetView: "notifications",
+        accountRole: isAdmin ? "admin" : "resident",
+      },
     }));
 
     try {
@@ -239,6 +295,7 @@ function AppContent() {
       previousAssistanceSnapshot.current = new Map();
       notificationsInitialized.current = false;
       localNotifPermissionRef.current = false;
+      localNotifSetupDoneRef.current = false;
       return;
     }
 
@@ -258,6 +315,101 @@ function AppContent() {
     previousAssistanceSnapshot.current = new Map();
     notificationsInitialized.current = false;
   }, [notificationsStorageKey]);
+
+  useEffect(() => {
+    if (!notificationsStorageKey || !Capacitor.isNativePlatform()) return;
+
+    void ensureNativeNotificationAccess();
+  }, [notificationsStorageKey]);
+
+  useEffect(() => {
+    if (!notificationsStorageKey || !Capacitor.isNativePlatform()) return;
+
+    let mounted = true;
+    let receivedHandle: PluginListenerHandle | undefined;
+    let actionHandle: PluginListenerHandle | undefined;
+
+    const rememberNativeNotification = (notification: {
+      id: number;
+      title?: string;
+      body?: string;
+      extra?: unknown;
+      data?: unknown;
+    }) => {
+      const extra = getNotificationExtra(notification);
+      const id = extra.appNotificationId || `native-${notification.id}`;
+      const title = extra.title || notification.title || "BarangayCare update";
+      const message = extra.message || notification.body || "New notification";
+
+      setNotifications((prev) => {
+        if (prev.some((item) => item.id === id)) return prev;
+
+        const next = [
+          {
+            id,
+            title,
+            message,
+            createdAt: extra.createdAt || new Date().toISOString(),
+            read: false,
+            nativeId: notification.id,
+            type: extra.type || "system",
+            sourceId: extra.sourceId,
+          } as AppNotification,
+          ...prev,
+        ].slice(0, 100);
+
+        return persistNotifications(next);
+      });
+    };
+
+    const registerNativeNotificationListeners = async () => {
+      const granted = await ensureNativeNotificationAccess();
+      if (!granted || !mounted) return;
+
+      try {
+        const delivered = await LocalNotifications.getDeliveredNotifications();
+        for (const deliveredNotification of delivered.notifications) {
+          rememberNativeNotification(deliveredNotification);
+        }
+      } catch {
+        // Delivered notification sync is best-effort only.
+      }
+
+      receivedHandle = await LocalNotifications.addListener(
+        "localNotificationReceived",
+        (notification) => {
+          rememberNativeNotification(notification);
+        },
+      );
+      if (!mounted) {
+        void receivedHandle.remove();
+        return;
+      }
+
+      actionHandle = await LocalNotifications.addListener(
+        "localNotificationActionPerformed",
+        (action) => {
+          const extra = getNotificationExtra(action.notification);
+          if (extra.appNotificationId) {
+            markNotificationRead(extra.appNotificationId);
+          }
+          setCurrentView(extra.targetView || "notifications");
+        },
+      );
+      if (!mounted) {
+        void actionHandle.remove();
+      }
+    };
+
+    void registerNativeNotificationListeners();
+
+    return () => {
+      mounted = false;
+      void receivedHandle?.remove();
+      void actionHandle?.remove();
+    };
+  }, [notificationsStorageKey]);
+
   useEffect(() => {
     if (!user) return;
     if (complaintsLoading || assistanceLoading) return;
@@ -284,6 +436,8 @@ function AppContent() {
               message: `${complaint.userName || "A resident"} filed "${complaint.title}" (${complaint.status}).`,
               createdAt: complaint.dateSubmitted,
               read: true,
+              type: "complaint",
+              sourceId: complaint.id,
             } as AppNotification;
           }
 
@@ -293,6 +447,8 @@ function AppContent() {
             message: `"${complaint.title}" is currently ${statusLabel(complaint.status)}.`,
             createdAt: complaint.dateSubmitted,
             read: true,
+            type: "complaint",
+            sourceId: complaint.id,
           } as AppNotification;
         });
 
@@ -310,6 +466,8 @@ function AppContent() {
               message: `${request.userName || "A resident"} requested "${request.title}" (${request.status}).`,
               createdAt: request.dateSubmitted,
               read: true,
+              type: "assistance",
+              sourceId: request.id,
             } as AppNotification;
           }
 
@@ -319,6 +477,8 @@ function AppContent() {
             message: `"${request.title}" is currently ${statusLabel(request.status)}.`,
             createdAt: request.dateSubmitted,
             read: true,
+            type: "assistance",
+            sourceId: request.id,
           } as AppNotification;
         });
 
@@ -353,6 +513,7 @@ function AppContent() {
             createNotification(
               "New complaint submitted",
               `${complaint.userName || "A resident"} filed "${complaint.title}" in ${complaint.category}.`,
+              { type: "complaint", sourceId: complaint.id },
             ),
           );
         }
@@ -364,6 +525,7 @@ function AppContent() {
             createNotification(
               "Complaint received",
               `Your complaint "${complaint.title}" was recorded as ${statusLabel(complaint.status)}.`,
+              { type: "complaint", sourceId: complaint.id },
             ),
           );
           continue;
@@ -374,6 +536,7 @@ function AppContent() {
             createNotification(
               "Complaint status updated",
               `"${complaint.title}" changed from ${statusLabel(previous.status)} to ${statusLabel(complaint.status)}.`,
+              { type: "complaint", sourceId: complaint.id },
             ),
           );
         }
@@ -384,6 +547,7 @@ function AppContent() {
             createNotification(
               "Admin response received",
               `An admin updated "${complaint.title}" with new notes.`,
+              { type: "complaint", sourceId: complaint.id },
             ),
           );
         }
@@ -399,6 +563,7 @@ function AppContent() {
             createNotification(
               "New assistance request submitted",
               `${request.userName || "A resident"} requested "${request.title}" in ${request.category}.`,
+              { type: "assistance", sourceId: request.id },
             ),
           );
         }
@@ -408,6 +573,7 @@ function AppContent() {
             createNotification(
               "Assistance request status changed",
               `"${request.title}" moved from ${statusLabel(previous.status)} to ${statusLabel(request.status)}.`,
+              { type: "assistance", sourceId: request.id },
             ),
           );
         }
@@ -418,6 +584,7 @@ function AppContent() {
             createNotification(
               "Assistance request updated",
               `Notes were updated for "${request.title}".`,
+              { type: "assistance", sourceId: request.id },
             ),
           );
         }
@@ -431,6 +598,7 @@ function AppContent() {
           createNotification(
             "Assistance request submitted",
             `Your assistance request "${request.title}" was recorded as ${statusLabel(request.status)}.`,
+            { type: "assistance", sourceId: request.id },
           ),
         );
         continue;
@@ -441,6 +609,7 @@ function AppContent() {
           createNotification(
             assistanceStatusTitle(request.status),
             `"${request.title}" changed from ${statusLabel(previous.status)} to ${statusLabel(request.status)}.`,
+            { type: "assistance", sourceId: request.id },
           ),
         );
       }
@@ -451,6 +620,7 @@ function AppContent() {
           createNotification(
             "Assistance response received",
             `An admin updated "${request.title}" with new notes.`,
+            { type: "assistance", sourceId: request.id },
           ),
         );
       }
@@ -475,10 +645,39 @@ function AppContent() {
     user,
   ]);
 
+  const clearDeliveredNativeNotifications = async (appNotificationId?: string) => {
+    if (!Capacitor.isNativePlatform()) return;
+
+    try {
+      if (!appNotificationId) {
+        await LocalNotifications.removeAllDeliveredNotifications();
+        return;
+      }
+
+      const delivered = await LocalNotifications.getDeliveredNotifications();
+      const matches = delivered.notifications.filter((notification) => {
+        const extra = getNotificationExtra(notification);
+        return (
+          extra.appNotificationId === appNotificationId ||
+          `native-${notification.id}` === appNotificationId
+        );
+      });
+
+      if (matches.length > 0) {
+        await LocalNotifications.removeDeliveredNotifications({
+          notifications: matches,
+        });
+      }
+    } catch {
+      // The in-app read state is the source of truth if Android tray cleanup fails.
+    }
+  };
+
   const markAllNotificationsRead = () => {
     setNotifications((prev) =>
       persistNotifications(prev.map((item) => ({ ...item, read: true }))),
     );
+    void clearDeliveredNativeNotifications();
   };
 
   const markNotificationRead = (id: string) => {
@@ -487,6 +686,7 @@ function AppContent() {
         prev.map((item) => (item.id === id ? { ...item, read: true } : item)),
       ),
     );
+    void clearDeliveredNativeNotifications(id);
   };
 
   useEffect(() => {
@@ -806,6 +1006,7 @@ function AppContent() {
         {currentView === "dashboard" && !isAdmin && (
           <UnifiedDashboard
             complaints={complaints}
+            assistanceRequests={assistanceRequests}
             onViewDetails={handleViewDetails}
             isAdmin={isAdmin}
             onRefresh={handleRefresh}

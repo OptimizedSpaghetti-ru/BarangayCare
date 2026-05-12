@@ -66,6 +66,9 @@ interface UserProfile {
 
 type AdminTab = "pending" | "all";
 
+const approveButtonClass =
+  "!bg-emerald-600 !text-white border border-emerald-700 shadow-sm hover:!bg-emerald-700 focus-visible:ring-emerald-500/40 [&_svg]:!text-white";
+
 export function UserManagement() {
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [filteredUsers, setFilteredUsers] = useState<UserProfile[]>([]);
@@ -556,7 +559,7 @@ export function UserManagement() {
                                   size="sm"
                                   onClick={() => handleApproveUser(user.id)}
                                   disabled={actionLoading}
-                                  className="bg-green-600 hover:bg-green-700 text-white"
+                                  className={approveButtonClass}
                                   title="Approve"
                                 >
                                   <ShieldCheck className="w-4 h-4" />
@@ -682,7 +685,7 @@ export function UserManagement() {
                               size="sm"
                               onClick={() => handleApproveUser(user.id)}
                               disabled={actionLoading}
-                              className="bg-green-600 hover:bg-green-700 text-white flex-1"
+                              className={`${approveButtonClass} flex-1`}
                             >
                               <ShieldCheck className="w-4 h-4 mr-1" />
                               Approve
@@ -950,7 +953,7 @@ export function UserManagement() {
               <Button
                 onClick={() => handleApproveUser(selectedUser!.id)}
                 disabled={actionLoading}
-                className="bg-green-600 hover:bg-green-700 text-white"
+                className={approveButtonClass}
               >
                 <ShieldCheck className="w-4 h-4 mr-2" />
                 {actionLoading ? "Approving..." : "Approve Account"}

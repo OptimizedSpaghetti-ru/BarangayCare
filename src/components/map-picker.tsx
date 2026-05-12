@@ -74,6 +74,7 @@ export function MapPicker({ initialCoordinates, onLocationSelect, onClose }: Map
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<any>(null);
   const markerRef = useRef<any>(null);
+  const resizeTimersRef = useRef<number[]>([]);
   const [selectedCoords, setSelectedCoords] = useState<LatLng | null>(
     initialCoordinates || null,
   );
@@ -81,6 +82,22 @@ export function MapPicker({ initialCoordinates, onLocationSelect, onClose }: Map
   const [geocoding, setGeocoding] = useState(false);
   const [address, setAddress] = useState<string>("");
   const [mapReady, setMapReady] = useState(false);
+
+  const queueMapResize = () => {
+    const map = mapRef.current;
+    if (!map) return;
+
+    requestAnimationFrame(() => {
+      map.invalidateSize();
+    });
+
+    resizeTimersRef.current.forEach((timerId) => window.clearTimeout(timerId));
+    resizeTimersRef.current = [120, 300, 600].map((delay) =>
+      window.setTimeout(() => {
+        map.invalidateSize();
+      }, delay),
+    );
+  };
 
   // Reverse geocode using Nominatim (no API key required)
   const reverseGeocode = async (lat: number, lng: number): Promise<string> => {
@@ -171,9 +188,11 @@ export function MapPicker({ initialCoordinates, onLocationSelect, onClose }: Map
 
   useEffect(() => {
     if (!mapContainerRef.current) return;
+    let disposed = false;
 
     // Dynamically import leaflet (avoids any SSR issues)
     import("leaflet").then((L) => {
+      if (disposed || !mapContainerRef.current) return;
       // Avoid double-init in strict mode
       if (mapRef.current) return;
 
@@ -198,6 +217,8 @@ export function MapPicker({ initialCoordinates, onLocationSelect, onClose }: Map
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
         maxZoom: 19,
       }).addTo(map);
+
+      mapRef.current = map;
 
       // Draw barangay boundary polygon
       const polygonLatLngs = MARULAS_POLYGON_COORDS.map(([lat, lng]) => [lat, lng] as [number, number]);
@@ -224,11 +245,14 @@ export function MapPicker({ initialCoordinates, onLocationSelect, onClose }: Map
         placeMarker(L, e.latlng.lat, e.latlng.lng);
       });
 
-      mapRef.current = map;
       setMapReady(true);
+      queueMapResize();
     });
 
     return () => {
+      disposed = true;
+      resizeTimersRef.current.forEach((timerId) => window.clearTimeout(timerId));
+      resizeTimersRef.current = [];
       if (mapRef.current) {
         mapRef.current.remove();
         mapRef.current = null;
@@ -272,8 +296,19 @@ export function MapPicker({ initialCoordinates, onLocationSelect, onClose }: Map
   return (
     <div className="flex flex-col gap-3">
       {/* Map */}
-      <div className="relative rounded-lg overflow-hidden border h-[320px] sm:h-[380px]">
-        <div ref={mapContainerRef} className="w-full h-full" />
+      <div
+        className="relative rounded-lg overflow-hidden border"
+        style={{
+          height: "min(56dvh, 380px)",
+          minHeight: 320,
+          width: "100%",
+        }}
+      >
+        <div
+          ref={mapContainerRef}
+          className="w-full h-full"
+          style={{ height: "100%", minHeight: "100%" }}
+        />
 
         {!mapReady && (
           <div className="absolute inset-0 flex items-center justify-center bg-muted/80">
