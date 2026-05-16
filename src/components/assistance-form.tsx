@@ -1,6 +1,6 @@
 import { useState, useRef, type ChangeEvent, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
-import { Button } from "./ui/button";
+import { Button, buttonVariants } from "./ui/button";
 import { Input } from "./ui/input";
 import { Textarea } from "./ui/textarea";
 import { Label } from "./ui/label";
@@ -47,7 +47,7 @@ interface AssistanceFormProps {
     priority: "low" | "medium" | "high";
     coordinates?: { lat: number; lng: number };
     respondent?: string;
-  }) => void;
+  }) => Promise<{ error?: string } | void> | { error?: string } | void;
 }
 
 export function AssistanceForm({ onSubmit }: AssistanceFormProps) {
@@ -64,6 +64,7 @@ export function AssistanceForm({ onSubmit }: AssistanceFormProps) {
     lat: number;
     lng: number;
   } | null>(null);
+  const fileInputId = "assistance-photo-upload";
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const normalizePhone = (value: string) =>
@@ -93,7 +94,7 @@ export function AssistanceForm({ onSubmit }: AssistanceFormProps) {
 
   const submitButtonEnabled = isFormValid();
 
-  const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
     if (!isFormValid()) {
@@ -127,7 +128,8 @@ export function AssistanceForm({ onSubmit }: AssistanceFormProps) {
       coordinates: coordinates || undefined,
     };
 
-    onSubmit(request);
+    const result = await onSubmit(request);
+    if (result?.error) return;
 
     // Reset form
     setTitle("");
@@ -140,16 +142,27 @@ export function AssistanceForm({ onSubmit }: AssistanceFormProps) {
     setCoordinates(null);
   };
 
-  const handlePhotoUpload = () => {
-    fileInputRef.current?.click();
-  };
-
   const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      toast.error(t("messages.invalidImageFile", {
+        defaultValue: "Please select a valid image file.",
+      }));
+      e.target.value = "";
+      return;
+    }
+
     if (file) {
       const reader = new FileReader();
       reader.onload = (event) => {
         setPhoto(event.target?.result as string);
+      };
+      reader.onerror = () => {
+        toast.error(t("messages.photoReadError", {
+          defaultValue: "Could not read the selected photo. Please try again.",
+        }));
       };
       reader.readAsDataURL(file);
       toast.success(t("messages.photoUploadSuccess"));
@@ -260,6 +273,15 @@ export function AssistanceForm({ onSubmit }: AssistanceFormProps) {
             <div className="space-y-2">
               <Label>{t("assistance.photoEvidence")}</Label>
               <div className="border-2 border-dashed border-sky-200 bg-sky-50/70 dark:border-sky-900/50 dark:bg-sky-950/20 rounded-lg p-4 sm:p-6 text-center">
+                <input
+                  ref={fileInputRef}
+                  id={fileInputId}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleFileChange}
+                  className="sr-only"
+                  tabIndex={-1}
+                />
                 {photo ? (
                   <div className="space-y-2">
                     <ImageWithFallback
@@ -271,7 +293,12 @@ export function AssistanceForm({ onSubmit }: AssistanceFormProps) {
                       type="button"
                       variant="outline"
                       size="sm"
-                      onClick={() => setPhoto(null)}
+                      onClick={() => {
+                        setPhoto(null);
+                        if (fileInputRef.current) {
+                          fileInputRef.current.value = "";
+                        }
+                      }}
                     >
                       {t("assistance.removePhoto")}
                     </Button>
@@ -279,25 +306,20 @@ export function AssistanceForm({ onSubmit }: AssistanceFormProps) {
                 ) : (
                   <div className="space-y-2 flex flex-col items-center">
                     <Camera className="w-10 h-10 sm:w-12 sm:h-12 text-sky-600 dark:text-sky-400 mx-auto" />
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={handlePhotoUpload}
-                      className="flex items-center space-x-2 border-sky-300 text-sky-700 hover:bg-sky-100 dark:border-sky-800 dark:text-sky-300 dark:hover:bg-sky-950/40"
+                    <label
+                      htmlFor={fileInputId}
+                      className={buttonVariants({
+                        variant: "outline",
+                        className:
+                          "flex cursor-pointer items-center space-x-2 border-sky-300 text-sky-700 hover:bg-sky-100 dark:border-sky-800 dark:text-sky-300 dark:hover:bg-sky-950/40",
+                      })}
                     >
                       <Upload className="w-4 h-4" />
                       <span>{t("assistance.uploadPhotoDocument")}</span>
-                    </Button>
+                    </label>
                     <p className="text-xs sm:text-sm text-muted-foreground text-center">
                       {t("assistance.uploadHelp")}
                     </p>
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      accept="image/*"
-                      onChange={handleFileChange}
-                      className="hidden"
-                    />
                   </div>
                 )}
               </div>

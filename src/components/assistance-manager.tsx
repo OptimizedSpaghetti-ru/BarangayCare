@@ -256,9 +256,7 @@ export function AssistanceProvider({ children }: { children: React.ReactNode }) 
 
   const deleteAssistanceRequest = async (id: string) => {
     try {
-      const { data: { session: refreshed } } = await supabase.auth.refreshSession();
-      const { data: { session: fallback } } = await supabase.auth.getSession();
-      const session = refreshed || fallback;
+      const { data: { session } } = await supabase.auth.getSession();
 
       if (!session) return { error: "You must be logged in to delete" };
       if (session.user?.user_metadata?.role !== "admin")

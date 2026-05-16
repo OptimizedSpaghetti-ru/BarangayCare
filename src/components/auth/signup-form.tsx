@@ -86,8 +86,7 @@ export function SignupForm({ onSwitchToLogin }: SignupFormProps) {
   const [idError, setIdError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const { sendOtp, verifyEmailOtp, completeProfile, loginAsGuest, signOut } =
-    useAuth();
+  const { sendOtp, verifyEmailOtp, completeProfile, loginAsGuest } = useAuth();
 
   const normalizePhone = (value: string) =>
     value.replace(/\D/g, "").slice(0, 11);
@@ -419,9 +418,6 @@ export function SignupForm({ onSwitchToLogin }: SignupFormProps) {
       }
 
       if (pending) {
-        try {
-          await signOut();
-        } catch {}
         setStep("pending");
         toast.success(
           "🎉 Registration submitted! Your account is pending approval due to ID verification.",

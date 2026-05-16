@@ -19,6 +19,7 @@ interface User {
 
 interface AuthContextType {
   user: User | null;
+  pendingUser: User | null;
   loading: boolean;
   isAdmin: boolean;
   isGuest: boolean;
@@ -72,6 +73,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
+  const [pendingUser, setPendingUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
   const [isGuest, setIsGuest] = useState(false);
@@ -80,6 +82,53 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const supabase = getSupabaseClient();
 
   const serverUrl = `https://${projectId}.supabase.co/functions/v1/make-server-fc40ab2c`;
+
+  const isSameProfile = (current: User | null, next: User) =>
+    current?.id === next.id &&
+    current?.accountStatus === next.accountStatus &&
+    current?.addressVerificationStatus === next.addressVerificationStatus &&
+    current?.updatedAt === next.updatedAt &&
+    current?.profilePictureUrl === next.profilePictureUrl;
+
+  const applyProfileSession = async (accessToken: string, sessionUser: any) => {
+    const response = await fetch(`${serverUrl}/auth/profile`, {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+    });
+
+    if (!response.ok) {
+      setUser(null);
+      setPendingUser(null);
+      setIsAdmin(false);
+      return;
+    }
+
+    const { profile } = await response.json();
+    const accountStatus = profile.accountStatus || "approved";
+
+    if (accountStatus === "rejected") {
+      await supabase.auth.signOut({ scope: "local" });
+      setUser(null);
+      setPendingUser((current) => (current === null ? current : null));
+      setIsAdmin(false);
+      return;
+    }
+
+    if (accountStatus === "approved") {
+      setUser((current) => (isSameProfile(current, profile) ? current : profile));
+      setPendingUser((current) => (current === null ? current : null));
+      setIsAdmin(sessionUser?.user_metadata?.role === "admin");
+      return;
+    }
+
+    setUser((current) => (current === null ? current : null));
+    setPendingUser((current) =>
+      isSameProfile(current, profile) ? current : profile,
+    );
+    setIsAdmin(false);
+  };
 
   useEffect(() => {
     let mounted = true;
@@ -95,51 +144,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         const {
           data: { session },
+          error,
         } = await supabase.auth.getSession();
 
         if (!mounted) return;
 
+        if (error) {
+          console.warn("Auth session recovery skipped:", error.message);
+          await supabase.auth.signOut({ scope: "local" });
+          setUser(null);
+          setPendingUser(null);
+          setIsAdmin(false);
+          return;
+        }
+
         if (session?.access_token) {
-          const response = await fetch(`${serverUrl}/auth/profile`, {
-            headers: {
-              Authorization: `Bearer ${session.access_token}`,
-              "Content-Type": "application/json",
-            },
-          });
-
-          if (!mounted) return;
-
-          if (response.ok) {
-            const { profile } = await response.json();
-            // Only set user if account is approved
-            if (
-              !profile.accountStatus ||
-              profile.accountStatus === "approved"
-            ) {
-              setUser(profile);
-              const adminRole = session.user?.user_metadata?.role === "admin";
-              setIsAdmin(adminRole);
-            } else {
-              // Account is pending or rejected — sign them out silently
-              await supabase.auth.signOut();
-              setUser(null);
-              setIsAdmin(false);
-            }
-          } else {
-            if (response.status === 404) {
-              await supabase.auth.signOut();
-            }
-            setUser(null);
-            setIsAdmin(false);
-          }
+          await applyProfileSession(session.access_token, session.user);
         } else {
           setUser(null);
+          setPendingUser(null);
           setIsAdmin(false);
         }
       } catch (error) {
         console.error("Auth initialization error:", error);
         if (mounted) {
           setUser(null);
+          setPendingUser(null);
         }
       } finally {
         if (mounted) {
@@ -153,36 +183,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (event === "SIGNED_IN" && session?.access_token) {
+      if (
+        (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") &&
+        session?.access_token
+      ) {
         // Prevent UI unmounting while OTP registration is actively happening
         if (isRegisteringRef.current) return;
 
-        const response = await fetch(`${serverUrl}/auth/profile`, {
-          headers: {
-            Authorization: `Bearer ${session.access_token}`,
-            "Content-Type": "application/json",
-          },
-        });
-
-        if (response.ok) {
-          const { profile } = await response.json();
-          if (!profile.accountStatus || profile.accountStatus === "approved") {
-            setUser(profile);
-            const adminRole = session.user?.user_metadata?.role === "admin";
-            setIsAdmin(adminRole);
-          } else {
-            // Pending/rejected — don't allow login
-            await supabase.auth.signOut();
-            setUser(null);
-            setIsAdmin(false);
-          }
-        } else if (response.status === 404) {
-          await supabase.auth.signOut();
-          setUser(null);
-          setIsAdmin(false);
-        }
+        await applyProfileSession(session.access_token, session.user);
       } else if (event === "SIGNED_OUT") {
         setUser(null);
+        setPendingUser(null);
         setIsAdmin(false);
       }
     });
@@ -273,7 +284,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       email,
       options: { shouldCreateUser: true },
     });
-    if (error) return { error: error.message };
+    if (error) {
+      isRegisteringRef.current = false;
+      return { error: error.message };
+    }
     return {};
   };
 
@@ -350,6 +364,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return { error: data?.error || "Failed to complete registration" };
       }
 
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (session?.access_token) {
+        await applyProfileSession(session.access_token, session.user);
+      }
+
       return { pending: true };
     } catch (error) {
       console.error("Complete profile error:", error);
@@ -392,13 +414,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           const accountStatus = profile.accountStatus || "approved";
 
           if (accountStatus === "pending") {
-            // Sign them back out — they can't access the app yet
-            await supabase.auth.signOut();
+            setUser(null);
+            setPendingUser(profile);
+            setIsAdmin(false);
             return { error: "pending", accountStatus: "pending" };
           }
 
           if (accountStatus === "rejected") {
-            await supabase.auth.signOut();
+            await supabase.auth.signOut({ scope: "local" });
+            setPendingUser(null);
             const reason = profile.addressRejectionReason;
             return {
               error: "rejected",
@@ -411,11 +435,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             profile.emailVerified === false ||
             profile.email_verified === false
           ) {
-            await supabase.auth.signOut();
+            await supabase.auth.signOut({ scope: "local" });
             return { error: "unverified", accountStatus: "unverified" };
           }
 
           setUser(profile);
+          setPendingUser(null);
           const adminRole = data.session.user?.user_metadata?.role === "admin";
           setIsAdmin(adminRole);
         } else {
@@ -426,7 +451,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           } catch {
             serverError = "";
           }
-          await supabase.auth.signOut();
+          await supabase.auth.signOut({ scope: "local" });
+          setPendingUser(null);
           return {
             error:
               serverError ||
@@ -482,6 +508,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     localStorage.setItem("guestMode", "true");
     setIsGuest(true);
     setUser(null);
+    setPendingUser(null);
     setIsAdmin(false);
   };
 
@@ -491,6 +518,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setIsGuest(false);
       await supabase.auth.signOut();
       setUser(null);
+      setPendingUser(null);
     } catch (error) {
       console.error("Sign out error:", error);
     }
@@ -646,16 +674,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       });
 
       if (response.ok) {
-        const { profile } = await response.json();
-        setUser(profile);
-        const adminRole = session.user?.user_metadata?.role === "admin";
-        setIsAdmin(adminRole);
+        await applyProfileSession(session.access_token, session.user);
       }
     }
   };
 
   const value = {
     user,
+    pendingUser,
     loading,
     isAdmin,
     isGuest,

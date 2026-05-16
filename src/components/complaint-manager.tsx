@@ -515,16 +515,9 @@ export function ComplaintProvider({ children }: { children: React.ReactNode }) {
 
   const deleteComplaint = async (id: string) => {
     try {
-      // Refresh session first so role claims are up-to-date after role/policy changes.
       const {
-        data: { session: refreshedSession },
-      } = await supabase.auth.refreshSession();
-
-      const {
-        data: { session: fallbackSession },
+        data: { session },
       } = await supabase.auth.getSession();
-
-      const session = refreshedSession || fallbackSession;
 
       if (!session) {
         return { error: "You must be logged in to delete a complaint" };

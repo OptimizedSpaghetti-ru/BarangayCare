@@ -33,7 +33,13 @@ import {
 } from "./components/ui/dialog";
 import { Button } from "./components/ui/button";
 import { Badge } from "./components/ui/badge";
-import { Card, CardContent } from "./components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "./components/ui/card";
 import {
   CheckCircle,
   CheckCheck,
@@ -86,7 +92,8 @@ const LOCAL_NOTIFICATION_GROUP_USER = "barangaycare-user-alerts";
 
 function AppContent() {
   const { t } = useTranslation();
-  const { user, loading, isAdmin, isGuest } = useAuth();
+  const { user, pendingUser, loading, isAdmin, isGuest, refreshProfile } =
+    useAuth();
   const {
     complaints,
     loading: complaintsLoading,
@@ -740,7 +747,16 @@ function AppContent() {
   };
 
   const handleTouchStart = (event: React.TouchEvent<HTMLElement>) => {
+    if (currentView === "submit" || currentView === "assistance") return;
     if (refreshing) return;
+    const target = event.target as HTMLElement | null;
+    if (
+      target?.closest(
+        "input, textarea, select, button, label, [role='button'], [contenteditable='true']",
+      )
+    ) {
+      return;
+    }
     const scrollElement = mainScrollRef.current;
     if (!scrollElement || scrollElement.scrollTop > 0) return;
     pullStartYRef.current = event.touches[0]?.clientY ?? null;
@@ -748,6 +764,7 @@ function AppContent() {
   };
 
   const handleTouchMove = (event: React.TouchEvent<HTMLElement>) => {
+    if (currentView === "submit" || currentView === "assistance") return;
     if (refreshing) return;
     const scrollElement = mainScrollRef.current;
     const startY = pullStartYRef.current;
@@ -766,6 +783,10 @@ function AppContent() {
   };
 
   const handleTouchEnd = async () => {
+    if (currentView === "submit" || currentView === "assistance") {
+      resetPullState();
+      return;
+    }
     if (!isPullingRef.current) {
       resetPullState();
       return;
@@ -785,11 +806,13 @@ function AppContent() {
     const { error } = await addComplaint(newComplaint);
     if (error) {
       toast.error(error);
+      return { error };
     } else {
       toast.success(
         "Complaint submitted successfully! We will review it shortly.",
       );
       setCurrentView("dashboard");
+      return {};
     }
   };
 
@@ -797,11 +820,13 @@ function AppContent() {
     const { error } = await addAssistanceRequest(requestData);
     if (error) {
       toast.error(error);
+      return { error };
     } else {
       toast.success(
         "Assistance request submitted! We will process it shortly.",
       );
       setCurrentView("dashboard");
+      return {};
     }
   };
 
@@ -861,18 +886,6 @@ function AppContent() {
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
           <p className="text-muted-foreground">Loading BarangayCARE...</p>
-        </div>
-      </div>
-    );
-  }
-
-  // Prevent empty/zero-state flicker while complaints hydrate from cache or network.
-  if (user && complaintsLoading && complaints.length === 0) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Loading complaints...</p>
         </div>
       </div>
     );
@@ -981,6 +994,35 @@ function AppContent() {
 
   // Show authentication forms if user is not logged in
   if (!user) {
+    if (pendingUser) {
+      return (
+        <div className="min-h-screen bg-background flex items-center justify-center px-4">
+          <Card className="w-full max-w-md">
+            <CardHeader className="text-center">
+              <div className="w-16 h-16 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center mx-auto mb-4">
+                <Clock className="w-8 h-8 text-amber-600 dark:text-amber-400" />
+              </div>
+              <CardTitle>Account Pending Approval</CardTitle>
+              <CardDescription>
+                Your email is verified. An admin still needs to approve your ID
+                verification before you can use BarangayCARE.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <Button
+                type="button"
+                className="w-full"
+                onClick={() => void refreshProfile()}
+              >
+                Check Approval Status
+              </Button>
+            </CardContent>
+          </Card>
+          <Toaster />
+        </div>
+      );
+    }
+
     return (
       <div className="min-h-screen bg-background flex items-center justify-center px-4">
         <div className="w-full max-w-md">
