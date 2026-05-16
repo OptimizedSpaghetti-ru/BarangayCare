@@ -1,4 +1,11 @@
-import { useEffect, useMemo, useRef, useState, useCallback } from "react";
+import {
+  type CSSProperties,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useCallback,
+} from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Badge } from "./ui/badge";
 import { MapPin, RefreshCw } from "lucide-react";
@@ -89,6 +96,31 @@ const CATEGORY_DOT_COLORS = CATEGORY_OPTIONS.reduce<Record<string, string>>(
   },
   {},
 );
+
+function getReadableTextColor(hexColor: string): "#111827" | "#ffffff" {
+  const normalized = hexColor.replace("#", "");
+  const r = parseInt(normalized.slice(0, 2), 16);
+  const g = parseInt(normalized.slice(2, 4), 16);
+  const b = parseInt(normalized.slice(4, 6), 16);
+  const luminance = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
+  return luminance > 0.58 ? "#111827" : "#ffffff";
+}
+
+function getCategoryButtonStyle(category: string): CSSProperties {
+  const color =
+    category === "all"
+      ? "var(--primary)"
+      : CATEGORY_DOT_COLORS[category] ?? "#64748b";
+  const foreground =
+    category === "all"
+      ? "var(--primary-foreground)"
+      : getReadableTextColor(color);
+
+  return {
+    "--heatmap-category-color": color,
+    "--heatmap-category-foreground": foreground,
+  } as CSSProperties;
+}
 
 const CATEGORY_INTENSITY = CATEGORY_OPTIONS.reduce<Record<string, number>>(
   (acc, category, index) => {
@@ -458,32 +490,36 @@ export function HeatmapPanel({
 
         {/* Category filter chips */}
         <div className="flex flex-wrap gap-1.5 pt-1">
-          {visibleCategories.map((cat) => (
-            <button
-              key={cat.value}
-              onClick={() => handleCategoryChange(cat.value)}
-              className={`px-2.5 py-1 rounded-full text-xs font-medium border transition-all ${
-                categoryFilter === cat.value
-                  ? "bg-primary text-primary-foreground border-primary shadow-sm"
-                  : "bg-background text-muted-foreground border-border hover:border-primary/50 hover:text-foreground"
-              }`}
-            >
-              {cat.value === "all" ? (
-                cat.label
-              ) : (
-                <span className="flex items-center gap-1">
-                  <span
-                    className="w-1.5 h-1.5 rounded-full"
-                    style={{
-                      backgroundColor:
-                        CATEGORY_DOT_COLORS[cat.value] ?? "#9ca3af",
-                    }}
-                  />
-                  {cat.label}
-                </span>
-              )}
-            </button>
-          ))}
+          {visibleCategories.map((cat) => {
+            const isSelected = categoryFilter === cat.value;
+
+            return (
+              <button
+                key={cat.value}
+                type="button"
+                aria-pressed={isSelected}
+                data-selected={isSelected}
+                onClick={() => handleCategoryChange(cat.value)}
+                className="heatmap-category-filter rounded-full border px-2.5 py-1 text-xs font-medium transition-all"
+                style={getCategoryButtonStyle(cat.value)}
+              >
+                {cat.value === "all" ? (
+                  cat.label
+                ) : (
+                  <span className="flex items-center gap-1">
+                    <span
+                      className="h-1.5 w-1.5 shrink-0 rounded-full"
+                      style={{
+                        backgroundColor:
+                          CATEGORY_DOT_COLORS[cat.value] ?? "#9ca3af",
+                      }}
+                    />
+                    <span>{cat.label}</span>
+                  </span>
+                )}
+              </button>
+            );
+          })}
         </div>
       </CardHeader>
 

@@ -3686,6 +3686,102 @@ textarea {
   touch-action: pan-x pan-y;
 }
 
+.heatmap-category-filter {
+  --heatmap-category-color: #64748b;
+  --heatmap-category-foreground: #ffffff;
+  align-items: center;
+  background-color: color-mix(
+    in srgb,
+    var(--heatmap-category-color) 14%,
+    var(--background)
+  );
+  border-color: color-mix(
+    in srgb,
+    var(--heatmap-category-color) 48%,
+    var(--border)
+  );
+  color: var(--foreground);
+  display: inline-flex;
+  min-height: 1.875rem;
+  max-width: 100%;
+  touch-action: manipulation;
+  user-select: none;
+}
+
+.heatmap-category-filter:hover {
+  background-color: color-mix(
+    in srgb,
+    var(--heatmap-category-color) 22%,
+    var(--background)
+  );
+  border-color: color-mix(
+    in srgb,
+    var(--heatmap-category-color) 72%,
+    var(--border)
+  );
+  color: var(--foreground);
+  transform: translateY(-1px);
+}
+
+.heatmap-category-filter:active {
+  transform: translateY(0);
+}
+
+.heatmap-category-filter:focus-visible {
+  outline: 2px solid
+    color-mix(in srgb, var(--heatmap-category-color) 76%, var(--ring));
+  outline-offset: 2px;
+}
+
+.heatmap-category-filter[data-selected="true"] {
+  background-color: var(--heatmap-category-color);
+  border-color: var(--heatmap-category-color);
+  box-shadow:
+    0 1px 2px rgb(15 23 42 / .16),
+    0 0 0 1px color-mix(in srgb, var(--heatmap-category-color) 70%, #0000);
+  color: var(--heatmap-category-foreground);
+}
+
+.heatmap-category-filter[data-selected="true"]:hover {
+  background-color: color-mix(
+    in srgb,
+    var(--heatmap-category-color) 92%,
+    var(--foreground)
+  );
+  color: var(--heatmap-category-foreground);
+}
+
+.heatmap-category-filter[data-selected="true"] .rounded-full {
+  background-color: currentColor !important;
+  box-shadow: 0 0 0 1px rgb(255 255 255 / .34);
+}
+
+.dark .heatmap-category-filter {
+  background-color: color-mix(
+    in srgb,
+    var(--heatmap-category-color) 18%,
+    var(--background)
+  );
+  border-color: color-mix(
+    in srgb,
+    var(--heatmap-category-color) 58%,
+    var(--border)
+  );
+}
+
+.dark .heatmap-category-filter:hover {
+  background-color: color-mix(
+    in srgb,
+    var(--heatmap-category-color) 28%,
+    var(--background)
+  );
+  border-color: color-mix(
+    in srgb,
+    var(--heatmap-category-color) 78%,
+    var(--border)
+  );
+}
+
 @media (max-width: 640px) {
   [data-slot="dialog-content"] {
     border-radius: .75rem;
