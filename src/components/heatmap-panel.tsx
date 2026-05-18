@@ -17,6 +17,8 @@ import {
 
 interface HeatmapRequest {
   id: string;
+  ticketId?: string;
+  title?: string;
   category: string;
   status: string;
   priority: string;
@@ -239,11 +241,26 @@ function getRequestLatLng(request: HeatmapRequest): [number, number] | null {
   return [extracted.lat, extracted.lng];
 }
 
+function escapeHtml(value: string) {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 type HeatPoint = {
   lat: number;
   lng: number;
   intensity: number;
   category: string;
+  ticketId?: string;
+  title?: string;
+  status: string;
+  priority: string;
+  location?: string;
+  recordType?: "complaint" | "assistance";
 };
 
 export function HeatmapPanel({
@@ -277,6 +294,12 @@ export function HeatmapPanel({
             lng: ll[1],
             intensity: CATEGORY_INTENSITY[request.category] ?? 0.5,
             category: request.category,
+            ticketId: request.ticketId,
+            title: request.title,
+            status: request.status,
+            priority: request.priority,
+            location: request.location,
+            recordType: request.recordType,
           };
         });
     },
@@ -345,7 +368,7 @@ export function HeatmapPanel({
         const dotColor = CATEGORY_DOT_COLORS[point.category] ?? "#64748b";
         const radius = 5 + point.intensity * 5;
 
-        L.circleMarker([point.lat, point.lng], {
+        const marker = L.circleMarker([point.lat, point.lng], {
           pane: POINTS_PANE,
           radius,
           color: "#0f172a",
@@ -353,7 +376,20 @@ export function HeatmapPanel({
           fillColor: dotColor,
           fillOpacity: 0.95,
           opacity: 1,
-        }).addTo(pointLayer);
+        });
+
+        marker.bindPopup(`
+          <div style="font-size:12px;line-height:1.45">
+            <strong>Ticket ID: ${escapeHtml(point.ticketId || "Pending")}</strong><br/>
+            ${point.title ? `${escapeHtml(point.title)}<br/>` : ""}
+            Type: ${point.recordType === "assistance" ? "Assistance" : "Complaint"}<br/>
+            Category: ${escapeHtml(CATEGORY_LABELS[point.category] ?? point.category)}<br/>
+            Status: ${escapeHtml(point.status)}<br/>
+            Priority: ${escapeHtml(point.priority)}
+            ${point.location ? `<br/>Location: ${escapeHtml(point.location)}` : ""}
+          </div>
+        `);
+        marker.addTo(pointLayer);
       }
       pointLayer.addTo(map);
       pointLayerRef.current = pointLayer;
@@ -408,7 +444,7 @@ export function HeatmapPanel({
 
       const pane = map.getPane(POINTS_PANE) ?? map.createPane(POINTS_PANE);
       pane.style.zIndex = "650";
-      pane.style.pointerEvents = "none";
+      pane.style.pointerEvents = "auto";
 
       L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
         attribution:

@@ -5,6 +5,7 @@ import { useAuth } from "./auth/auth-context";
 
 interface Complaint {
   id: string;
+  ticketId?: string;
   title: string;
   description: string;
   category: string;
@@ -28,7 +29,7 @@ interface ComplaintContextType {
   loading: boolean;
   addComplaint: (
     complaint: Omit<Complaint, "id" | "dateSubmitted">,
-  ) => Promise<{ error?: string }>;
+  ) => Promise<{ error?: string; ticketId?: string }>;
   updateComplaint: (
     id: string,
     updates: Partial<Complaint>,
@@ -180,6 +181,7 @@ export function ComplaintProvider({ children }: { children: React.ReactNode }) {
 
     return {
       id: complaint.id,
+      ticketId: complaint.ticket_id,
       title: complaint.title,
       description: complaint.description,
       category: complaint.category,
@@ -410,6 +412,7 @@ export function ComplaintProvider({ children }: { children: React.ReactNode }) {
       // Transform response back to camelCase
       const newComplaint: Complaint = {
         id: data.id,
+        ticketId: data.ticket_id,
         title: data.title,
         description: data.description,
         category: data.category,
@@ -430,9 +433,7 @@ export function ComplaintProvider({ children }: { children: React.ReactNode }) {
         (previousComplaints) => [newComplaint, ...previousComplaints],
         cacheKey,
       );
-      toast.success("Complaint submitted successfully");
-
-      return {};
+      return { ticketId: newComplaint.ticketId };
     } catch (error) {
       console.error("Error adding complaint:", error);
       toast.error("Failed to submit complaint");

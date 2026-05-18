@@ -10,6 +10,8 @@ import type { AssistanceRequest } from "./assistance-manager";
 
 interface Complaint {
   id: string;
+  ticketId?: string;
+  title?: string;
   category: string;
   status: string;
   priority: string;

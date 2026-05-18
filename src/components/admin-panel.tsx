@@ -68,11 +68,13 @@ import {
   Trash2,
 } from "lucide-react";
 import { ImageWithFallback } from "./figma/ImageWithFallback";
+import { TicketBadge } from "./ticket-badge";
 import { format, parse, isValid } from "date-fns";
 import type { DateRange } from "react-day-picker";
 
 interface Complaint {
   id: string;
+  ticketId?: string;
   title: string;
   description: string;
   category: string;
@@ -201,6 +203,7 @@ export function AdminPanel({
       complaint.location.toLowerCase().includes(searchLower) ||
       complaint.category.toLowerCase().includes(searchLower) ||
       complaint.status.toLowerCase().includes(searchLower) ||
+      (complaint.ticketId || "").toLowerCase().includes(searchLower) ||
       complaint.contactInfo.toLowerCase().includes(searchLower) ||
       (complaint.userName &&
         complaint.userName.toLowerCase().includes(searchLower)) ||
@@ -247,6 +250,7 @@ export function AdminPanel({
       req.location.toLowerCase().includes(searchLower) ||
       req.category.toLowerCase().includes(searchLower) ||
       req.status.toLowerCase().includes(searchLower) ||
+      (req.ticketId || "").toLowerCase().includes(searchLower) ||
       req.contactInfo.toLowerCase().includes(searchLower) ||
       (req.userName && req.userName.toLowerCase().includes(searchLower)) ||
       (req.respondent && req.respondent.toLowerCase().includes(searchLower)) ||
@@ -560,7 +564,7 @@ export function AdminPanel({
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
               <Input
-                placeholder="Search across all fields (title, description, location, category, status, complainant, respondent, notes)..."
+                placeholder="Search across all fields (ticket ID, title, description, location, category, status, complainant, respondent, notes)..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-10 pr-20"
@@ -719,6 +723,7 @@ export function AdminPanel({
                 <TableHeader>
                   <TableRow>
                     <TableHead>Request</TableHead>
+                    <TableHead>Ticket</TableHead>
                     <TableHead>Complainant</TableHead>
                     <TableHead>Category</TableHead>
                     <TableHead>Location</TableHead>
@@ -740,6 +745,9 @@ export function AdminPanel({
                             {complaint.description}
                           </div>
                         </div>
+                      </TableCell>
+                      <TableCell>
+                        <TicketBadge ticketId={complaint.ticketId} showPending />
                       </TableCell>
                       <TableCell>
                         <div className="max-w-32 truncate">
@@ -819,6 +827,12 @@ export function AdminPanel({
                                     <h3 className="font-medium">
                                       {selectedComplaint.title}
                                     </h3>
+                                    <div className="mt-2">
+                                      <TicketBadge
+                                        ticketId={selectedComplaint.ticketId}
+                                        showPending
+                                      />
+                                    </div>
                                     <p className="text-sm text-gray-600 mt-1">
                                       {selectedComplaint.description}
                                     </p>
@@ -1144,6 +1158,7 @@ export function AdminPanel({
                     </div>
 
                     <div className="flex flex-wrap gap-2">
+                      <TicketBadge ticketId={complaint.ticketId} showPending />
                       <Badge variant="outline" className="text-xs">
                         {complaint.category}
                       </Badge>
@@ -1214,6 +1229,12 @@ export function AdminPanel({
                                 <h3 className="font-medium">
                                   {selectedComplaint.title}
                                 </h3>
+                                <div className="mt-2">
+                                  <TicketBadge
+                                    ticketId={selectedComplaint.ticketId}
+                                    showPending
+                                  />
+                                </div>
                                 <p className="text-sm text-muted-foreground mt-1">
                                   {selectedComplaint.description}
                                 </p>

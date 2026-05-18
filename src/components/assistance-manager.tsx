@@ -5,6 +5,7 @@ import { useAuth } from "./auth/auth-context";
 
 export interface AssistanceRequest {
   id: string;
+  ticketId?: string;
   title: string;
   description: string;
   category: string;
@@ -29,7 +30,7 @@ interface AssistanceContextType {
   loading: boolean;
   addAssistanceRequest: (
     request: Omit<AssistanceRequest, "id" | "dateSubmitted" | "recordType">,
-  ) => Promise<{ error?: string }>;
+  ) => Promise<{ error?: string; ticketId?: string }>;
   updateAssistanceRequest: (
     id: string,
     updates: Partial<AssistanceRequest>,
@@ -83,6 +84,7 @@ export function AssistanceProvider({ children }: { children: React.ReactNode }) 
 
   const transform = (row: any): AssistanceRequest => ({
     id: row.id,
+    ticketId: row.ticket_id,
     title: row.title,
     description: row.description,
     category: row.category,
@@ -210,9 +212,9 @@ export function AssistanceProvider({ children }: { children: React.ReactNode }) 
         return { error: "Failed to submit assistance request" };
       }
 
-      setAndCache((prev) => [transform(data), ...prev], cacheKey);
-      toast.success("Assistance request submitted successfully");
-      return {};
+      const newRequest = transform(data);
+      setAndCache((prev) => [newRequest, ...prev], cacheKey);
+      return { ticketId: newRequest.ticketId };
     } catch {
       toast.error("Failed to submit assistance request");
       return { error: "Failed to submit assistance request" };

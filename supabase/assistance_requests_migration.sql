@@ -5,6 +5,7 @@
 
 CREATE TABLE IF NOT EXISTS public.assistance_requests (
   id              uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  ticket_id       text UNIQUE,
   title           text NOT NULL,
   description     text NOT NULL,
   category        text NOT NULL,
@@ -30,6 +31,7 @@ CREATE INDEX IF NOT EXISTS idx_assistance_user_id   ON public.assistance_request
 CREATE INDEX IF NOT EXISTS idx_assistance_status     ON public.assistance_requests (status);
 CREATE INDEX IF NOT EXISTS idx_assistance_category   ON public.assistance_requests (category);
 CREATE INDEX IF NOT EXISTS idx_assistance_submitted  ON public.assistance_requests (date_submitted DESC);
+CREATE INDEX IF NOT EXISTS idx_assistance_ticket_id  ON public.assistance_requests (ticket_id);
 
 -- Enable RLS
 ALTER TABLE public.assistance_requests ENABLE ROW LEVEL SECURITY;

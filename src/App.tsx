@@ -18,6 +18,7 @@ import { ProfileManagement } from "./components/auth/profile-management";
 import { UserManagement } from "./components/auth/user-management";
 import { ResidentSettings } from "./components/resident-settings";
 import { Header } from "./components/header";
+import { TicketBadge } from "./components/ticket-badge";
 import { UnifiedDashboard } from "./components/unified-dashboard";
 import { ComplaintForm } from "./components/complaint-form";
 import { AssistanceForm } from "./components/assistance-form";
@@ -58,6 +59,7 @@ import { Toaster } from "./components/ui/sonner";
 
 interface Complaint {
   id: string;
+  ticketId?: string;
   title: string;
   description: string;
   category: string;
@@ -180,6 +182,9 @@ function AppContent() {
     read: false,
     ...meta,
   });
+
+  const ticketSentence = (ticketId?: string | null) =>
+    ticketId ? ` Ticket ID: ${ticketId}.` : "";
 
   const nextNativeNotificationId = () => {
     nativeNotificationIdRef.current += 1;
@@ -464,7 +469,7 @@ function AppContent() {
             return {
               id: `seed-admin-complaint-${complaint.id}`,
               title: "New complaint submitted",
-              message: `${complaint.userName || "A resident"} filed "${complaint.title}" (${complaint.status}).`,
+              message: `${complaint.userName || "A resident"} filed "${complaint.title}" (${complaint.status}).${ticketSentence(complaint.ticketId)}`,
               createdAt: complaint.dateSubmitted,
               read: true,
               type: "complaint",
@@ -475,7 +480,7 @@ function AppContent() {
           return {
             id: `seed-user-complaint-${complaint.id}`,
             title: "Complaint status",
-            message: `"${complaint.title}" is currently ${statusLabel(complaint.status)}.`,
+            message: `"${complaint.title}" is currently ${statusLabel(complaint.status)}.${ticketSentence(complaint.ticketId)}`,
             createdAt: complaint.dateSubmitted,
             read: true,
             type: "complaint",
@@ -494,7 +499,7 @@ function AppContent() {
             return {
               id: `seed-admin-assistance-${request.id}`,
               title: "New assistance request submitted",
-              message: `${request.userName || "A resident"} requested "${request.title}" (${request.status}).`,
+              message: `${request.userName || "A resident"} requested "${request.title}" (${request.status}).${ticketSentence(request.ticketId)}`,
               createdAt: request.dateSubmitted,
               read: true,
               type: "assistance",
@@ -505,7 +510,7 @@ function AppContent() {
           return {
             id: `seed-user-assistance-${request.id}`,
             title: "Assistance request status",
-            message: `"${request.title}" is currently ${statusLabel(request.status)}.`,
+            message: `"${request.title}" is currently ${statusLabel(request.status)}.${ticketSentence(request.ticketId)}`,
             createdAt: request.dateSubmitted,
             read: true,
             type: "assistance",
@@ -543,7 +548,7 @@ function AppContent() {
           fresh.push(
             createNotification(
               "New complaint submitted",
-              `${complaint.userName || "A resident"} filed "${complaint.title}" in ${complaint.category}.`,
+              `${complaint.userName || "A resident"} filed "${complaint.title}" in ${complaint.category}.${ticketSentence(complaint.ticketId)}`,
               { type: "complaint", sourceId: complaint.id },
             ),
           );
@@ -555,7 +560,7 @@ function AppContent() {
           fresh.push(
             createNotification(
               "Complaint received",
-              `Your complaint "${complaint.title}" was recorded as ${statusLabel(complaint.status)}.`,
+              `Your complaint "${complaint.title}" was recorded as ${statusLabel(complaint.status)}.${ticketSentence(complaint.ticketId)}`,
               { type: "complaint", sourceId: complaint.id },
             ),
           );
@@ -566,7 +571,7 @@ function AppContent() {
           fresh.push(
             createNotification(
               "Complaint status updated",
-              `"${complaint.title}" changed from ${statusLabel(previous.status)} to ${statusLabel(complaint.status)}.`,
+              `"${complaint.title}" changed from ${statusLabel(previous.status)} to ${statusLabel(complaint.status)}.${ticketSentence(complaint.ticketId)}`,
               { type: "complaint", sourceId: complaint.id },
             ),
           );
@@ -577,7 +582,7 @@ function AppContent() {
           fresh.push(
             createNotification(
               "Admin response received",
-              `An admin updated "${complaint.title}" with new notes.`,
+              `An admin updated "${complaint.title}" with new notes.${ticketSentence(complaint.ticketId)}`,
               { type: "complaint", sourceId: complaint.id },
             ),
           );
@@ -593,7 +598,7 @@ function AppContent() {
           fresh.push(
             createNotification(
               "New assistance request submitted",
-              `${request.userName || "A resident"} requested "${request.title}" in ${request.category}.`,
+              `${request.userName || "A resident"} requested "${request.title}" in ${request.category}.${ticketSentence(request.ticketId)}`,
               { type: "assistance", sourceId: request.id },
             ),
           );
@@ -603,7 +608,7 @@ function AppContent() {
           fresh.push(
             createNotification(
               "Assistance request status changed",
-              `"${request.title}" moved from ${statusLabel(previous.status)} to ${statusLabel(request.status)}.`,
+              `"${request.title}" moved from ${statusLabel(previous.status)} to ${statusLabel(request.status)}.${ticketSentence(request.ticketId)}`,
               { type: "assistance", sourceId: request.id },
             ),
           );
@@ -614,7 +619,7 @@ function AppContent() {
           fresh.push(
             createNotification(
               "Assistance request updated",
-              `Notes were updated for "${request.title}".`,
+              `Notes were updated for "${request.title}".${ticketSentence(request.ticketId)}`,
               { type: "assistance", sourceId: request.id },
             ),
           );
@@ -628,7 +633,7 @@ function AppContent() {
         fresh.push(
           createNotification(
             "Assistance request submitted",
-            `Your assistance request "${request.title}" was recorded as ${statusLabel(request.status)}.`,
+            `Your assistance request "${request.title}" was recorded as ${statusLabel(request.status)}.${ticketSentence(request.ticketId)}`,
             { type: "assistance", sourceId: request.id },
           ),
         );
@@ -639,7 +644,7 @@ function AppContent() {
         fresh.push(
           createNotification(
             assistanceStatusTitle(request.status),
-            `"${request.title}" changed from ${statusLabel(previous.status)} to ${statusLabel(request.status)}.`,
+            `"${request.title}" changed from ${statusLabel(previous.status)} to ${statusLabel(request.status)}.${ticketSentence(request.ticketId)}`,
             { type: "assistance", sourceId: request.id },
           ),
         );
@@ -650,7 +655,7 @@ function AppContent() {
         fresh.push(
           createNotification(
             "Assistance response received",
-            `An admin updated "${request.title}" with new notes.`,
+            `An admin updated "${request.title}" with new notes.${ticketSentence(request.ticketId)}`,
             { type: "assistance", sourceId: request.id },
           ),
         );
@@ -803,13 +808,13 @@ function AppContent() {
   const handleSubmitComplaint = async (
     newComplaint: Omit<Complaint, "id" | "dateSubmitted">,
   ) => {
-    const { error } = await addComplaint(newComplaint);
+    const { error, ticketId } = await addComplaint(newComplaint);
     if (error) {
       toast.error(error);
       return { error };
     } else {
       toast.success(
-        "Complaint submitted successfully! We will review it shortly.",
+        `Complaint submitted successfully. Ticket ID: ${ticketId || "Pending"}`,
       );
       setCurrentView("dashboard");
       return {};
@@ -817,13 +822,13 @@ function AppContent() {
   };
 
   const handleSubmitAssistance = async (requestData: any) => {
-    const { error } = await addAssistanceRequest(requestData);
+    const { error, ticketId } = await addAssistanceRequest(requestData);
     if (error) {
       toast.error(error);
       return { error };
     } else {
       toast.success(
-        "Assistance request submitted! We will process it shortly.",
+        `Assistance request submitted. Ticket ID: ${ticketId || "Pending"}`,
       );
       setCurrentView("dashboard");
       return {};
@@ -1235,6 +1240,12 @@ function AppContent() {
                   <h3 className="text-lg font-medium">
                     {selectedComplaint.title}
                   </h3>
+                  <div className="mt-2">
+                    <TicketBadge
+                      ticketId={selectedComplaint.ticketId}
+                      showPending
+                    />
+                  </div>
                   <div className="flex items-center space-x-3 mt-2">
                     <Badge
                       className={`${getStatusColor(

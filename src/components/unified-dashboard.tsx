@@ -37,9 +37,11 @@ import {
 import { useAuth } from "./auth/auth-context";
 import { ImageWithFallback } from "./figma/ImageWithFallback";
 import type { AssistanceRequest } from "./assistance-manager";
+import { TicketBadge } from "./ticket-badge";
 
 interface Complaint {
   id: string;
+  ticketId?: string;
   title: string;
   description: string;
   category: string;
@@ -99,7 +101,8 @@ export function UnifiedDashboard({
     const matchesSearch =
       complaint.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
       complaint.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      complaint.location.toLowerCase().includes(searchTerm.toLowerCase());
+      complaint.location.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (complaint.ticketId || "").toLowerCase().includes(searchTerm.toLowerCase());
 
     const matchesStatus =
       statusFilter === "all" || complaint.status === statusFilter;
@@ -187,6 +190,7 @@ export function UnifiedDashboard({
       request.description.toLowerCase().includes(normalizedSearch) ||
       request.location.toLowerCase().includes(normalizedSearch) ||
       request.contactInfo.toLowerCase().includes(normalizedSearch) ||
+      (request.ticketId || "").toLowerCase().includes(normalizedSearch) ||
       (request.userName || "").toLowerCase().includes(normalizedSearch);
 
     const matchesStatus =
@@ -501,6 +505,7 @@ export function UnifiedDashboard({
 
                           <div className="flex flex-col gap-2">
                             <div className="flex flex-wrap items-center gap-2 text-xs">
+                              <TicketBadge ticketId={complaint.ticketId} showPending />
                               <Badge variant="secondary" className="text-xs">
                                 {formatCategoryLabel(complaint.category)}
                               </Badge>
@@ -676,6 +681,7 @@ export function UnifiedDashboard({
 
                           <div className="flex flex-col gap-2">
                             <div className="flex flex-wrap items-center gap-2 text-xs">
+                              <TicketBadge ticketId={request.ticketId} showPending />
                               <Badge variant="secondary" className="text-xs">
                                 {formatCategoryLabel(request.category)}
                               </Badge>
