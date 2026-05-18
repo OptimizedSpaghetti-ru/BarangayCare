@@ -123,8 +123,7 @@ export const en = {
       successRate: "Success Rate",
       noRequests: "No requests in the system",
       noRequestsMatch: "No requests match your filters",
-      noRequestsDescription:
-        "The community hasn't submitted any requests yet",
+      noRequestsDescription: "The community hasn't submitted any requests yet",
     },
     // Residents
     residents: {
@@ -225,11 +224,11 @@ export const en = {
       pinLocationTitle: "Pin location on map",
       photoEvidence: "Photo Evidence",
       removePhoto: "Remove Photo",
-      uploadPhotoDocument: "Upload Photo / Document",
+      uploadPhotoDocument: "Upload Photo",
       uploadHelp:
         "Upload a photo or supporting document such as an ID, medical certificate, or related proof.",
       contactNumber: "Contact Number",
-      contactPlaceholder: "Phone Number or email for follow up",
+      contactPlaceholder: "Your Phone Number",
       submit: "Submit Assistance",
       listDescription: "View all assistance requests and their current status",
       searchPlaceholder: "Search assistance requests...",
@@ -384,7 +383,7 @@ export const en = {
       descriptionPlaceholder:
         "Provide as much detail as possible about your request or complaint",
       addressPlaceholder: "Street address or landmark",
-      contactPlaceholder: "Phone number or email for follow-up",
+      contactPlaceholder: "Your Phone number",
       respondentPlaceholder: "Enter the name of the respondent",
     },
   },

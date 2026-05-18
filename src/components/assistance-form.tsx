@@ -186,7 +186,7 @@ export function AssistanceForm({ onSubmit }: AssistanceFormProps) {
     <div className="max-w-2xl mx-auto">
       <Card>
         <CardHeader className="bg-gradient-to-r from-primary to-accent text-primary-foreground pb-8">
-          <CardTitle className="text-lg sm:text-xl">
+          <CardTitle className="text-lg sm:text-xl font-normal">
             {t("assistance.requestAssistance")}
           </CardTitle>
           <CardDescription className="text-primary-foreground/90">

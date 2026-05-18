@@ -293,7 +293,7 @@ export function ComplaintForm({ onSubmit }: ComplaintFormProps) {
             </div>
 
             <div className="space-y-2">
-              <Label>{t("complaints.photoEvidence")} *</Label>
+              <Label>{t("complaints.photoEvidence")}</Label>
               <div className="border-2 border-dashed border-border rounded-lg p-4 sm:p-6 text-center">
                 <input
                   ref={fileInputRef}
@@ -336,7 +336,7 @@ export function ComplaintForm({ onSubmit }: ComplaintFormProps) {
                       })}
                     >
                       <Upload className="w-4 h-4" />
-                      <span>{t("common.upload")}</span>
+                      <span>{t("assistance.uploadPhotoDocument")}</span>
                     </label>
                     <p className="text-xs sm:text-sm text-muted-foreground text-center">
                       {t("complaints.photoHelpText")} (Required)

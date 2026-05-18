@@ -225,7 +225,7 @@ export const fil = {
       pinLocationTitle: "I-pin ang lokasyon sa mapa",
       photoEvidence: "Litrato ng Ebidensiya",
       removePhoto: "Alisin ang Litrato",
-      uploadPhotoDocument: "Mag-upload ng Litrato / Dokumento",
+      uploadPhotoDocument: "Mag-upload ng Litrato",
       uploadHelp:
         "Mag-upload ng litrato o suportang dokumento gaya ng ID, medical certificate, o kaugnay na patunay.",
       contactNumber: "Numero ng Pakikipag-ugnayan",
