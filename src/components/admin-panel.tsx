@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import type { ChangeEvent } from "react";
 import { useTranslation } from "react-i18next";
 import {
   COMPLAINT_CATEGORIES,
@@ -66,11 +67,14 @@ import {
   Map,
   RefreshCw,
   Trash2,
+  Upload,
+  Save,
 } from "lucide-react";
 import { ImageWithFallback } from "./figma/ImageWithFallback";
 import { TicketBadge } from "./ticket-badge";
 import { format, parse, isValid } from "date-fns";
 import type { DateRange } from "react-day-picker";
+import { toast } from "sonner";
 
 interface Complaint {
   id: string;
@@ -85,6 +89,9 @@ interface Complaint {
   dateSubmitted: string;
   priority: "low" | "medium" | "high";
   adminNotes?: string;
+  resolutionProofImage?: string;
+  resolutionProofUploadedAt?: string;
+  resolutionProofUploadedBy?: string;
   respondent?: string;
   userId?: string;
   userName?: string;
@@ -103,6 +110,14 @@ interface AdminPanelProps {
     updates: Partial<AssistanceRequest>,
   ) => Promise<{ error?: string }>;
   onDeleteAssistance?: (id: string) => Promise<{ error?: string }>;
+  onUploadComplaintResolutionProof?: (
+    id: string,
+    file: File,
+  ) => Promise<{ error?: string; url?: string }>;
+  onUploadAssistanceResolutionProof?: (
+    id: string,
+    file: File,
+  ) => Promise<{ error?: string; url?: string }>;
   onRefresh?: () => Promise<void> | void;
   refreshing?: boolean;
   onOpenHeatmap?: () => void;
@@ -115,6 +130,8 @@ export function AdminPanel({
   onDeleteComplaint,
   onUpdateAssistance,
   onDeleteAssistance,
+  onUploadComplaintResolutionProof,
+  onUploadAssistanceResolutionProof,
   onRefresh,
   refreshing = false,
   onOpenHeatmap,
@@ -134,6 +151,8 @@ export function AdminPanel({
     null,
   );
   const [adminNotes, setAdminNotes] = useState("");
+  const proofInputRef = useRef<HTMLInputElement | null>(null);
+  const [proofUploadingId, setProofUploadingId] = useState<string | null>(null);
   const [selectedPriority, setSelectedPriority] = useState<
     "low" | "medium" | "high"
   >("medium");
@@ -346,6 +365,47 @@ export function AdminPanel({
     setSelectedComplaint({ ...selectedComplaint, adminNotes });
   };
 
+  const handleProofFileChange = async (
+    event: ChangeEvent<HTMLInputElement>,
+  ) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file || !selectedComplaint) return;
+
+    const allowedTypes = new Set([
+      "image/jpeg",
+      "image/jpg",
+      "image/png",
+      "image/webp",
+    ]);
+    const fileExt = file.name.split(".").pop()?.toLowerCase() || "";
+    const allowedExtensions = new Set(["jpg", "jpeg", "png", "webp"]);
+
+    if (!allowedTypes.has(file.type) || !allowedExtensions.has(fileExt)) {
+      toast.error("Please upload a JPG, JPEG, PNG, or WEBP image.");
+      return;
+    }
+
+    setProofUploadingId(selectedComplaint.id);
+    const result =
+      typeFilter === "assistance"
+        ? await onUploadAssistanceResolutionProof?.(selectedComplaint.id, file)
+        : await onUploadComplaintResolutionProof?.(selectedComplaint.id, file);
+
+    setProofUploadingId(null);
+
+    if (!result || result.error) {
+      toast.error(result?.error || "Proof image upload is not available.");
+      return;
+    }
+
+    setSelectedComplaint({
+      ...selectedComplaint,
+      resolutionProofImage: result.url,
+      resolutionProofUploadedAt: new Date().toISOString(),
+    });
+  };
+
   const handleConfirmDelete = async () => {
     if (!deleteTarget) return;
 
@@ -365,6 +425,79 @@ export function AdminPanel({
     setDeleteTarget(null);
   };
 
+  const renderAdminNotesAndProof = () => {
+    const isProofUploading =
+      Boolean(selectedComplaint) && proofUploadingId === selectedComplaint?.id;
+
+    return (
+      <div className="space-y-3 rounded-lg border border-border bg-muted/20 p-3">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <label className="font-medium">Admin Notes:</label>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="h-9 rounded-md border-primary/30 px-3 text-primary hover:bg-primary/10 dark:border-primary/40 dark:text-primary-foreground dark:hover:bg-primary/20"
+            disabled={!selectedComplaint || isProofUploading}
+            onClick={() => proofInputRef.current?.click()}
+          >
+            <Upload
+              className={`mr-2 h-4 w-4 ${isProofUploading ? "animate-pulse" : ""}`}
+            />
+            {isProofUploading ? "Uploading..." : "Upload Proof Image"}
+          </Button>
+        </div>
+
+        <Textarea
+          value={adminNotes}
+          onChange={(e) => setAdminNotes(e.target.value)}
+          placeholder="Add notes about this request..."
+          rows={3}
+        />
+
+        {selectedComplaint?.resolutionProofImage && (
+          <div className="space-y-2">
+            <p className="text-xs font-medium text-muted-foreground">
+              Resolution proof image
+            </p>
+            <ImageWithFallback
+              src={selectedComplaint.resolutionProofImage}
+              alt="Resolution proof"
+              className="w-full max-h-72 rounded-lg border border-border object-contain bg-background"
+            />
+          </div>
+        )}
+
+        <div className="flex flex-wrap gap-2 pt-1">
+          <DialogClose asChild>
+            <Button
+              onClick={handleSaveNotes}
+              size="sm"
+              className="h-9 rounded-md px-4 shadow-sm transition-colors hover:bg-primary/90"
+            >
+              <Save className="mr-2 h-4 w-4" />
+              Save Notes
+            </Button>
+          </DialogClose>
+          <DialogClose asChild>
+            <Button
+              variant="destructive"
+              size="sm"
+              className="h-9 rounded-md px-4 shadow-sm transition-colors hover:bg-destructive/90 dark:bg-red-600 dark:text-white dark:hover:bg-red-500"
+              onClick={() => {
+                if (!selectedComplaint) return;
+                setDeleteTarget(selectedComplaint);
+              }}
+            >
+              <Trash2 className="mr-2 h-4 w-4" />
+              Delete Request
+            </Button>
+          </DialogClose>
+        </div>
+      </div>
+    );
+  };
+
   const activeRequests =
     typeFilter === "assistance" ? filteredAssistance : filteredComplaints;
   const statsSource =
@@ -380,6 +513,14 @@ export function AdminPanel({
 
   return (
     <div className="space-y-6">
+      <input
+        ref={proofInputRef}
+        type="file"
+        accept="image/jpeg,image/jpg,image/png,image/webp"
+        className="sr-only"
+        tabIndex={-1}
+        onChange={handleProofFileChange}
+      />
       <div className="bg-gradient-to-r from-secondary to-primary text-secondary-foreground p-4 sm:p-6 rounded-lg">
         <div className="flex items-start justify-between gap-3">
           <div>
@@ -1074,42 +1215,7 @@ export function AdminPanel({
                                     </div>
                                   </div>
 
-                                  <div className="space-y-2">
-                                    <label className="font-medium">
-                                      Admin Notes:
-                                    </label>
-                                    <Textarea
-                                      value={adminNotes}
-                                      onChange={(e) =>
-                                        setAdminNotes(e.target.value)
-                                      }
-                                      placeholder="Add notes about this request..."
-                                      rows={3}
-                                    />
-                                    <div className="flex flex-wrap gap-2">
-                                      <DialogClose asChild>
-                                        <Button
-                                          onClick={handleSaveNotes}
-                                          size="sm"
-                                        >
-                                          Save Notes
-                                        </Button>
-                                      </DialogClose>
-                                      <DialogClose asChild>
-                                        <Button
-                                          variant="destructive"
-                                          size="sm"
-                                          className="transition-all duration-200 hover:scale-105 hover:shadow-md"
-                                          onClick={() => {
-                                            if (!selectedComplaint) return;
-                                            setDeleteTarget(selectedComplaint);
-                                          }}
-                                        >
-                                          Delete Request
-                                        </Button>
-                                      </DialogClose>
-                                    </div>
-                                  </div>
+                                  {renderAdminNotesAndProof()}
                                 </div>
                               )}
                             </DialogContent>
@@ -1462,39 +1568,7 @@ export function AdminPanel({
                                 </div>
                               </div>
 
-                              <div className="space-y-2">
-                                <label className="font-medium">
-                                  Admin Notes:
-                                </label>
-                                <Textarea
-                                  value={adminNotes}
-                                  onChange={(e) =>
-                                    setAdminNotes(e.target.value)
-                                  }
-                                  placeholder="Add notes about this request..."
-                                  rows={3}
-                                />
-                                <div className="flex flex-wrap gap-2">
-                                  <DialogClose asChild>
-                                    <Button onClick={handleSaveNotes} size="sm">
-                                      Save Notes
-                                    </Button>
-                                  </DialogClose>
-                                  <DialogClose asChild>
-                                    <Button
-                                      variant="destructive"
-                                      size="sm"
-                                      className="transition-all duration-200 hover:scale-105 hover:shadow-md"
-                                      onClick={() => {
-                                        if (!selectedComplaint) return;
-                                        setDeleteTarget(selectedComplaint);
-                                      }}
-                                    >
-                                      Delete Request
-                                    </Button>
-                                  </DialogClose>
-                                </div>
-                              </div>
+                              {renderAdminNotesAndProof()}
                             </div>
                           )}
                         </DialogContent>

@@ -70,6 +70,9 @@ interface Complaint {
   dateSubmitted: string;
   priority: "low" | "medium" | "high";
   adminNotes?: string;
+  resolutionProofImage?: string;
+  resolutionProofUploadedAt?: string;
+  resolutionProofUploadedBy?: string;
   respondent?: string;
   userId?: string;
   userName?: string;
@@ -84,6 +87,10 @@ interface AppNotification {
   nativeId?: number;
   type?: "complaint" | "assistance" | "system";
   sourceId?: string;
+  imageUrl?: string;
+  requestTitle?: string;
+  ticketId?: string;
+  status?: string;
 }
 
 const LOCAL_NOTIFICATION_CHANNEL_ID = "barangaycare-alerts";
@@ -102,6 +109,7 @@ function AppContent() {
     addComplaint,
     updateComplaint,
     deleteComplaint,
+    uploadComplaintResolutionProof,
     fetchComplaints,
   } = useComplaints();
   const {
@@ -111,6 +119,7 @@ function AppContent() {
     fetchAssistanceRequests,
     updateAssistanceRequest,
     deleteAssistanceRequest,
+    uploadAssistanceResolutionProof,
   } = useAssistance();
   const [currentView, setCurrentView] = useState("dashboard");
   const [authView, setAuthView] = useState<"login" | "signup">("login");
@@ -125,10 +134,24 @@ function AppContent() {
   >("complaint");
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const previousComplaintSnapshot = useRef<
-    Map<string, { status: string; adminNotes: string | null }>
+    Map<
+      string,
+      {
+        status: string;
+        adminNotes: string | null;
+        resolutionProofImage: string | null;
+      }
+    >
   >(new Map());
   const previousAssistanceSnapshot = useRef<
-    Map<string, { status: string; adminNotes: string | null }>
+    Map<
+      string,
+      {
+        status: string;
+        adminNotes: string | null;
+        resolutionProofImage: string | null;
+      }
+    >
   >(new Map());
   const notificationsInitialized = useRef(false);
   const localNotifSetupDoneRef = useRef(false);
@@ -155,16 +178,26 @@ function AppContent() {
   };
 
   const buildSnapshot = (
-    items: Array<{ id: string; status: string; adminNotes?: string | null }>,
+    items: Array<{
+      id: string;
+      status: string;
+      adminNotes?: string | null;
+      resolutionProofImage?: string | null;
+    }>,
   ) => {
     const snapshot = new Map<
       string,
-      { status: string; adminNotes: string | null }
+      {
+        status: string;
+        adminNotes: string | null;
+        resolutionProofImage: string | null;
+      }
     >();
     for (const item of items) {
       snapshot.set(item.id, {
         status: item.status,
         adminNotes: item.adminNotes || null,
+        resolutionProofImage: item.resolutionProofImage || null,
       });
     }
     return snapshot;
@@ -173,7 +206,10 @@ function AppContent() {
   const createNotification = (
     title: string,
     message: string,
-    meta: Pick<AppNotification, "type" | "sourceId"> = {},
+    meta: Pick<
+      AppNotification,
+      "type" | "sourceId" | "imageUrl" | "requestTitle" | "ticketId" | "status"
+    > = {},
   ): AppNotification => ({
     id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     title,
@@ -276,6 +312,10 @@ function AppContent() {
         createdAt: item.createdAt,
         type: item.type || "system",
         sourceId: item.sourceId,
+        imageUrl: item.imageUrl,
+        requestTitle: item.requestTitle,
+        ticketId: item.ticketId,
+        status: item.status,
         targetView: "notifications",
         accountRole: isAdmin ? "admin" : "resident",
       },
@@ -390,6 +430,10 @@ function AppContent() {
             nativeId: notification.id,
             type: extra.type || "system",
             sourceId: extra.sourceId,
+            imageUrl: extra.imageUrl,
+            requestTitle: extra.requestTitle,
+            ticketId: extra.ticketId,
+            status: extra.status,
           } as AppNotification,
           ...prev,
         ].slice(0, 100);
@@ -451,6 +495,14 @@ function AppContent() {
     if (complaintsLoading || assistanceLoading) return;
 
     const statusLabel = (value: string) => value.replace("-", " ");
+    const requestNotificationMeta = (request: Complaint, type: "complaint" | "assistance") => ({
+      type,
+      sourceId: request.id,
+      imageUrl: request.resolutionProofImage,
+      requestTitle: request.title,
+      ticketId: request.ticketId,
+      status: request.status,
+    });
     const assistanceStatusTitle = (value: string) => {
       if (value === "resolved") return "Assistance request approved";
       if (value === "rejected") return "Assistance request rejected";
@@ -472,8 +524,7 @@ function AppContent() {
               message: `${complaint.userName || "A resident"} filed "${complaint.title}" (${complaint.status}).${ticketSentence(complaint.ticketId)}`,
               createdAt: complaint.dateSubmitted,
               read: true,
-              type: "complaint",
-              sourceId: complaint.id,
+              ...requestNotificationMeta(complaint, "complaint"),
             } as AppNotification;
           }
 
@@ -483,8 +534,7 @@ function AppContent() {
             message: `"${complaint.title}" is currently ${statusLabel(complaint.status)}.${ticketSentence(complaint.ticketId)}`,
             createdAt: complaint.dateSubmitted,
             read: true,
-            type: "complaint",
-            sourceId: complaint.id,
+            ...requestNotificationMeta(complaint, "complaint"),
           } as AppNotification;
         });
 
@@ -502,8 +552,7 @@ function AppContent() {
               message: `${request.userName || "A resident"} requested "${request.title}" (${request.status}).${ticketSentence(request.ticketId)}`,
               createdAt: request.dateSubmitted,
               read: true,
-              type: "assistance",
-              sourceId: request.id,
+              ...requestNotificationMeta(request, "assistance"),
             } as AppNotification;
           }
 
@@ -513,8 +562,7 @@ function AppContent() {
             message: `"${request.title}" is currently ${statusLabel(request.status)}.${ticketSentence(request.ticketId)}`,
             createdAt: request.dateSubmitted,
             read: true,
-            type: "assistance",
-            sourceId: request.id,
+            ...requestNotificationMeta(request, "assistance"),
           } as AppNotification;
         });
 
@@ -549,7 +597,18 @@ function AppContent() {
             createNotification(
               "New complaint submitted",
               `${complaint.userName || "A resident"} filed "${complaint.title}" in ${complaint.category}.${ticketSentence(complaint.ticketId)}`,
-              { type: "complaint", sourceId: complaint.id },
+              requestNotificationMeta(complaint, "complaint"),
+            ),
+          );
+        }
+
+        const currentProof = complaint.resolutionProofImage || null;
+        if (previous && currentProof && previous.resolutionProofImage !== currentProof) {
+          fresh.push(
+            createNotification(
+              "Complaint proof uploaded",
+              `Resolution proof was uploaded for "${complaint.title}".${ticketSentence(complaint.ticketId)}`,
+              requestNotificationMeta(complaint, "complaint"),
             ),
           );
         }
@@ -561,7 +620,7 @@ function AppContent() {
             createNotification(
               "Complaint received",
               `Your complaint "${complaint.title}" was recorded as ${statusLabel(complaint.status)}.${ticketSentence(complaint.ticketId)}`,
-              { type: "complaint", sourceId: complaint.id },
+              requestNotificationMeta(complaint, "complaint"),
             ),
           );
           continue;
@@ -572,7 +631,18 @@ function AppContent() {
             createNotification(
               "Complaint status updated",
               `"${complaint.title}" changed from ${statusLabel(previous.status)} to ${statusLabel(complaint.status)}.${ticketSentence(complaint.ticketId)}`,
-              { type: "complaint", sourceId: complaint.id },
+              requestNotificationMeta(complaint, "complaint"),
+            ),
+          );
+        }
+
+        const currentProof = complaint.resolutionProofImage || null;
+        if (currentProof && previous.resolutionProofImage !== currentProof) {
+          fresh.push(
+            createNotification(
+              "Resolution proof uploaded",
+              `Your complaint "${complaint.title}" now includes an admin proof image.${ticketSentence(complaint.ticketId)}`,
+              requestNotificationMeta(complaint, "complaint"),
             ),
           );
         }
@@ -583,7 +653,7 @@ function AppContent() {
             createNotification(
               "Admin response received",
               `An admin updated "${complaint.title}" with new notes.${ticketSentence(complaint.ticketId)}`,
-              { type: "complaint", sourceId: complaint.id },
+              requestNotificationMeta(complaint, "complaint"),
             ),
           );
         }
@@ -599,7 +669,7 @@ function AppContent() {
             createNotification(
               "New assistance request submitted",
               `${request.userName || "A resident"} requested "${request.title}" in ${request.category}.${ticketSentence(request.ticketId)}`,
-              { type: "assistance", sourceId: request.id },
+              requestNotificationMeta(request, "assistance"),
             ),
           );
         }
@@ -609,7 +679,18 @@ function AppContent() {
             createNotification(
               "Assistance request status changed",
               `"${request.title}" moved from ${statusLabel(previous.status)} to ${statusLabel(request.status)}.${ticketSentence(request.ticketId)}`,
-              { type: "assistance", sourceId: request.id },
+              requestNotificationMeta(request, "assistance"),
+            ),
+          );
+        }
+
+        const currentProof = request.resolutionProofImage || null;
+        if (previous && currentProof && previous.resolutionProofImage !== currentProof) {
+          fresh.push(
+            createNotification(
+              "Assistance proof uploaded",
+              `Resolution proof was uploaded for "${request.title}".${ticketSentence(request.ticketId)}`,
+              requestNotificationMeta(request, "assistance"),
             ),
           );
         }
@@ -620,7 +701,7 @@ function AppContent() {
             createNotification(
               "Assistance request updated",
               `Notes were updated for "${request.title}".${ticketSentence(request.ticketId)}`,
-              { type: "assistance", sourceId: request.id },
+              requestNotificationMeta(request, "assistance"),
             ),
           );
         }
@@ -634,7 +715,7 @@ function AppContent() {
           createNotification(
             "Assistance request submitted",
             `Your assistance request "${request.title}" was recorded as ${statusLabel(request.status)}.${ticketSentence(request.ticketId)}`,
-            { type: "assistance", sourceId: request.id },
+            requestNotificationMeta(request, "assistance"),
           ),
         );
         continue;
@@ -645,7 +726,18 @@ function AppContent() {
           createNotification(
             assistanceStatusTitle(request.status),
             `"${request.title}" changed from ${statusLabel(previous.status)} to ${statusLabel(request.status)}.${ticketSentence(request.ticketId)}`,
-            { type: "assistance", sourceId: request.id },
+            requestNotificationMeta(request, "assistance"),
+          ),
+        );
+      }
+
+      const currentProof = request.resolutionProofImage || null;
+      if (currentProof && previous.resolutionProofImage !== currentProof) {
+        fresh.push(
+          createNotification(
+            "Resolution proof uploaded",
+            `Your assistance request "${request.title}" now includes an admin proof image.${ticketSentence(request.ticketId)}`,
+            requestNotificationMeta(request, "assistance"),
           ),
         );
       }
@@ -656,7 +748,7 @@ function AppContent() {
           createNotification(
             "Assistance response received",
             `An admin updated "${request.title}" with new notes.${ticketSentence(request.ticketId)}`,
-            { type: "assistance", sourceId: request.id },
+            requestNotificationMeta(request, "assistance"),
           ),
         );
       }
@@ -1103,6 +1195,8 @@ function AppContent() {
             onDeleteComplaint={handleDeleteComplaint}
             onUpdateAssistance={updateAssistanceRequest}
             onDeleteAssistance={deleteAssistanceRequest}
+            onUploadComplaintResolutionProof={uploadComplaintResolutionProof}
+            onUploadAssistanceResolutionProof={uploadAssistanceResolutionProof}
             onRefresh={handleRefresh}
             refreshing={refreshing}
             onOpenHeatmap={() => setCurrentView("heatmap")}
@@ -1170,31 +1264,67 @@ function AppContent() {
                           : "bg-primary/5 border-primary/30"
                       }`}
                     >
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <div className="flex items-center gap-2 mb-1">
-                            {isAdmin ? (
-                              <Shield className="w-4 h-4 text-primary shrink-0" />
-                            ) : (
-                              <User className="w-4 h-4 text-primary shrink-0" />
-                            )}
-                            <p className="font-medium text-foreground truncate">
-                              {notification.title}
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                        <div className="flex min-w-0 flex-1 gap-3">
+                          {notification.imageUrl && (
+                            <ImageWithFallback
+                              src={notification.imageUrl}
+                              alt="Resolution proof preview"
+                              className="h-16 w-16 shrink-0 rounded-lg border border-border object-cover"
+                            />
+                          )}
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2 mb-1">
+                              {isAdmin ? (
+                                <Shield className="w-4 h-4 text-primary shrink-0" />
+                              ) : (
+                                <User className="w-4 h-4 text-primary shrink-0" />
+                              )}
+                              <p className="font-medium text-foreground truncate">
+                                {notification.title}
+                              </p>
+                              {!notification.read && (
+                                <Badge
+                                  variant="default"
+                                  className="text-[10px] px-1.5 py-0 h-5"
+                                >
+                                  {t("notificationsPage.new")}
+                                </Badge>
+                              )}
+                            </div>
+                            <p className="text-sm text-muted-foreground">
+                              {notification.message}
                             </p>
-                            {!notification.read && (
-                              <Badge
-                                variant="default"
-                                className="text-[10px] px-1.5 py-0 h-5"
-                              >
-                                {t("notificationsPage.new")}
-                              </Badge>
+                            {(notification.requestTitle ||
+                              notification.ticketId ||
+                              notification.status) && (
+                              <div className="mt-2 flex flex-wrap gap-2 text-xs">
+                                {notification.requestTitle && (
+                                  <Badge
+                                    variant="secondary"
+                                    className="max-w-full truncate"
+                                  >
+                                    {notification.requestTitle}
+                                  </Badge>
+                                )}
+                                {notification.ticketId && (
+                                  <Badge variant="outline">
+                                    {notification.ticketId}
+                                  </Badge>
+                                )}
+                                {notification.status && (
+                                  <Badge
+                                    variant="outline"
+                                    className="capitalize"
+                                  >
+                                    {notification.status.replace("-", " ")}
+                                  </Badge>
+                                )}
+                              </div>
                             )}
                           </div>
-                          <p className="text-sm text-muted-foreground">
-                            {notification.message}
-                          </p>
                         </div>
-                        <div className="flex items-center gap-1 text-xs text-muted-foreground shrink-0">
+                        <div className="flex items-center gap-1 text-xs text-muted-foreground sm:shrink-0">
                           <Clock className="w-3 h-3" />
                           {new Date(notification.createdAt).toLocaleString()}
                         </div>
@@ -1334,6 +1464,19 @@ function AppContent() {
                     src={selectedComplaint.photo}
                     alt="Request evidence"
                     className="rounded-lg max-w-full sm:max-w-md"
+                  />
+                </div>
+              )}
+
+              {selectedComplaint.resolutionProofImage && (
+                <div className="rounded-lg border border-green-200 bg-green-50/70 p-4 dark:border-green-900/50 dark:bg-green-950/20">
+                  <h4 className="font-medium mb-2 text-green-900 dark:text-green-300">
+                    Resolution Proof Image
+                  </h4>
+                  <ImageWithFallback
+                    src={selectedComplaint.resolutionProofImage}
+                    alt="Resolution proof"
+                    className="rounded-lg w-full max-h-[420px] object-contain bg-background"
                   />
                 </div>
               )}

@@ -16,6 +16,9 @@ interface Complaint {
   dateSubmitted: string;
   priority: "low" | "medium" | "high";
   adminNotes?: string;
+  resolutionProofImage?: string;
+  resolutionProofUploadedAt?: string;
+  resolutionProofUploadedBy?: string;
   respondent?: string;
   userId?: string;
   userName?: string;
@@ -35,6 +38,10 @@ interface ComplaintContextType {
     updates: Partial<Complaint>,
   ) => Promise<{ error?: string }>;
   deleteComplaint: (id: string) => Promise<{ error?: string }>;
+  uploadComplaintResolutionProof: (
+    id: string,
+    file: File,
+  ) => Promise<{ error?: string; url?: string }>;
   fetchComplaints: () => Promise<void>;
 }
 
@@ -192,6 +199,9 @@ export function ComplaintProvider({ children }: { children: React.ReactNode }) {
       priority: complaint.priority,
       dateSubmitted: complaint.date_submitted,
       adminNotes: complaint.admin_notes,
+      resolutionProofImage: complaint.resolution_proof_image,
+      resolutionProofUploadedAt: complaint.resolution_proof_uploaded_at,
+      resolutionProofUploadedBy: complaint.resolution_proof_uploaded_by,
       respondent: complaint.respondent,
       userId: complaint.user_id,
       userName: complaint.user_name,
@@ -423,6 +433,9 @@ export function ComplaintProvider({ children }: { children: React.ReactNode }) {
         priority: data.priority,
         dateSubmitted: data.date_submitted,
         adminNotes: data.admin_notes,
+        resolutionProofImage: data.resolution_proof_image,
+        resolutionProofUploadedAt: data.resolution_proof_uploaded_at,
+        resolutionProofUploadedBy: data.resolution_proof_uploaded_by,
         respondent: data.respondent,
         userId: data.user_id,
         userName: data.user_name,
@@ -467,6 +480,14 @@ export function ComplaintProvider({ children }: { children: React.ReactNode }) {
       if (updates.priority !== undefined) dbUpdates.priority = updates.priority;
       if (updates.adminNotes !== undefined)
         dbUpdates.admin_notes = updates.adminNotes;
+      if (updates.resolutionProofImage !== undefined)
+        dbUpdates.resolution_proof_image = updates.resolutionProofImage;
+      if (updates.resolutionProofUploadedAt !== undefined)
+        dbUpdates.resolution_proof_uploaded_at =
+          updates.resolutionProofUploadedAt;
+      if (updates.resolutionProofUploadedBy !== undefined)
+        dbUpdates.resolution_proof_uploaded_by =
+          updates.resolutionProofUploadedBy;
       if (updates.respondent !== undefined)
         dbUpdates.respondent = updates.respondent;
       if (updates.latitude !== undefined) dbUpdates.latitude = updates.latitude;
@@ -590,12 +611,104 @@ export function ComplaintProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const uploadComplaintResolutionProof = async (id: string, file: File) => {
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (!session) {
+        return { error: "You must be logged in to upload proof" };
+      }
+
+      if (session.user?.user_metadata?.role !== "admin") {
+        return { error: "Only admins can upload proof images" };
+      }
+
+      const allowedTypes = new Set([
+        "image/jpeg",
+        "image/jpg",
+        "image/png",
+        "image/webp",
+      ]);
+      const fileExt = file.name.split(".").pop()?.toLowerCase() || "";
+      const allowedExtensions = new Set(["jpg", "jpeg", "png", "webp"]);
+
+      if (!allowedTypes.has(file.type) || !allowedExtensions.has(fileExt)) {
+        return { error: "Please upload a JPG, JPEG, PNG, or WEBP image." };
+      }
+
+      const cacheKey = getCacheKeyFromSession(session);
+      const filePath = `complaints/${id}/${Date.now()}.${fileExt}`;
+      const uploadedAt = new Date().toISOString();
+
+      const { error: uploadError } = await supabase.storage
+        .from("resolution_proofs")
+        .upload(filePath, file, {
+          cacheControl: "3600",
+          upsert: true,
+          contentType: file.type,
+        });
+
+      if (uploadError) {
+        if (uploadError.message.includes("Bucket not found")) {
+          return {
+            error:
+              "Resolution proof storage is not configured. Please apply the Supabase migration.",
+          };
+        }
+        return { error: `Upload failed: ${uploadError.message}` };
+      }
+
+      const {
+        data: { publicUrl },
+      } = supabase.storage.from("resolution_proofs").getPublicUrl(filePath);
+
+      const { data, error } = await supabase
+        .from("complaints")
+        .update({
+          resolution_proof_image: publicUrl,
+          resolution_proof_uploaded_at: uploadedAt,
+          resolution_proof_uploaded_by: session.user.id,
+        })
+        .eq("id", id)
+        .select()
+        .single();
+
+      if (error) {
+        await supabase.storage.from("resolution_proofs").remove([filePath]);
+        return { error: "Failed to save proof image to complaint" };
+      }
+
+      const updates: Partial<Complaint> = {
+        resolutionProofImage: data.resolution_proof_image,
+        resolutionProofUploadedAt: data.resolution_proof_uploaded_at,
+        resolutionProofUploadedBy: data.resolution_proof_uploaded_by,
+      };
+
+      setComplaintsAndCache(
+        (previousComplaints) =>
+          previousComplaints.map((complaint) =>
+            complaint.id === id ? { ...complaint, ...updates } : complaint,
+          ),
+        cacheKey,
+      );
+
+      toast.success("Resolution proof uploaded successfully");
+      return { url: publicUrl };
+    } catch (error) {
+      console.error("Error uploading complaint proof:", error);
+      return { error: "Failed to upload resolution proof" };
+    }
+  };
+
   const value = {
     complaints,
     loading,
     addComplaint,
     updateComplaint,
     deleteComplaint,
+    uploadComplaintResolutionProof,
     fetchComplaints,
   };
 

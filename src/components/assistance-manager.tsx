@@ -16,6 +16,9 @@ export interface AssistanceRequest {
   dateSubmitted: string;
   priority: "low" | "medium" | "high";
   adminNotes?: string;
+  resolutionProofImage?: string;
+  resolutionProofUploadedAt?: string;
+  resolutionProofUploadedBy?: string;
   respondent?: string;
   userId?: string;
   userName?: string;
@@ -36,6 +39,10 @@ interface AssistanceContextType {
     updates: Partial<AssistanceRequest>,
   ) => Promise<{ error?: string }>;
   deleteAssistanceRequest: (id: string) => Promise<{ error?: string }>;
+  uploadAssistanceResolutionProof: (
+    id: string,
+    file: File,
+  ) => Promise<{ error?: string; url?: string }>;
   fetchAssistanceRequests: () => Promise<void>;
 }
 
@@ -95,6 +102,9 @@ export function AssistanceProvider({ children }: { children: React.ReactNode }) 
     priority: row.priority,
     dateSubmitted: row.date_submitted,
     adminNotes: row.admin_notes,
+    resolutionProofImage: row.resolution_proof_image,
+    resolutionProofUploadedAt: row.resolution_proof_uploaded_at,
+    resolutionProofUploadedBy: row.resolution_proof_uploaded_by,
     respondent: row.respondent,
     userId: row.user_id,
     userName: row.user_name,
@@ -237,6 +247,9 @@ export function AssistanceProvider({ children }: { children: React.ReactNode }) 
       if (updates.status !== undefined) dbUpdates.status = updates.status;
       if (updates.priority !== undefined) dbUpdates.priority = updates.priority;
       if (updates.adminNotes !== undefined) dbUpdates.admin_notes = updates.adminNotes;
+      if (updates.resolutionProofImage !== undefined) dbUpdates.resolution_proof_image = updates.resolutionProofImage;
+      if (updates.resolutionProofUploadedAt !== undefined) dbUpdates.resolution_proof_uploaded_at = updates.resolutionProofUploadedAt;
+      if (updates.resolutionProofUploadedBy !== undefined) dbUpdates.resolution_proof_uploaded_by = updates.resolutionProofUploadedBy;
       if (updates.respondent !== undefined) dbUpdates.respondent = updates.respondent;
       if (updates.coordinates) { dbUpdates.latitude = updates.coordinates.lat; dbUpdates.longitude = updates.coordinates.lng; }
 
@@ -278,11 +291,84 @@ export function AssistanceProvider({ children }: { children: React.ReactNode }) 
     }
   };
 
+  const uploadAssistanceResolutionProof = async (id: string, file: File) => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return { error: "You must be logged in to upload proof" };
+      if (session.user?.user_metadata?.role !== "admin")
+        return { error: "Only admins can upload proof images" };
+
+      const allowedTypes = new Set(["image/jpeg", "image/jpg", "image/png", "image/webp"]);
+      const fileExt = file.name.split(".").pop()?.toLowerCase() || "";
+      const allowedExtensions = new Set(["jpg", "jpeg", "png", "webp"]);
+      if (!allowedTypes.has(file.type) || !allowedExtensions.has(fileExt)) {
+        return { error: "Please upload a JPG, JPEG, PNG, or WEBP image." };
+      }
+
+      const cacheKey = getCacheKeyFromSession(session);
+      const filePath = `assistance/${id}/${Date.now()}.${fileExt}`;
+      const uploadedAt = new Date().toISOString();
+
+      const { error: uploadError } = await supabase.storage
+        .from("resolution_proofs")
+        .upload(filePath, file, {
+          cacheControl: "3600",
+          upsert: true,
+          contentType: file.type,
+        });
+
+      if (uploadError) {
+        if (uploadError.message.includes("Bucket not found")) {
+          return {
+            error:
+              "Resolution proof storage is not configured. Please apply the Supabase migration.",
+          };
+        }
+        return { error: `Upload failed: ${uploadError.message}` };
+      }
+
+      const { data: { publicUrl } } = supabase.storage
+        .from("resolution_proofs")
+        .getPublicUrl(filePath);
+
+      const { data, error } = await supabase.from("assistance_requests")
+        .update({
+          resolution_proof_image: publicUrl,
+          resolution_proof_uploaded_at: uploadedAt,
+          resolution_proof_uploaded_by: session.user.id,
+        })
+        .eq("id", id)
+        .select()
+        .single();
+
+      if (error) {
+        await supabase.storage.from("resolution_proofs").remove([filePath]);
+        return { error: "Failed to save proof image to assistance request" };
+      }
+
+      const updates: Partial<AssistanceRequest> = {
+        resolutionProofImage: data.resolution_proof_image,
+        resolutionProofUploadedAt: data.resolution_proof_uploaded_at,
+        resolutionProofUploadedBy: data.resolution_proof_uploaded_by,
+      };
+
+      setAndCache((prev) => prev.map((request) =>
+        request.id === id ? { ...request, ...updates } : request
+      ), cacheKey);
+
+      toast.success("Resolution proof uploaded successfully");
+      return { url: publicUrl };
+    } catch {
+      return { error: "Failed to upload resolution proof" };
+    }
+  };
+
   return (
     <AssistanceContext.Provider value={{
       assistanceRequests, loading,
       addAssistanceRequest, updateAssistanceRequest,
-      deleteAssistanceRequest, fetchAssistanceRequests,
+      deleteAssistanceRequest, uploadAssistanceResolutionProof,
+      fetchAssistanceRequests,
     }}>
       {children}
     </AssistanceContext.Provider>

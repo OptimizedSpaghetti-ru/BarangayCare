@@ -52,6 +52,9 @@ interface Complaint {
   dateSubmitted: string;
   priority: "low" | "medium" | "high";
   adminNotes?: string;
+  resolutionProofImage?: string;
+  resolutionProofUploadedAt?: string;
+  resolutionProofUploadedBy?: string;
   respondent?: string;
   userId?: string;
   userName?: string;
@@ -528,6 +531,13 @@ export function UnifiedDashboard({
                         </div>
 
                         <div className="flex items-center space-x-3 justify-end sm:justify-end flex-shrink-0">
+                          {complaint.resolutionProofImage && (
+                            <ImageWithFallback
+                              src={complaint.resolutionProofImage}
+                              alt="Resolution proof"
+                              className="w-12 h-12 sm:w-16 sm:h-16 object-cover rounded-lg border border-green-200 dark:border-green-900 flex-shrink-0"
+                            />
+                          )}
                           {complaint.photo && (
                             <ImageWithFallback
                               src={complaint.photo}
@@ -702,6 +712,13 @@ export function UnifiedDashboard({
                         </div>
 
                         <div className="flex items-center space-x-3 justify-end flex-shrink-0">
+                          {request.resolutionProofImage && (
+                            <ImageWithFallback
+                              src={request.resolutionProofImage}
+                              alt="Resolution proof"
+                              className="w-12 h-12 sm:w-16 sm:h-16 object-cover rounded-lg border border-green-200 dark:border-green-900 flex-shrink-0"
+                            />
+                          )}
                           {request.photo && (
                             <ImageWithFallback
                               src={request.photo}
