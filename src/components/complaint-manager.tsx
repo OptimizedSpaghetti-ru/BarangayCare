@@ -634,20 +634,30 @@ export function ComplaintProvider({ children }: { children: React.ReactNode }) {
       const fileExt = file.name.split(".").pop()?.toLowerCase() || "";
       const allowedExtensions = new Set(["jpg", "jpeg", "png", "webp"]);
 
-      if (!allowedTypes.has(file.type) || !allowedExtensions.has(fileExt)) {
+      if (
+        (file.type && !allowedTypes.has(file.type)) ||
+        !allowedExtensions.has(fileExt)
+      ) {
         return { error: "Please upload a JPG, JPEG, PNG, or WEBP image." };
       }
 
       const cacheKey = getCacheKeyFromSession(session);
       const filePath = `complaints/${id}/${Date.now()}.${fileExt}`;
       const uploadedAt = new Date().toISOString();
+      const contentType =
+        file.type ||
+        (fileExt === "png"
+          ? "image/png"
+          : fileExt === "webp"
+            ? "image/webp"
+            : "image/jpeg");
 
       const { error: uploadError } = await supabase.storage
         .from("resolution_proofs")
         .upload(filePath, file, {
           cacheControl: "3600",
           upsert: true,
-          contentType: file.type,
+          contentType,
         });
 
       if (uploadError) {

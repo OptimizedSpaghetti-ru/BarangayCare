@@ -381,29 +381,42 @@ export function AdminPanel({
     const fileExt = file.name.split(".").pop()?.toLowerCase() || "";
     const allowedExtensions = new Set(["jpg", "jpeg", "png", "webp"]);
 
-    if (!allowedTypes.has(file.type) || !allowedExtensions.has(fileExt)) {
+    if (
+      (file.type && !allowedTypes.has(file.type)) ||
+      !allowedExtensions.has(fileExt)
+    ) {
       toast.error("Please upload a JPG, JPEG, PNG, or WEBP image.");
       return;
     }
 
-    setProofUploadingId(selectedComplaint.id);
-    const result =
-      typeFilter === "assistance"
-        ? await onUploadAssistanceResolutionProof?.(selectedComplaint.id, file)
-        : await onUploadComplaintResolutionProof?.(selectedComplaint.id, file);
+    try {
+      setProofUploadingId(selectedComplaint.id);
+      const result =
+        typeFilter === "assistance"
+          ? await onUploadAssistanceResolutionProof?.(
+              selectedComplaint.id,
+              file,
+            )
+          : await onUploadComplaintResolutionProof?.(
+              selectedComplaint.id,
+              file,
+            );
 
-    setProofUploadingId(null);
+      if (!result || result.error) {
+        toast.error(result?.error || "Proof image upload is not available.");
+        return;
+      }
 
-    if (!result || result.error) {
-      toast.error(result?.error || "Proof image upload is not available.");
-      return;
+      setSelectedComplaint({
+        ...selectedComplaint,
+        resolutionProofImage: result.url,
+        resolutionProofUploadedAt: new Date().toISOString(),
+      });
+    } catch {
+      toast.error("Failed to upload proof image.");
+    } finally {
+      setProofUploadingId(null);
     }
-
-    setSelectedComplaint({
-      ...selectedComplaint,
-      resolutionProofImage: result.url,
-      resolutionProofUploadedAt: new Date().toISOString(),
-    });
   };
 
   const handleConfirmDelete = async () => {
