@@ -39,7 +39,6 @@ A barangay service management system built with React, TypeScript, Vite, and Sup
 - **Pending Approval Enforcement** - New verified registrations remain pending until admin approval.
 - **Strict Contact Validation** - Contact numbers are normalized and validated as 11-digit numeric values.
 - **Real-Time Sync** - Complaint and assistance records refresh through Supabase realtime subscriptions and periodic foreground refresh.
-- **Pull-to-Refresh Support** - Mobile-friendly refresh behavior for current request data.
 - **Multi-Language Support** - English and Filipino translations through i18next.
 - **Responsive Interface** - Optimized for desktop and mobile layouts.
 - **Android Support (Capacitor)** - Mobile-ready build with local notifications, filesystem access, and native sharing.
