@@ -328,36 +328,6 @@ To make a user an admin, open **Supabase Dashboard > Authentication > Users**, s
 
 This project is private and proprietary.
 
-## 🙏 Acknowledgments
-
-- **Supabase** - For the amazing backend platform
-- **Radix UI** - For accessible component primitives
-- **Shadcn/ui** - For design inspiration
-- **Lucide** - For beautiful icons
-- **Tailwind CSS** - For the utility-first CSS framework
-- **React Team** - For the excellent UI library
-
-## 📞 Support
-
-For support and questions:
-
-- 📧 Email: [your-email@example.com]
-- 🐛 Issues: [GitHub Issues](https://github.com/OptimizedSpaghetti-ru/BarangayCare/issues)
-- 📖 Documentation: Check the `/src` directory for detailed guides
-
-## 🗺️ Roadmap
-
-- [ ] Mobile app (React Native)
-- [ ] SMS notifications
-- [ ] Multi-language support
-- [ ] Advanced analytics
-- [ ] Document management
-- [ ] Event scheduling
-- [ ] Payment integration
-- [ ] GIS mapping integration
-
 ---
 
-**Built with ❤️ for better barangay management**
-
-_Current Branch: Barangaycare-with-fixed-admin_
+Current Branch: Active Development
