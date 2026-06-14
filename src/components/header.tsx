@@ -3,6 +3,8 @@ import { Badge } from "./ui/badge";
 import {
   Home,
   PlusCircle,
+  Bell,
+  Map,
   Settings,
   MessageSquare,
   Moon,
@@ -13,19 +15,22 @@ import {
   Users,
   BarChart3,
   X,
+  Heart,
 } from "lucide-react";
 import { useTheme } from "./theme-provider";
 import { useAuth } from "./auth/auth-context";
 import { Sheet, SheetContent, SheetTrigger } from "./ui/sheet";
-import { Avatar, AvatarFallback } from "./ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 import { Separator } from "./ui/separator";
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 
 interface HeaderProps {
   currentView: string;
   onViewChange: (view: string) => void;
   isAdmin?: boolean;
   pendingCount?: number;
+  unreadNotificationCount?: number;
 }
 
 export function Header({
@@ -33,49 +38,62 @@ export function Header({
   onViewChange,
   isAdmin = false,
   pendingCount = 0,
+  unreadNotificationCount = 0,
 }: HeaderProps) {
+  const { t } = useTranslation();
   const { theme, toggleTheme } = useTheme();
   const { user, signOut } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
 
-  const navigationItems = [
-    {
-      key: "dashboard",
-      label: "Dashboard",
-      icon: Home,
-      shortLabel: "Home",
-    },
-  ];
+  const navigationItems = [];
 
-  // Only add Submit Request for non-admin users
+  // Only add Dashboard and Submit Request for non-admin users
   if (!isAdmin) {
     navigationItems.push({
+      key: "dashboard",
+      label: t("nav.dashboard"),
+      icon: Home,
+      shortLabel: t("nav.dashboard"),
+    });
+    navigationItems.push({
       key: "submit",
-      label: "Submit Request",
+      label: t("complaints.fileComplaint"),
       icon: PlusCircle,
-      shortLabel: "Submit",
+      shortLabel: t("common.submit"),
+    });
+    navigationItems.push({
+      key: "assistance",
+      label: t("assistance.requestAssistance"),
+      icon: Heart,
+      shortLabel: t("assistance.shortTitle"),
     });
   }
 
   if (isAdmin) {
     navigationItems.push({
       key: "admin",
-      label: "Admin Panel",
+      label: t("nav.admin"),
       icon: Settings,
-      shortLabel: "Admin",
+      shortLabel: t("admin.title"),
+    });
+    navigationItems.push({
+      key: "heatmap",
+      label: "Heatmap",
+      icon: Map,
+      shortLabel: "Heatmap",
     });
     navigationItems.push({
       key: "analytics",
-      label: "Data Analytics",
+      label: t("analytics.title"),
       icon: BarChart3,
-      shortLabel: "Analytics",
+      shortLabel: t("analytics.title"),
     });
     navigationItems.push({
       key: "users",
-      label: "User Management",
+      label: t("admin.userManagement"),
       icon: Users,
-      shortLabel: "Users",
+      shortLabel: t("admin.manageUsers"),
     });
   }
 
@@ -96,7 +114,7 @@ export function Header({
               className="flex items-center space-x-2 hover:opacity-80 transition-opacity"
             >
               <img
-                src="./icon/no-bg-icon.png"
+                src="/no-bg-icon.png"
                 alt="BarangayCARE Logo"
                 className="w-8 h-8 rounded-lg object-cover"
               />
@@ -125,6 +143,26 @@ export function Header({
                 </Button>
               ))}
 
+              <Button
+                variant={currentView === "notifications" ? "default" : "ghost"}
+                size="icon"
+                onClick={() => handleNavClick("notifications")}
+                className="relative"
+                aria-label="Open notifications"
+              >
+                <Bell className="w-4 h-4" />
+                {unreadNotificationCount > 0 && (
+                  <Badge
+                    variant="destructive"
+                    className="absolute top-0 right-0 -translate-y-1/2 translate-x-1/2 h-4 min-w-4 px-1 text-[9px] leading-none flex items-center justify-center"
+                  >
+                    {unreadNotificationCount > 99
+                      ? "99+"
+                      : unreadNotificationCount}
+                  </Badge>
+                )}
+              </Button>
+
               {/* Theme Toggle */}
               <Button
                 variant="ghost"
@@ -147,6 +185,12 @@ export function Header({
                   onClick={() => setProfileMenuOpen(true)}
                 >
                   <Avatar className="h-8 w-8">
+                    {user.profilePictureUrl && (
+                      <AvatarImage
+                        src={user.profilePictureUrl}
+                        alt={user.name}
+                      />
+                    )}
                     <AvatarFallback>
                       {user.name.charAt(0).toUpperCase()}
                     </AvatarFallback>
@@ -157,6 +201,26 @@ export function Header({
 
             {/* Mobile Navigation */}
             <div className="flex items-center space-x-2 md:hidden">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => handleNavClick("notifications")}
+                className="relative"
+                aria-label="Open notifications"
+              >
+                <Bell className="w-4 h-4" />
+                {unreadNotificationCount > 0 && (
+                  <Badge
+                    variant="destructive"
+                    className="absolute top-0 right-0 -translate-y-1/2 translate-x-1/2 h-4 min-w-4 px-1 text-[9px] leading-none flex items-center justify-center"
+                  >
+                    {unreadNotificationCount > 99
+                      ? "99+"
+                      : unreadNotificationCount}
+                  </Badge>
+                )}
+              </Button>
+
               <Button variant="ghost" size="icon" onClick={toggleTheme}>
                 {theme === "light" ? (
                   <Moon className="w-4 h-4" />
@@ -191,18 +255,39 @@ export function Header({
                       </Button>
                     ))}
 
+                    <Button
+                      variant={
+                        currentView === "notifications" ? "default" : "ghost"
+                      }
+                      onClick={() => handleNavClick("notifications")}
+                      className="flex items-center justify-start space-x-3 w-full"
+                      size="lg"
+                    >
+                      <Bell className="w-5 h-5" />
+                      <span>Notifications</span>
+                      {unreadNotificationCount > 0 && (
+                        <Badge variant="destructive" className="ml-auto">
+                          {unreadNotificationCount > 99
+                            ? "99+"
+                            : unreadNotificationCount}
+                        </Badge>
+                      )}
+                    </Button>
+
                     {user && (
                       <>
                         <div className="border-t border-border my-4"></div>
-                        <Button
-                          variant="ghost"
-                          onClick={() => handleNavClick("dashboard")}
-                          className="flex items-center justify-start space-x-3 w-full"
-                          size="lg"
-                        >
-                          <Home className="w-5 h-5" />
-                          <span>Dashboard</span>
-                        </Button>
+                        {!isAdmin && (
+                          <Button
+                            variant="ghost"
+                            onClick={() => handleNavClick("dashboard")}
+                            className="flex items-center justify-start space-x-3 w-full"
+                            size="lg"
+                          >
+                            <Home className="w-5 h-5" />
+                            <span>{t("nav.dashboard")}</span>
+                          </Button>
+                        )}
                         <Button
                           variant="ghost"
                           onClick={() => handleNavClick("profile")}
@@ -210,7 +295,7 @@ export function Header({
                           size="lg"
                         >
                           <User className="w-5 h-5" />
-                          <span>Profile</span>
+                          <span>{t("nav.profile")}</span>
                         </Button>
                         <Button
                           variant="ghost"
@@ -219,7 +304,7 @@ export function Header({
                           size="lg"
                         >
                           <Settings className="w-5 h-5" />
-                          <span>Settings</span>
+                          <span>{t("nav.settings")}</span>
                         </Button>
                         <Button
                           variant="ghost"
@@ -231,7 +316,7 @@ export function Header({
                           size="lg"
                         >
                           <LogOut className="w-5 h-5" />
-                          <span>Sign Out</span>
+                          <span>{t("auth.logout")}</span>
                         </Button>
                       </>
                     )}
@@ -250,11 +335,14 @@ export function Header({
             {/* Header */}
             <div className="p-6 bg-gradient-to-r from-primary to-accent text-primary-foreground">
               <div className="mb-4">
-                <h2 className="text-lg font-medium">Account</h2>
+                <h2 className="text-lg font-medium">{t("profile.title")}</h2>
               </div>
 
               <div className="flex items-center space-x-3">
                 <Avatar className="h-12 w-12">
+                  {user?.profilePictureUrl && (
+                    <AvatarImage src={user.profilePictureUrl} alt={user.name} />
+                  )}
                   <AvatarFallback className="text-lg">
                     {user?.name.charAt(0).toUpperCase()}
                   </AvatarFallback>
@@ -269,14 +357,16 @@ export function Header({
             {/* Navigation Items */}
             <div className="flex-1 p-4">
               <nav className="space-y-2">
-                <Button
-                  variant="ghost"
-                  onClick={() => handleNavClick("dashboard")}
-                  className="w-full justify-start space-x-3 h-12"
-                >
-                  <Home className="w-5 h-5" />
-                  <span>Dashboard</span>
-                </Button>
+                {!isAdmin && (
+                  <Button
+                    variant="ghost"
+                    onClick={() => handleNavClick("dashboard")}
+                    className="w-full justify-start space-x-3 h-12"
+                  >
+                    <Home className="w-5 h-5" />
+                    <span>{t("nav.dashboard")}</span>
+                  </Button>
+                )}
 
                 <Button
                   variant="ghost"
@@ -284,7 +374,7 @@ export function Header({
                   className="w-full justify-start space-x-3 h-12"
                 >
                   <User className="w-5 h-5" />
-                  <span>Profile</span>
+                  <span>{t("nav.profile")}</span>
                 </Button>
 
                 <Button
@@ -293,7 +383,7 @@ export function Header({
                   className="w-full justify-start space-x-3 h-12"
                 >
                   <Settings className="w-5 h-5" />
-                  <span>Settings</span>
+                  <span>{t("nav.settings")}</span>
                 </Button>
 
                 {!isAdmin && (
@@ -306,7 +396,16 @@ export function Header({
                       className="w-full justify-start space-x-3 h-12 text-primary"
                     >
                       <PlusCircle className="w-5 h-5" />
-                      <span>Submit Request</span>
+                      <span>{t("complaints.fileComplaint")}</span>
+                    </Button>
+
+                    <Button
+                      variant="ghost"
+                      onClick={() => handleNavClick("assistance")}
+                      className="w-full justify-start space-x-3 h-12 text-primary"
+                    >
+                      <Heart className="w-5 h-5" />
+                      <span>{t("assistance.submit")}</span>
                     </Button>
                   </>
                 )}
@@ -324,7 +423,7 @@ export function Header({
                 className="w-full justify-start space-x-3 h-12 text-destructive hover:text-destructive"
               >
                 <LogOut className="w-5 h-5" />
-                <span>Sign Out</span>
+                <span>{t("auth.logout")}</span>
               </Button>
             </div>
           </div>

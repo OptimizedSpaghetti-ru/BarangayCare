@@ -29,22 +29,53 @@ import {
   AlertTriangle,
   Camera,
   Upload,
+  Loader2,
 } from "lucide-react";
 import { useAuth } from "./auth-context";
 import { toast } from "sonner@2.0.3";
+import { getSupabaseClient } from "../../utils/supabase/client";
 
 export function ProfileManagement() {
-  const { user, updateProfile, deleteAccount, signOut, isAdmin } = useAuth();
+  const {
+    user,
+    updateProfile,
+    deleteAccount,
+    signOut,
+    isAdmin,
+    uploadProfilePicture,
+  } = useAuth();
   const [editMode, setEditMode] = useState(false);
   const [name, setName] = useState(user?.name || "");
   const [phoneNumber, setPhoneNumber] = useState(user?.phoneNumber || "");
+  const [phoneNumberError, setPhoneNumberError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [profilePicture, setProfilePicture] = useState<string | null>(null);
+
+  const normalizePhone = (value: string) =>
+    value.replace(/\D/g, "").slice(0, 11);
+
+  const validatePhone = (value: string): string | null => {
+    if (!value) return null;
+    if (!/^\d+$/.test(value)) {
+      return "Phone number must contain digits only";
+    }
+    if (value.length !== 11) {
+      return "Phone number must be exactly 11 digits";
+    }
+    return null;
+  };
 
   const handleSaveProfile = async () => {
     if (!name.trim()) {
       toast.error("Name is required");
+      return;
+    }
+
+    const phoneValidation = validatePhone(phoneNumber.trim());
+    if (phoneValidation) {
+      setPhoneNumberError(phoneValidation);
+      toast.error(phoneValidation);
       return;
     }
 
@@ -77,22 +108,38 @@ export function ProfileManagement() {
   const handleCancelEdit = () => {
     setName(user?.name || "");
     setPhoneNumber(user?.phoneNumber || "");
+    setPhoneNumberError(null);
     setEditMode(false);
   };
 
-  const handleProfilePictureUpload = () => {
+  const handleProfilePictureUpload = async () => {
     const input = document.createElement("input");
     input.type = "file";
     input.accept = "image/*";
-    input.onchange = (e) => {
+    input.onchange = async (e) => {
       const file = (e.target as HTMLInputElement).files?.[0];
       if (file) {
-        const reader = new FileReader();
-        reader.onload = (event) => {
-          setProfilePicture(event.target?.result as string);
-          toast.success("Profile picture updated!");
-        };
-        reader.readAsDataURL(file);
+        // Validate file size (max 5MB)
+        if (file.size > 5 * 1024 * 1024) {
+          toast.error("Image size must be less than 5MB");
+          return;
+        }
+
+        // Validate file type
+        if (!file.type.startsWith("image/")) {
+          toast.error("Please select a valid image file");
+          return;
+        }
+
+        setUploadingImage(true);
+        const { error } = await uploadProfilePicture(file);
+        setUploadingImage(false);
+
+        if (error) {
+          toast.error(error);
+        } else {
+          toast.success("Profile picture updated successfully!");
+        }
       }
     };
     input.click();
@@ -130,11 +177,17 @@ export function ProfileManagement() {
           <div className="flex items-center space-x-4">
             <div className="relative">
               <div className="w-20 h-20 rounded-full bg-primary flex items-center justify-center text-white text-2xl overflow-hidden">
-                {profilePicture ? (
+                {user?.profilePictureUrl ? (
                   <img
-                    src={profilePicture}
+                    src={user.profilePictureUrl}
                     alt="Profile"
                     className="w-full h-full object-cover"
+                    onError={(e) => {
+                      // Fallback to initials if image fails to load
+                      e.currentTarget.style.display = "none";
+                      e.currentTarget.parentElement!.textContent =
+                        user?.name?.charAt(0).toUpperCase() || "?";
+                    }}
                   />
                 ) : (
                   user?.name?.charAt(0).toUpperCase()
@@ -145,8 +198,13 @@ export function ProfileManagement() {
                 size="sm"
                 className="absolute -bottom-2 -right-2 rounded-full w-8 h-8 p-0"
                 onClick={handleProfilePictureUpload}
+                disabled={uploadingImage}
               >
-                <Camera className="w-4 h-4" />
+                {uploadingImage ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Camera className="w-4 h-4" />
+                )}
               </Button>
             </div>
             <div className="space-y-1">
@@ -155,9 +213,19 @@ export function ProfileManagement() {
                 variant="outline"
                 size="sm"
                 onClick={handleProfilePictureUpload}
+                disabled={uploadingImage}
               >
-                <Upload className="w-4 h-4 mr-2" />
-                Change Picture
+                {uploadingImage ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Uploading...
+                  </>
+                ) : (
+                  <>
+                    <Upload className="w-4 h-4 mr-2" />
+                    Change Picture
+                  </>
+                )}
               </Button>
             </div>
           </div>
@@ -186,15 +254,30 @@ export function ProfileManagement() {
               {editMode ? (
                 <Input
                   id="phone"
+                  type="tel"
+                  inputMode="numeric"
+                  maxLength={11}
                   value={phoneNumber}
-                  onChange={(e) => setPhoneNumber(e.target.value)}
+                  onChange={(e) => {
+                    const normalized = normalizePhone(e.target.value);
+                    setPhoneNumber(normalized);
+                    setPhoneNumberError(validatePhone(normalized));
+                  }}
                   placeholder="Enter your phone number"
+                  className={
+                    phoneNumberError
+                      ? "border-destructive focus-visible:ring-destructive"
+                      : ""
+                  }
                 />
               ) : (
                 <div className="flex items-center space-x-2 p-3 bg-muted rounded-md">
                   <Phone className="w-4 h-4 text-muted-foreground" />
                   <span>{user.phoneNumber || "Not provided"}</span>
                 </div>
+              )}
+              {editMode && phoneNumberError && (
+                <p className="text-xs text-destructive">{phoneNumberError}</p>
               )}
             </div>
           </div>

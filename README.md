@@ -1,397 +1,330 @@
-# BarangayCare 🏘️
+# BarangayCare
 
-A comprehensive barangay management system built with React, TypeScript, and Supabase. This application enables residents to submit complaints and barangay administrators to manage and respond to community issues in real-time.
+A barangay service management system built with React, TypeScript, Vite, and Supabase. BarangayCare helps residents and guests submit complaints or assistance requests, while administrators manage submissions, verify accounts, review analytics, and monitor request locations in real time.
 
 ![Version](https://img.shields.io/badge/version-0.1.0-blue.svg)
 ![React](https://img.shields.io/badge/React-18.3.1-61dafb.svg)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178c6.svg)
 ![Supabase](https://img.shields.io/badge/Supabase-2.x-3ECF8E.svg)
 
-## 📋 Table of Contents
-
-- [Features](#-features)
-- [Tech Stack](#-tech-stack)
-- [Prerequisites](#-prerequisites)
-- [Installation](#-installation)
-- [Database Setup](#-database-setup)
-- [Environment Variables](#-environment-variables)
-- [Running the Application](#-running-the-application)
-- [Project Structure](#-project-structure)
-- [User Roles](#-user-roles)
-- [Available Scripts](#-available-scripts)
-- [Troubleshooting](#-troubleshooting)
-- [Contributing](#-contributing)
-- [License](#-license)
-
-## ✨ Features
+## Features
 
 ### For Residents
 
-- 📝 **Submit Complaints** - Report barangay issues with photos and location details
-- 👁️ **Track Status** - Monitor complaint progress in real-time
-- 👤 **Profile Management** - Update personal information and settings
-- 📊 **View History** - Access all submitted complaints and their statuses
+- **Complaint Submission** - Report barangay concerns with required photo evidence, contact validation, and optional pinned map location.
+- **Assistance Submission** - Request barangay support for health services, emergencies, financial aid, medical assistance, senior citizen support, PWD assistance, food assistance, disaster relief, burial assistance, and scholarship or educational assistance.
+- **Unified Dashboard** - View complaints and assistance requests together with searchable, filterable request lists and combined status totals.
+- **Status Tracking** - Track pending, in-progress, resolved, and rejected requests with admin notes.
+- **In-App Notifications** - Receive complaint and assistance activity updates with unread/read tracking.
+- **Profile and Settings** - Manage profile details, language preference, notifications, theme, and resident settings.
+
+### For Guests
+
+- **Anonymous Submission Mode** - Continue as guest and submit either a complaint or assistance request without creating an account.
+- **Guest Request Labels** - Anonymous submissions are recorded with generated names such as `Anonymous001`.
+- **Photo and Contact Requirements** - Guest submissions follow the same evidence and 11-digit contact number validation as resident submissions.
 
 ### For Administrators
 
-- 🎯 **Complaint Management** - Review, prioritize, and respond to complaints
-- 📈 **Data Analytics** - Visualize complaint trends and statistics
-- 👥 **User Management** - Manage resident accounts and permissions
-- 🔄 **Real-time Updates** - Instant synchronization across all devices
-- 🎨 **Admin Dashboard** - Centralized control panel for all operations
+- **Complaint and Assistance Management** - Review, filter, prioritize, update status, add admin notes, and delete eligible records.
+- **Address Verification Workflow** - Approve or reject pending accounts after reviewing submitted ID documents.
+- **Combined Heatmap Dashboard** - View geotagged complaints and assistance requests together, with category filtering.
+- **Data Analytics** - Analyze complaint and assistance volume, status breakdowns, categories, trends, insights, and CSV exports.
+- **User Management** - Manage resident accounts, permissions, and account verification state.
+- **Native Notifications** - Send local notification updates on Android for important request activity.
 
 ### General Features
 
-- 🔐 **Secure Authentication** - User signup, login, and role-based access control
-- 🌓 **Dark/Light Mode** - Toggle between themes for comfortable viewing
-- 📱 **Responsive Design** - Works seamlessly on desktop, tablet, and mobile
-- ☁️ **Cloud Storage** - All data securely stored in Supabase
-- 🔄 **Real-time Sync** - Automatic updates without page refresh
+- **Role-Based Access Control** - Separate resident, guest, and admin capabilities.
+- **Pending Approval Enforcement** - New verified registrations remain pending until admin approval.
+- **Strict Contact Validation** - Contact numbers are normalized and validated as 11-digit numeric values.
+- **Real-Time Sync** - Complaint and assistance records refresh through Supabase realtime subscriptions and periodic foreground refresh.
+- **Pull-to-Refresh Support** - Mobile-friendly refresh behavior for current request data.
+- **Multi-Language Support** - English and Filipino translations through i18next.
+- **Responsive Interface** - Optimized for desktop and mobile layouts.
+- **Android Support (Capacitor)** - Mobile-ready build with local notifications, filesystem access, and native sharing.
 
-## 🛠️ Tech Stack
+## Tech Stack
 
 ### Frontend
 
 - **React 18.3.1** - UI library
 - **TypeScript** - Type-safe JavaScript
-- **Vite** - Fast build tool and dev server
-- **Tailwind CSS** - Utility-first CSS framework
+- **Vite 6** - Build tool and development server
+- **Tailwind CSS** - Utility-first styling
 - **Radix UI** - Accessible component primitives
-- **Lucide React** - Beautiful icon set
-- **Recharts** - Charting library for analytics
+- **Lucide React** - Icon library
+- **Recharts** - Analytics charts
+- **Leaflet and leaflet.heat** - Mapping and heatmap visualization
 - **React Hook Form** - Form validation and management
+- **i18next / react-i18next** - Localization
 - **Sonner** - Toast notifications
 
-### Backend & Database
+### Backend and Database
 
-- **Supabase** - Backend-as-a-Service (PostgreSQL database, authentication, real-time subscriptions)
-- **Row Level Security (RLS)** - Database-level access control
+- **Supabase** - PostgreSQL database, authentication, realtime subscriptions, and storage-ready backend services
+- **Supabase Edge Functions with Hono** - Registration and account management endpoints
+- **Row Level Security (RLS)** - Database-level access policies for users, complaints, and assistance requests
 
-### UI Components
+### Mobile
 
-- Custom component library built with Radix UI primitives
-- Shadcn/ui inspired design system
-- Fully accessible and keyboard navigable
+- **Capacitor Android** - Native Android packaging and runtime integration
+- **Capacitor Local Notifications** - Native notification delivery for request activity
+- **Capacitor Filesystem and Share** - Native analytics export and sharing
 
-## 📦 Prerequisites
+## Prerequisites
 
-Before you begin, ensure you have the following installed:
+- **Node.js** v16 or higher
+- **npm**, **yarn**, or **pnpm**
+- **Supabase project**
+- **Android Studio** for Android builds
 
-- **Node.js** (v16.x or higher)
-- **npm** or **yarn** or **pnpm**
-- **Supabase Account** (free tier available at [supabase.com](https://supabase.com))
+## Installation
 
-## 🚀 Installation
-
-1. **Clone the repository**
+1. Clone the repository:
 
    ```bash
    git clone https://github.com/OptimizedSpaghetti-ru/BarangayCare.git
    cd BarangayCare
    ```
 
-2. **Install dependencies**
+2. Install dependencies:
 
    ```bash
    npm install
-   # or
-   yarn install
-   # or
-   pnpm install
    ```
 
-3. **Set up environment variables**
+3. Create a local environment file:
 
-   Create a `.env` file in the root directory:
+   ```bash
+   cp .env.development.example .env.local
+   ```
+
+4. Add your Supabase frontend credentials:
 
    ```env
-   VITE_SUPABASE_URL=your_supabase_project_url
-   VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
+   VITE_SUPABASE_URL=https://your-project.supabase.co
+   VITE_SUPABASE_ANON_KEY=your_anon_key_here
+   VITE_APP_MODE=development
    ```
 
-   You can find these credentials in your Supabase project settings:
+   Supabase values are available in **Supabase Dashboard > Project Settings > API**.
 
-   - Go to [supabase.com/dashboard](https://supabase.com/dashboard)
-   - Select your project
-   - Navigate to **Settings** → **API**
-   - Copy **Project URL** and **anon/public key**
+## Database Setup
 
-## 🗄️ Database Setup
+Run the SQL files that match your environment from the Supabase SQL Editor or your migration pipeline.
 
-### Quick Setup (5 Minutes)
+### Core Migrations
 
-1. **Open Supabase SQL Editor**
+- `src/supabase/migrations/enable_rls.sql` - Enables RLS for users and complaints.
+- `src/supabase/migrations/add_address_verification.sql` - Adds account approval and submitted ID verification fields.
+- `src/supabase/migrations/add_complaints_delete_admin_policy.sql` - Allows admins to delete complaints.
+- `src/supabase/migrations/add_device_push_tokens.sql` - Adds push notification token support.
+- `src/supabase/migrations/add_performance_indexes.sql` - Adds indexes for request and account queries.
 
-   - Go to your [Supabase Dashboard](https://supabase.com/dashboard)
-   - Select your project
-   - Click **SQL Editor** in the left sidebar
-   - Click **New Query**
+### Assistance Requests
 
-2. **Run the setup script**
+Run the assistance migration before using the new assistance submission flow:
 
-   - Open `src/utils/supabase/setup-database.sql` in your project
-   - Copy all contents
-   - Paste into the SQL editor
-   - Click **Run**
+- `supabase/assistance_requests_migration.sql` - Creates the `assistance_requests` table, indexes, policies, and realtime publication entry.
+- `src/supabase/migrations/add_assistance_requests_rls.sql` - Applies the RLS policy set for authenticated users, admins, service role, and guest submissions.
 
-   > **Note:** If you encounter permission errors and already ran an old script, use `src/utils/supabase/fix-policies.sql` instead.
+### Optional Data and Auth Utilities
 
-3. **Enable Real-time**
+- `supabase/mock_data.sql` - Seeds sample complaints and assistance requests for local testing.
+- `supabase/toggle_otp_email.sql` - Helps switch OTP/email confirmation behavior for development or production.
+- `docs/address-verification-setup.md` - Documents address verification setup and endpoint behavior.
 
-   - Go to **Database** → **Replication**
-   - Find the `complaints` table
-   - Toggle **Replication** ON
+### Realtime
 
-4. **Create an Admin User**
+Enable realtime replication for:
 
-   - Go to **Authentication** → **Users**
-   - Sign up through the app first
-   - Find your user in the dashboard
-   - Click on the user
-   - In the **User Metadata** section, add:
-     ```json
-     {
-       "role": "admin",
-       "name": "Your Name"
-     }
-     ```
-   - Click **Save**
+- `complaints`
+- `assistance_requests`
 
-5. **Verify Setup**
-   - ✅ Table `complaints` exists in Table Editor
-   - ✅ 6 RLS policies are active (Database → Policies)
-   - ✅ Real-time replication is enabled
-   - ✅ At least one admin user is configured
+## Running the Application
 
-### Detailed Documentation
-
-For comprehensive database setup instructions, migration guides, and troubleshooting:
-
-- 📖 [Quick Start Guide](src/QUICK_START_DATABASE.md)
-- 📘 [Complete Database Setup](src/utils/supabase/DATABASE_SETUP_GUIDE.md)
-- 🔧 [Troubleshooting](src/TROUBLESHOOTING_DATABASE.md)
-- 🔄 [Migration from localStorage](src/utils/supabase/migrate-localStorage.tsx)
-
-## 🔐 Environment Variables
-
-Create a `.env` file in the root directory with the following variables:
-
-```env
-# Supabase Configuration
-VITE_SUPABASE_URL=https://your-project.supabase.co
-VITE_SUPABASE_ANON_KEY=your-anon-key-here
-```
-
-**Where to find these values:**
-
-1. Log into [Supabase Dashboard](https://supabase.com/dashboard)
-2. Select your project
-3. Go to **Settings** → **API**
-4. Copy the **Project URL** and **anon/public** key
-
-## 🎮 Running the Application
-
-### Development Mode
+### Development
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
 ```
 
-The application will start at `http://localhost:5173` (or another port if 5173 is busy).
+The app starts at `http://localhost:5173`.
 
-### Build for Production
+### Production Build
 
 ```bash
 npm run build
-# or
-yarn build
-# or
-pnpm build
 ```
 
-### Preview Production Build
+### Android
 
 ```bash
-npm run preview
-# or
-yarn preview
-# or
-pnpm preview
+npm run android:sync
+npm run android:open
 ```
 
-## 📁 Project Structure
+To build a debug APK:
 
+```bash
+npm run android:build
 ```
+
+To deploy Supabase edge function updates:
+
+```powershell
+.\deploy-functions.ps1
+```
+
+## Available Scripts
+
+| Command                 | Description                                     |
+| ----------------------- | ----------------------------------------------- |
+| `npm run dev`           | Start the Vite development server on port 5173  |
+| `npm run build`         | Build the app for production                    |
+| `npm run vercel-build`  | Install clean dependencies and build for Vercel |
+| `npm run android:add`   | Add the Android Capacitor platform              |
+| `npm run android:sync`  | Build web assets and sync them to Android       |
+| `npm run android:open`  | Open the Android project in Android Studio      |
+| `npm run android:build` | Build a debug Android APK                       |
+| `deploy-functions.ps1`  | Deploy Supabase edge function updates           |
+
+## Project Structure
+
+```text
 BarangayCare/
-├── icon/                           # Application icons and assets
-├── src/
-│   ├── components/
-│   │   ├── auth/                  # Authentication components
-│   │   │   ├── auth-context.tsx   # Auth state management
-│   │   │   ├── login-form.tsx     # Login interface
-│   │   │   ├── signup-form.tsx    # Registration interface
-│   │   │   ├── profile-management.tsx
-│   │   │   └── user-management.tsx
-│   │   ├── figma/                 # Custom components
-│   │   │   └── ImageWithFallback.tsx
-│   │   ├── ui/                    # Reusable UI components
-│   │   │   ├── button.tsx
-│   │   │   ├── card.tsx
-│   │   │   ├── dialog.tsx
-│   │   │   ├── form.tsx
-│   │   │   └── ... (30+ components)
-│   │   ├── admin-panel.tsx        # Admin control center
-│   │   ├── complaint-form.tsx     # Complaint submission
-│   │   ├── complaint-manager.tsx  # Complaint state management
-│   │   ├── data-analytics.tsx     # Analytics dashboard
-│   │   ├── header.tsx             # App header/navigation
-│   │   ├── migration-helper.tsx   # Data migration utility
-│   │   ├── resident-settings.tsx  # User settings
-│   │   ├── theme-provider.tsx     # Dark/light mode
-│   │   └── unified-dashboard.tsx  # Main dashboard
-│   ├── guidelines/
-│   │   └── Guidelines.md          # Development guidelines
-│   ├── styles/
-│   │   └── globals.css            # Global styles
-│   ├── supabase/
-│   │   └── functions/             # Serverless functions
-│   ├── utils/
-│   │   └── supabase/
-│   │       ├── client.tsx         # Supabase client setup
-│   │       ├── info.tsx           # Database info
-│   │       ├── setup-database.sql # Database schema
-│   │       ├── fix-policies.sql   # RLS policy fixes
-│   │       ├── migrate-localStorage.tsx
-│   │       └── DATABASE_SETUP_GUIDE.md
-│   ├── App.tsx                    # Main application component
-│   ├── main.tsx                   # Application entry point
-│   ├── index.css                  # Base styles
-│   ├── QUICK_START_DATABASE.md    # Quick setup guide
-│   ├── SUPABASE_DATABASE_README.md
-│   ├── TROUBLESHOOTING_DATABASE.md
-│   └── Attributions.md            # Third-party credits
-├── index.html                     # HTML template
-├── package.json                   # Dependencies and scripts
-├── vite.config.ts                 # Vite configuration
-├── tsconfig.json                  # TypeScript configuration
-└── README.md                      # This file
+|-- android/                         # Capacitor Android project
+|-- docs/
+|   `-- address-verification-setup.md
+|-- public/                          # Static public assets
+|-- src/
+|   |-- components/
+|   |   |-- auth/                    # Auth, profile, and user management
+|   |   |-- ui/                      # Reusable Radix/shadcn-style UI components
+|   |   |-- admin-panel.tsx          # Admin complaint and assistance management
+|   |   |-- assistance-form.tsx      # Assistance request submission
+|   |   |-- assistance-manager.tsx   # Assistance request state and Supabase sync
+|   |   |-- complaint-form.tsx       # Complaint submission
+|   |   |-- complaint-manager.tsx    # Complaint state and Supabase sync
+|   |   |-- data-analytics.tsx       # Complaint and assistance analytics
+|   |   |-- heatmap-dashboard.tsx    # Combined heatmap page
+|   |   |-- heatmap-panel.tsx        # Leaflet heatmap rendering
+|   |   |-- language-toggle.tsx      # Language switcher
+|   |   |-- map-picker.tsx           # Location picker
+|   |   `-- unified-dashboard.tsx    # Resident dashboard
+|   |-- config/
+|   |   |-- auth-mode.ts
+|   |   `-- categories.ts            # Complaint and assistance categories
+|   |-- i18n/
+|   |   |-- config.ts
+|   |   `-- locales/                 # English and Filipino translations
+|   |-- supabase/
+|   |   |-- functions/               # Edge function source
+|   |   `-- migrations/              # SQL migrations
+|   |-- utils/
+|   |   `-- supabase/                # Supabase client and project info
+|   |-- App.tsx
+|   `-- main.tsx
+|-- supabase/
+|   |-- assistance_requests_migration.sql
+|   |-- mock_data.sql
+|   `-- toggle_otp_email.sql
+|-- package.json
+|-- capacitor.config.json
+|-- vite.config.ts
+`-- README.md
 ```
 
-## 👥 User Roles
+## User Roles
 
-### Resident (Default)
+### Guest
 
-- Submit and view own complaints
-- Update personal profile
-- Track complaint status
-- View barangay information
+- Submit anonymous complaints.
+- Submit anonymous assistance requests.
+- Cannot track request status after leaving guest mode.
+
+### Resident
+
+- Register with OTP and submit account verification requirements.
+- Submit and view own complaints.
+- Submit and view own assistance requests.
+- Track request status and admin responses.
+- Receive in-app and supported native notifications.
+- Update profile and settings.
 
 ### Admin
 
-- All resident permissions
-- View all complaints from all users
-- Update complaint status and priority
-- Manage user accounts
-- Access analytics dashboard
-- Respond to complaints
+- View all complaints and assistance requests.
+- Update status, priority, and admin notes.
+- Delete eligible complaint and assistance records.
+- Review and verify pending registrations.
+- Access combined analytics and heatmap dashboards.
+- Manage users and account permissions.
 
-**To make a user an admin:**
+To make a user an admin, open **Supabase Dashboard > Authentication > Users**, select the user, and add this metadata:
 
-1. Go to Supabase Dashboard → Authentication → Users
-2. Click on the user
-3. Add to User Metadata: `{"role": "admin", "name": "Admin Name"}`
+```json
+{
+  "role": "admin",
+  "name": "Admin Name"
+}
+```
 
-## 📜 Available Scripts
+## Troubleshooting
 
-| Command           | Description                |
-| ----------------- | -------------------------- |
-| `npm run dev`     | Start development server   |
-| `npm run build`   | Build for production       |
-| `npm run preview` | Preview production build   |
-| `npm run lint`    | Run ESLint (if configured) |
+### Assistance requests do not submit
 
-## 🔧 Troubleshooting
+- Confirm `assistance_requests` exists.
+- Run `supabase/assistance_requests_migration.sql`.
+- Run `src/supabase/migrations/add_assistance_requests_rls.sql`.
+- Check that the form has a title, category, description, address, required photo/document, and valid 11-digit contact number.
 
-### Common Issues
+### Requests do not update in real time
 
-**1. Can't submit complaints**
+- Enable realtime replication for `complaints` and `assistance_requests`.
+- Confirm Supabase credentials in `.env.local`.
+- Restart the development server after changing environment variables.
 
-- Ensure you're logged in
-- Check that the database is set up correctly
-- Verify RLS policies are active
+### Permission denied errors
 
-**2. Real-time updates not working**
+- Confirm RLS policies have been applied for users, complaints, and assistance requests.
+- Confirm admin users have `role: "admin"` in auth metadata.
+- Check Supabase logs for policy or JWT metadata issues.
 
-- Enable replication for the `complaints` table in Supabase
-- Check your internet connection
-- Verify Supabase credentials in `.env`
+### Android notifications do not appear
 
-**3. Permission denied errors**
+- Confirm notification permission is granted on the device.
+- Rebuild and sync Android after dependency or configuration changes.
+- Check the app notification settings in Android system settings.
 
-- Run `fix-policies.sql` to update RLS policies
-- Ensure your user has the correct role
-- Check Supabase logs for detailed errors
+### Build errors
 
-**4. Build errors**
+- Delete `node_modules` and `package-lock.json`.
+- Run `npm install`.
+- Confirm Node.js is v16 or higher.
 
-- Delete `node_modules` and `package-lock.json`
-- Run `npm install` again
-- Ensure Node.js version is 16.x or higher
+## Customization
 
-**5. Supabase connection issues**
-
-- Verify `.env` file exists and contains correct credentials
-- Check that environment variables start with `VITE_`
-- Restart the development server after changing `.env`
-
-### Need More Help?
-
-- 📖 Check the [Troubleshooting Guide](src/TROUBLESHOOTING_DATABASE.md)
-- 🐛 [Open an issue](https://github.com/OptimizedSpaghetti-ru/BarangayCare/issues)
-- 📧 Contact the development team
-
-## 🎨 Customization
-
-### Theming
-
-The application supports dark and light modes. Theme configuration is in `src/components/theme-provider.tsx`.
-
-### Styling
-
+- Theme provider: `src/components/theme-provider.tsx`
 - Global styles: `src/styles/globals.css`
-- Component styles: Tailwind CSS classes
-- Custom components: `src/components/ui/`
+- Shared categories: `src/config/categories.ts`
+- Translations: `src/i18n/locales/en.ts` and `src/i18n/locales/fil.ts`
+- Supabase client: `src/utils/supabase/client.tsx`
 
-### Adding New Features
+## Roadmap
 
-1. Create components in `src/components/`
-2. Add routing logic in `App.tsx`
-3. Update database schema in `setup-database.sql`
-4. Add RLS policies for new tables
+- [x] Android app packaging with Capacitor
+- [x] In-app notification center with unread badge
+- [x] Native Android local notifications
+- [x] Complaint and assistance heatmap dashboard
+- [x] Assistance request submission and admin management
+- [x] Guest complaint and assistance submission
+- [x] Email OTP registration flow with pending approval
+- [x] Multi-language support
+- [x] Analytics export for web and Android
 
-## 🤝 Contributing
-
-Contributions are welcome! Please follow these steps:
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
-
-### Development Guidelines
-
-- Follow TypeScript best practices
-- Use existing UI components when possible
-- Maintain accessibility standards
-- Write clean, documented code
-- Test on multiple devices and browsers
-
-## 📄 License
+## License
 
 This project is private and proprietary.
 
@@ -413,17 +346,18 @@ For support and questions:
 - 📖 Documentation: Check the `/src` directory for detailed guides
 
 ## 🗺️ Roadmap
-- [ ] Profile Picture Integration
-- [ ] Multi-language support
-- [ ] 2FA Email
-- [ ] Mobile app (Capacitor)
+
+- [ ] Mobile app (React Native)
 - [ ] SMS notifications
+- [ ] Multi-language support
 - [ ] Advanced analytics
 - [ ] Document management
 - [ ] Event scheduling
+- [ ] Payment integration
 - [ ] GIS mapping integration
-- [ ] Offline Use
+
 ---
 
+**Built with ❤️ for better barangay management**
 
-_Current Branch: Barangaycare Guest Account_
+_Current Branch: Barangaycare-with-fixed-admin_

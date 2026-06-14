@@ -1,4 +1,11 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import type { ChangeEvent } from "react";
+import { useTranslation } from "react-i18next";
+import {
+  COMPLAINT_CATEGORIES,
+  ASSISTANCE_CATEGORIES,
+} from "../config/categories";
+import type { AssistanceRequest } from "./assistance-manager";
 import {
   Card,
   CardContent,
@@ -28,12 +35,23 @@ import {
 import { Textarea } from "./ui/textarea";
 import {
   Dialog,
+  DialogClose,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
 } from "./ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "./ui/alert-dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
 import { Calendar } from "./ui/calendar";
 import {
@@ -45,13 +63,22 @@ import {
   XCircle,
   CalendarIcon,
   X,
+  Settings,
+  Map,
+  RefreshCw,
+  Trash2,
+  Upload,
+  Save,
 } from "lucide-react";
 import { ImageWithFallback } from "./figma/ImageWithFallback";
+import { TicketBadge } from "./ticket-badge";
 import { format, parse, isValid } from "date-fns";
 import type { DateRange } from "react-day-picker";
+import { toast } from "sonner";
 
 interface Complaint {
   id: string;
+  ticketId?: string;
   title: string;
   description: string;
   category: string;
@@ -62,31 +89,85 @@ interface Complaint {
   dateSubmitted: string;
   priority: "low" | "medium" | "high";
   adminNotes?: string;
+  resolutionProofImage?: string;
+  resolutionProofUploadedAt?: string;
+  resolutionProofUploadedBy?: string;
   respondent?: string;
   userId?: string;
   userName?: string;
+  latitude?: number;
+  longitude?: number;
+  coordinates?: { lat: number; lng: number };
 }
 
 interface AdminPanelProps {
   complaints: Complaint[];
+  assistanceRequests?: AssistanceRequest[];
   onUpdateComplaint: (id: string, updates: Partial<Complaint>) => void;
+  onDeleteComplaint: (id: string) => Promise<{ error?: string }>;
+  onUpdateAssistance?: (
+    id: string,
+    updates: Partial<AssistanceRequest>,
+  ) => Promise<{ error?: string }>;
+  onDeleteAssistance?: (id: string) => Promise<{ error?: string }>;
+  onUploadComplaintResolutionProof?: (
+    id: string,
+    file: File,
+  ) => Promise<{ error?: string; url?: string }>;
+  onUploadAssistanceResolutionProof?: (
+    id: string,
+    file: File,
+  ) => Promise<{ error?: string; url?: string }>;
+  onRefresh?: () => Promise<void> | void;
+  refreshing?: boolean;
+  onOpenHeatmap?: () => void;
 }
 
-export function AdminPanel({ complaints, onUpdateComplaint }: AdminPanelProps) {
+export function AdminPanel({
+  complaints,
+  assistanceRequests = [],
+  onUpdateComplaint,
+  onDeleteComplaint,
+  onUpdateAssistance,
+  onDeleteAssistance,
+  onUploadComplaintResolutionProof,
+  onUploadAssistanceResolutionProof,
+  onRefresh,
+  refreshing = false,
+  onOpenHeatmap,
+}: AdminPanelProps) {
+  const { t } = useTranslation();
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [categoryFilter, setCategoryFilter] = useState("all");
+  const [typeFilter, setTypeFilter] = useState<"complaint" | "assistance">(
+    "complaint",
+  );
   const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
   const [manualStartDate, setManualStartDate] = useState("");
   const [manualEndDate, setManualEndDate] = useState("");
   const [datePopoverOpen, setDatePopoverOpen] = useState(false);
   const [selectedComplaint, setSelectedComplaint] = useState<Complaint | null>(
-    null
+    null,
   );
   const [adminNotes, setAdminNotes] = useState("");
+  const proofInputRef = useRef<HTMLInputElement | null>(null);
+  const [proofUploadingId, setProofUploadingId] = useState<string | null>(null);
   const [selectedPriority, setSelectedPriority] = useState<
     "low" | "medium" | "high"
   >("medium");
+  const [deleteTarget, setDeleteTarget] = useState<Complaint | null>(null);
+  const availableCategories =
+    typeFilter === "complaint" ? COMPLAINT_CATEGORIES : ASSISTANCE_CATEGORIES;
+
+  useEffect(() => {
+    if (
+      categoryFilter !== "all" &&
+      !availableCategories.some((category) => category.value === categoryFilter)
+    ) {
+      setCategoryFilter("all");
+    }
+  }, [availableCategories, categoryFilter]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -131,7 +212,7 @@ export function AdminPanel({ complaints, onUpdateComplaint }: AdminPanelProps) {
     }
   };
 
-  const filteredComplaints = complaints.filter((complaint) => {
+  const baseComplaints = complaints.filter((complaint) => {
     // Enhanced search - search across all text fields including complainant name
     const searchLower = searchTerm.toLowerCase();
     const matchesSearch =
@@ -141,6 +222,7 @@ export function AdminPanel({ complaints, onUpdateComplaint }: AdminPanelProps) {
       complaint.location.toLowerCase().includes(searchLower) ||
       complaint.category.toLowerCase().includes(searchLower) ||
       complaint.status.toLowerCase().includes(searchLower) ||
+      (complaint.ticketId || "").toLowerCase().includes(searchLower) ||
       complaint.contactInfo.toLowerCase().includes(searchLower) ||
       (complaint.userName &&
         complaint.userName.toLowerCase().includes(searchLower)) ||
@@ -149,8 +231,6 @@ export function AdminPanel({ complaints, onUpdateComplaint }: AdminPanelProps) {
       (complaint.adminNotes &&
         complaint.adminNotes.toLowerCase().includes(searchLower));
 
-    const matchesStatus =
-      statusFilter === "all" || complaint.status === statusFilter;
     const matchesCategory =
       categoryFilter === "all" || complaint.category === categoryFilter;
 
@@ -173,24 +253,76 @@ export function AdminPanel({ complaints, onUpdateComplaint }: AdminPanelProps) {
       }
     }
 
-    return matchesSearch && matchesStatus && matchesCategory && matchesDate;
+    return matchesSearch && matchesCategory && matchesDate;
   });
 
-  const handleStatusUpdate = (complaintId: string, newStatus: string) => {
-    onUpdateComplaint(complaintId, { status: newStatus as any });
-    // Update the selected complaint to reflect the change immediately
-    if (selectedComplaint && selectedComplaint.id === complaintId) {
+  const filteredComplaints = baseComplaints.filter(
+    (complaint) => statusFilter === "all" || complaint.status === statusFilter,
+  );
+
+  const baseAssistance = assistanceRequests.filter((req) => {
+    const searchLower = searchTerm.toLowerCase();
+    const matchesSearch =
+      !searchTerm ||
+      req.title.toLowerCase().includes(searchLower) ||
+      req.description.toLowerCase().includes(searchLower) ||
+      req.location.toLowerCase().includes(searchLower) ||
+      req.category.toLowerCase().includes(searchLower) ||
+      req.status.toLowerCase().includes(searchLower) ||
+      (req.ticketId || "").toLowerCase().includes(searchLower) ||
+      req.contactInfo.toLowerCase().includes(searchLower) ||
+      (req.userName && req.userName.toLowerCase().includes(searchLower)) ||
+      (req.respondent && req.respondent.toLowerCase().includes(searchLower)) ||
+      (req.adminNotes && req.adminNotes.toLowerCase().includes(searchLower));
+
+    const matchesCategory =
+      categoryFilter === "all" || req.category === categoryFilter;
+
+    let matchesDate = true;
+    if (dateRange?.from) {
+      const reqDate = new Date(req.dateSubmitted);
+      reqDate.setHours(0, 0, 0, 0);
+
+      const fromDate = new Date(dateRange.from);
+      fromDate.setHours(0, 0, 0, 0);
+
+      if (dateRange.to) {
+        const toDate = new Date(dateRange.to);
+        toDate.setHours(23, 59, 59, 999);
+        matchesDate = reqDate >= fromDate && reqDate <= toDate;
+      } else {
+        matchesDate = reqDate.toDateString() === fromDate.toDateString();
+      }
+    }
+
+    return matchesSearch && matchesCategory && matchesDate;
+  });
+
+  const filteredAssistance = baseAssistance.filter(
+    (req) => statusFilter === "all" || req.status === statusFilter,
+  );
+
+  const handleStatusUpdate = (id: string, newStatus: string) => {
+    if (typeFilter === "assistance") {
+      void onUpdateAssistance?.(id, { status: newStatus as any });
+    } else {
+      onUpdateComplaint(id, { status: newStatus as any });
+    }
+    if (selectedComplaint && selectedComplaint.id === id) {
       setSelectedComplaint({ ...selectedComplaint, status: newStatus as any });
     }
   };
 
   const handlePriorityUpdate = (
-    complaintId: string,
-    newPriority: "low" | "medium" | "high"
+    id: string,
+    newPriority: "low" | "medium" | "high",
   ) => {
-    onUpdateComplaint(complaintId, { priority: newPriority });
-    // Update the selected complaint to reflect the change immediately
-    if (selectedComplaint && selectedComplaint.id === complaintId) {
+    if (typeFilter === "assistance") {
+      void onUpdateAssistance?.(id, { priority: newPriority });
+    } else {
+      onUpdateComplaint(id, { priority: newPriority });
+    }
+    if (selectedComplaint && selectedComplaint.id === id) {
       setSelectedComplaint({ ...selectedComplaint, priority: newPriority });
     }
   };
@@ -224,32 +356,219 @@ export function AdminPanel({ complaints, onUpdateComplaint }: AdminPanelProps) {
   };
 
   const handleSaveNotes = () => {
-    if (selectedComplaint) {
+    if (!selectedComplaint) return;
+    if (typeFilter === "assistance") {
+      void onUpdateAssistance?.(selectedComplaint.id, { adminNotes });
+    } else {
       onUpdateComplaint(selectedComplaint.id, { adminNotes });
-      setSelectedComplaint({ ...selectedComplaint, adminNotes });
+    }
+    setSelectedComplaint({ ...selectedComplaint, adminNotes });
+  };
+
+  const handleProofFileChange = async (
+    event: ChangeEvent<HTMLInputElement>,
+  ) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file || !selectedComplaint) return;
+
+    const allowedTypes = new Set([
+      "image/jpeg",
+      "image/jpg",
+      "image/png",
+      "image/webp",
+    ]);
+    const fileExt = file.name.split(".").pop()?.toLowerCase() || "";
+    const allowedExtensions = new Set(["jpg", "jpeg", "png", "webp"]);
+
+    if (
+      (file.type && !allowedTypes.has(file.type)) ||
+      !allowedExtensions.has(fileExt)
+    ) {
+      toast.error("Please upload a JPG, JPEG, PNG, or WEBP image.");
+      return;
+    }
+
+    try {
+      setProofUploadingId(selectedComplaint.id);
+      const result =
+        typeFilter === "assistance"
+          ? await onUploadAssistanceResolutionProof?.(
+              selectedComplaint.id,
+              file,
+            )
+          : await onUploadComplaintResolutionProof?.(
+              selectedComplaint.id,
+              file,
+            );
+
+      if (!result || result.error) {
+        toast.error(result?.error || "Proof image upload is not available.");
+        return;
+      }
+
+      setSelectedComplaint({
+        ...selectedComplaint,
+        resolutionProofImage: result.url,
+        resolutionProofUploadedAt: new Date().toISOString(),
+      });
+    } catch {
+      toast.error("Failed to upload proof image.");
+    } finally {
+      setProofUploadingId(null);
     }
   };
 
+  const handleConfirmDelete = async () => {
+    if (!deleteTarget) return;
+
+    if (typeFilter === "assistance") {
+      const { error } = await onDeleteAssistance?.(deleteTarget.id as string);
+      if (error) return;
+    } else {
+      const { error } = await onDeleteComplaint(deleteTarget.id);
+      if (error) return;
+    }
+
+    if (selectedComplaint?.id === deleteTarget.id) {
+      setSelectedComplaint(null);
+      setAdminNotes("");
+    }
+
+    setDeleteTarget(null);
+  };
+
+  const renderAdminNotesAndProof = () => {
+    const isProofUploading =
+      Boolean(selectedComplaint) && proofUploadingId === selectedComplaint?.id;
+
+    return (
+      <div className="space-y-3 rounded-lg border border-border bg-muted/20 p-3">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <label className="font-medium">Admin Notes:</label>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="h-9 rounded-md border-primary/30 px-3 text-primary hover:bg-primary/10 dark:border-primary/40 dark:text-primary-foreground dark:hover:bg-primary/20"
+            disabled={!selectedComplaint || isProofUploading}
+            onClick={() => proofInputRef.current?.click()}
+          >
+            <Upload
+              className={`mr-2 h-4 w-4 ${isProofUploading ? "animate-pulse" : ""}`}
+            />
+            {isProofUploading ? "Uploading..." : "Upload Proof Image"}
+          </Button>
+        </div>
+
+        <Textarea
+          value={adminNotes}
+          onChange={(e) => setAdminNotes(e.target.value)}
+          placeholder="Add notes about this request..."
+          rows={3}
+        />
+
+        {selectedComplaint?.resolutionProofImage && (
+          <div className="space-y-2">
+            <p className="text-xs font-medium text-muted-foreground">
+              Resolution proof image
+            </p>
+            <ImageWithFallback
+              src={selectedComplaint.resolutionProofImage}
+              alt="Resolution proof"
+              className="w-full max-h-72 rounded-lg border border-border object-contain bg-background"
+            />
+          </div>
+        )}
+
+        <div className="flex flex-wrap gap-2 pt-1">
+          <DialogClose asChild>
+            <Button
+              onClick={handleSaveNotes}
+              size="sm"
+              className="h-9 rounded-md px-4 shadow-sm transition-colors hover:bg-primary/90"
+            >
+              <Save className="mr-2 h-4 w-4" />
+              Save Notes
+            </Button>
+          </DialogClose>
+          <DialogClose asChild>
+            <Button
+              variant="destructive"
+              size="sm"
+              className="h-9 rounded-md px-4 shadow-sm transition-colors hover:bg-destructive/90 dark:bg-red-600 dark:text-white dark:hover:bg-red-500"
+              onClick={() => {
+                if (!selectedComplaint) return;
+                setDeleteTarget(selectedComplaint);
+              }}
+            >
+              <Trash2 className="mr-2 h-4 w-4" />
+              Delete Request
+            </Button>
+          </DialogClose>
+        </div>
+      </div>
+    );
+  };
+
+  const activeRequests =
+    typeFilter === "assistance" ? filteredAssistance : filteredComplaints;
+  const statsSource =
+    typeFilter === "assistance" ? baseAssistance : baseComplaints;
+
   const stats = {
-    total: complaints.length,
-    pending: complaints.filter((c) => c.status === "pending").length,
-    inProgress: complaints.filter((c) => c.status === "in-progress").length,
-    resolved: complaints.filter((c) => c.status === "resolved").length,
-    rejected: complaints.filter((c) => c.status === "rejected").length,
+    total: statsSource.length,
+    pending: statsSource.filter((c) => c.status === "pending").length,
+    inProgress: statsSource.filter((c) => c.status === "in-progress").length,
+    resolved: statsSource.filter((c) => c.status === "resolved").length,
+    rejected: statsSource.filter((c) => c.status === "rejected").length,
   };
 
   return (
     <div className="space-y-6">
+      <input
+        ref={proofInputRef}
+        type="file"
+        accept="image/jpeg,image/jpg,image/png,image/webp"
+        className="sr-only"
+        tabIndex={-1}
+        onChange={handleProofFileChange}
+      />
       <div className="bg-gradient-to-r from-secondary to-primary text-secondary-foreground p-4 sm:p-6 rounded-lg">
-        <h1 className="text-xl sm:text-2xl">Admin Dashboard</h1>
-        <p className="mt-2 opacity-90 text-sm sm:text-base">
-          Manage community requests and track resolution progress
-        </p>
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h1 className="text-xl sm:text-2xl flex items-center gap-2">
+              <Settings className="w-6 h-6" />
+              Admin Panel
+            </h1>
+            <p className="mt-2 opacity-90 text-sm sm:text-base">
+              Manage community requests and track resolution progress
+            </p>
+          </div>
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            className="shrink-0"
+            onClick={() => void onRefresh?.()}
+            disabled={refreshing}
+          >
+            <RefreshCw
+              className={`w-4 h-4 mr-2 ${refreshing ? "animate-spin" : ""}`}
+            />
+            Refresh
+          </Button>
+        </div>
       </div>
 
       {/* Statistics Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
-        <Card>
+        <Card
+          className={`cursor-pointer transition-all duration-300 hover:bg-primary/5 hover:border-primary/50 active:scale-95 ${
+            statusFilter === "all" ? "ring-2 ring-primary bg-primary/10" : ""
+          }`}
+          onClick={() => setStatusFilter("all")}
+        >
           <CardHeader className="pb-2 sm:pb-3">
             <CardTitle className="text-xs sm:text-sm">Total</CardTitle>
           </CardHeader>
@@ -260,7 +579,14 @@ export function AdminPanel({ complaints, onUpdateComplaint }: AdminPanelProps) {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card
+          className={`cursor-pointer transition-all duration-300 hover:bg-yellow-500/5 hover:border-yellow-500/50 active:scale-95 ${
+            statusFilter === "pending"
+              ? "ring-2 ring-yellow-500 bg-yellow-500/10"
+              : ""
+          }`}
+          onClick={() => setStatusFilter("pending")}
+        >
           <CardHeader className="pb-2 sm:pb-3">
             <CardTitle className="text-xs sm:text-sm">Pending</CardTitle>
           </CardHeader>
@@ -271,7 +597,14 @@ export function AdminPanel({ complaints, onUpdateComplaint }: AdminPanelProps) {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card
+          className={`cursor-pointer transition-all duration-300 hover:bg-blue-500/5 hover:border-blue-500/50 active:scale-95 ${
+            statusFilter === "in-progress"
+              ? "ring-2 ring-blue-500 bg-blue-500/10"
+              : ""
+          }`}
+          onClick={() => setStatusFilter("in-progress")}
+        >
           <CardHeader className="pb-2 sm:pb-3">
             <CardTitle className="text-xs sm:text-sm">In Progress</CardTitle>
           </CardHeader>
@@ -282,7 +615,14 @@ export function AdminPanel({ complaints, onUpdateComplaint }: AdminPanelProps) {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card
+          className={`cursor-pointer transition-all duration-300 hover:bg-green-500/5 hover:border-green-500/50 active:scale-95 ${
+            statusFilter === "resolved"
+              ? "ring-2 ring-green-500 bg-green-500/10"
+              : ""
+          }`}
+          onClick={() => setStatusFilter("resolved")}
+        >
           <CardHeader className="pb-2 sm:pb-3">
             <CardTitle className="text-xs sm:text-sm">Resolved</CardTitle>
           </CardHeader>
@@ -293,7 +633,14 @@ export function AdminPanel({ complaints, onUpdateComplaint }: AdminPanelProps) {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card
+          className={`cursor-pointer transition-all duration-300 hover:bg-red-500/5 hover:border-red-500/50 active:scale-95 ${
+            statusFilter === "rejected"
+              ? "ring-2 ring-red-500 bg-red-500/10"
+              : ""
+          }`}
+          onClick={() => setStatusFilter("rejected")}
+        >
           <CardHeader className="pb-2 sm:pb-3">
             <CardTitle className="text-xs sm:text-sm">Rejected</CardTitle>
           </CardHeader>
@@ -305,6 +652,34 @@ export function AdminPanel({ complaints, onUpdateComplaint }: AdminPanelProps) {
         </Card>
       </div>
 
+      {/* Heatmap access */}
+      <Card>
+        <CardContent className="py-4 flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <Map className="w-5 h-5 text-primary" />
+            <div>
+              <p className="text-sm font-medium">
+                Complaint and Assistance Heatmap
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {
+                  [...complaints, ...assistanceRequests].filter(
+                    (request) =>
+                      (request.latitude != null && request.longitude != null) ||
+                      (request.coordinates?.lat != null &&
+                        request.coordinates?.lng != null),
+                  ).length
+                }{" "}
+                requests with location pins
+              </p>
+            </div>
+          </div>
+          <Button type="button" variant="outline" onClick={onOpenHeatmap}>
+            Open Heatmap Page
+          </Button>
+        </CardContent>
+      </Card>
+
       {/* Filters */}
       <Card>
         <CardHeader>
@@ -314,11 +689,36 @@ export function AdminPanel({ complaints, onUpdateComplaint }: AdminPanelProps) {
           </CardDescription>
         </CardHeader>
         <CardContent>
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <Button
+                size="sm"
+                variant={typeFilter === "complaint" ? "default" : "outline"}
+                onClick={() => setTypeFilter("complaint")}
+              >
+                Complaints
+              </Button>
+              <Button
+                size="sm"
+                variant={typeFilter === "assistance" ? "default" : "outline"}
+                onClick={() => setTypeFilter("assistance")}
+              >
+                Assistance
+              </Button>
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">
+                Showing:{" "}
+                {typeFilter === "complaint" ? "Complaints" : "Assistance"}
+              </p>
+            </div>
+          </div>
+
           <div className="flex flex-col gap-3 sm:gap-4 mb-6">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
               <Input
-                placeholder="Search across all fields (title, description, location, category, status, complainant, respondent, notes)..."
+                placeholder="Search across all fields (ticket ID, title, description, location, category, status, complainant, respondent, notes)..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-10 pr-20"
@@ -361,20 +761,16 @@ export function AdminPanel({ complaints, onUpdateComplaint }: AdminPanelProps) {
               </Select>
 
               <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                <SelectTrigger className="w-full sm:w-40">
+                <SelectTrigger className="w-full sm:w-44">
                   <SelectValue placeholder="Category" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Categories</SelectItem>
-                  <SelectItem value="infrastructure">Infrastructure</SelectItem>
-                  <SelectItem value="sanitation">Sanitation</SelectItem>
-                  <SelectItem value="utilities">Utilities</SelectItem>
-                  <SelectItem value="security">Security</SelectItem>
-                  <SelectItem value="health">Health</SelectItem>
-                  <SelectItem value="emergency">Emergency</SelectItem>
-                  <SelectItem value="civil-disputes">Civil Disputes</SelectItem>
-                  <SelectItem value="minor-criminal">Minor Crime</SelectItem>
-                  <SelectItem value="other">Other</SelectItem>
+                  {availableCategories.map((c) => (
+                    <SelectItem key={c.value} value={c.value}>
+                      {c.label}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
 
@@ -448,11 +844,11 @@ export function AdminPanel({ complaints, onUpdateComplaint }: AdminPanelProps) {
                         {dateRange.to
                           ? `Showing requests from ${format(
                               dateRange.from,
-                              "MMM dd"
+                              "MMM dd",
                             )} to ${format(dateRange.to, "MMM dd, yyyy")}`
                           : `Showing requests on ${format(
                               dateRange.from,
-                              "MMM dd, yyyy"
+                              "MMM dd, yyyy",
                             )}`}
                       </p>
                       <Button
@@ -481,6 +877,7 @@ export function AdminPanel({ complaints, onUpdateComplaint }: AdminPanelProps) {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Request</TableHead>
+                    <TableHead>Ticket</TableHead>
                     <TableHead>Complainant</TableHead>
                     <TableHead>Category</TableHead>
                     <TableHead>Location</TableHead>
@@ -491,7 +888,7 @@ export function AdminPanel({ complaints, onUpdateComplaint }: AdminPanelProps) {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredComplaints.map((complaint) => (
+                  {activeRequests.map((complaint) => (
                     <TableRow key={complaint.id}>
                       <TableCell>
                         <div className="max-w-48">
@@ -502,6 +899,9 @@ export function AdminPanel({ complaints, onUpdateComplaint }: AdminPanelProps) {
                             {complaint.description}
                           </div>
                         </div>
+                      </TableCell>
+                      <TableCell>
+                        <TicketBadge ticketId={complaint.ticketId} showPending />
                       </TableCell>
                       <TableCell>
                         <div className="max-w-32 truncate">
@@ -517,7 +917,7 @@ export function AdminPanel({ complaints, onUpdateComplaint }: AdminPanelProps) {
                       <TableCell>
                         <Badge
                           className={`${getStatusColor(
-                            complaint.status
+                            complaint.status,
                           )} border-0`}
                         >
                           <div className="flex items-center space-x-1">
@@ -529,7 +929,7 @@ export function AdminPanel({ complaints, onUpdateComplaint }: AdminPanelProps) {
                       <TableCell>
                         <div
                           className={`w-3 h-3 rounded-full ${getPriorityColor(
-                            complaint.priority
+                            complaint.priority,
                           )}`}
                         />
                       </TableCell>
@@ -537,12 +937,12 @@ export function AdminPanel({ complaints, onUpdateComplaint }: AdminPanelProps) {
                         <div className="text-xs">
                           <div>
                             {new Date(
-                              complaint.dateSubmitted
+                              complaint.dateSubmitted,
                             ).toLocaleDateString()}
                           </div>
                           <div className="text-muted-foreground">
                             {new Date(
-                              complaint.dateSubmitted
+                              complaint.dateSubmitted,
                             ).toLocaleTimeString("en-US", {
                               hour: "numeric",
                               minute: "2-digit",
@@ -552,287 +952,298 @@ export function AdminPanel({ complaints, onUpdateComplaint }: AdminPanelProps) {
                         </div>
                       </TableCell>
                       <TableCell>
-                        <Dialog>
-                          <DialogTrigger asChild>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => {
-                                setSelectedComplaint(complaint);
-                                setAdminNotes(complaint.adminNotes || "");
-                                setSelectedPriority(complaint.priority);
-                              }}
-                            >
-                              Manage
-                            </Button>
-                          </DialogTrigger>
-                          <DialogContent className="max-w-2xl">
-                            <DialogHeader>
-                              <DialogTitle>Manage Request</DialogTitle>
-                              <DialogDescription>
-                                Update status and add administrative notes
-                              </DialogDescription>
-                            </DialogHeader>
+                        <div className="flex items-center gap-2">
+                          <Dialog>
+                            <DialogTrigger asChild>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                  setSelectedComplaint(complaint);
+                                  setAdminNotes(complaint.adminNotes || "");
+                                  setSelectedPriority(complaint.priority);
+                                }}
+                              >
+                                Manage
+                              </Button>
+                            </DialogTrigger>
+                            <DialogContent className="max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
+                              <DialogHeader className="flex-shrink-0">
+                                <DialogTitle>Manage Request</DialogTitle>
+                                <DialogDescription>
+                                  Update status and add administrative notes
+                                </DialogDescription>
+                              </DialogHeader>
 
-                            {selectedComplaint && (
-                              <div className="space-y-4">
-                                <div>
-                                  <h3 className="font-medium">
-                                    {selectedComplaint.title}
-                                  </h3>
-                                  <p className="text-sm text-gray-600 mt-1">
-                                    {selectedComplaint.description}
-                                  </p>
-                                </div>
+                              {selectedComplaint && (
+                                <div className="space-y-4 overflow-y-auto flex-1 pr-2">
+                                  <div>
+                                    <h3 className="font-medium">
+                                      {selectedComplaint.title}
+                                    </h3>
+                                    <div className="mt-2">
+                                      <TicketBadge
+                                        ticketId={selectedComplaint.ticketId}
+                                        showPending
+                                      />
+                                    </div>
+                                    <p className="text-sm text-gray-600 mt-1">
+                                      {selectedComplaint.description}
+                                    </p>
+                                  </div>
 
-                                <div className="grid grid-cols-2 gap-4 text-sm">
-                                  <div>
-                                    <span className="font-medium">
-                                      Complainant:
-                                    </span>{" "}
-                                    {selectedComplaint.userName || "Unknown"}
-                                  </div>
-                                  <div>
-                                    <span className="font-medium">
-                                      Category:
-                                    </span>{" "}
-                                    {selectedComplaint.category}
-                                  </div>
-                                  <div>
-                                    <span className="font-medium">
-                                      Location:
-                                    </span>{" "}
-                                    {selectedComplaint.location}
-                                  </div>
-                                  <div>
-                                    <span className="font-medium">
-                                      Contact:
-                                    </span>{" "}
-                                    {selectedComplaint.contactInfo}
-                                  </div>
-                                  <div>
-                                    <span className="font-medium">
-                                      Submitted At:
-                                    </span>{" "}
-                                    {new Date(
-                                      selectedComplaint.dateSubmitted
-                                    ).toLocaleString("en-US", {
-                                      month: "short",
-                                      day: "numeric",
-                                      year: "numeric",
-                                      hour: "numeric",
-                                      minute: "2-digit",
-                                      hour12: true,
-                                    })}
-                                  </div>
-                                  {selectedComplaint.respondent && (
+                                  <div className="grid grid-cols-2 gap-4 text-sm">
                                     <div>
                                       <span className="font-medium">
-                                        Respondent:
+                                        Complainant:
                                       </span>{" "}
-                                      {selectedComplaint.respondent}
+                                      {selectedComplaint.userName || "Unknown"}
+                                    </div>
+                                    <div>
+                                      <span className="font-medium">
+                                        Category:
+                                      </span>{" "}
+                                      {selectedComplaint.category}
+                                    </div>
+                                    <div>
+                                      <span className="font-medium">
+                                        Location:
+                                      </span>{" "}
+                                      {selectedComplaint.location}
+                                    </div>
+                                    <div>
+                                      <span className="font-medium">
+                                        Contact:
+                                      </span>{" "}
+                                      {selectedComplaint.contactInfo}
+                                    </div>
+                                    <div>
+                                      <span className="font-medium">
+                                        Submitted At:
+                                      </span>{" "}
+                                      {new Date(
+                                        selectedComplaint.dateSubmitted,
+                                      ).toLocaleString("en-US", {
+                                        month: "short",
+                                        day: "numeric",
+                                        year: "numeric",
+                                        hour: "numeric",
+                                        minute: "2-digit",
+                                        hour12: true,
+                                      })}
+                                    </div>
+                                    {selectedComplaint.respondent && (
+                                      <div>
+                                        <span className="font-medium">
+                                          Respondent:
+                                        </span>{" "}
+                                        {selectedComplaint.respondent}
+                                      </div>
+                                    )}
+                                  </div>
+
+                                  {selectedComplaint.photo && (
+                                    <div>
+                                      <label className="font-medium">
+                                        Photo Evidence:
+                                      </label>
+                                      <div className="mt-2 w-full">
+                                        <ImageWithFallback
+                                          src={selectedComplaint.photo}
+                                          alt="Request evidence"
+                                          className="rounded-lg w-full max-w-full h-auto max-h-[400px] object-contain"
+                                        />
+                                      </div>
                                     </div>
                                   )}
-                                </div>
 
-                                {selectedComplaint.photo && (
-                                  <div>
+                                  <div className="space-y-2">
                                     <label className="font-medium">
-                                      Photo Evidence:
+                                      Update Status:
                                     </label>
-                                    <ImageWithFallback
-                                      src={selectedComplaint.photo}
-                                      alt="Request evidence"
-                                      className="mt-2 rounded-lg max-w-md"
-                                    />
-                                  </div>
-                                )}
-
-                                <div className="space-y-2">
-                                  <label className="font-medium">
-                                    Update Status:
-                                  </label>
-                                  <div className="flex space-x-2">
-                                    <Button
-                                      variant={
-                                        selectedComplaint.status === "pending"
-                                          ? "default"
-                                          : "outline"
-                                      }
-                                      size="sm"
-                                      onClick={() =>
-                                        handleStatusUpdate(
-                                          selectedComplaint.id,
-                                          "pending"
-                                        )
-                                      }
-                                      className={
-                                        selectedComplaint.status === "pending"
-                                          ? "bg-yellow-500 hover:bg-yellow-600 text-white"
-                                          : ""
-                                      }
-                                    >
-                                      Pending
-                                    </Button>
-                                    <Button
-                                      variant={
-                                        selectedComplaint.status ===
-                                        "in-progress"
-                                          ? "default"
-                                          : "outline"
-                                      }
-                                      size="sm"
-                                      onClick={() =>
-                                        handleStatusUpdate(
-                                          selectedComplaint.id,
+                                    <div className="flex space-x-2">
+                                      <Button
+                                        variant={
+                                          selectedComplaint.status === "pending"
+                                            ? "default"
+                                            : "outline"
+                                        }
+                                        size="sm"
+                                        onClick={() =>
+                                          handleStatusUpdate(
+                                            selectedComplaint.id,
+                                            "pending",
+                                          )
+                                        }
+                                        className={
+                                          selectedComplaint.status === "pending"
+                                            ? "bg-yellow-500 hover:bg-yellow-600 text-white"
+                                            : ""
+                                        }
+                                      >
+                                        Pending
+                                      </Button>
+                                      <Button
+                                        variant={
+                                          selectedComplaint.status ===
                                           "in-progress"
-                                        )
-                                      }
-                                      className={
-                                        selectedComplaint.status ===
-                                        "in-progress"
-                                          ? "bg-blue-500 hover:bg-blue-600 text-white"
-                                          : ""
-                                      }
-                                    >
-                                      In Progress
-                                    </Button>
-                                    <Button
-                                      variant={
-                                        selectedComplaint.status === "resolved"
-                                          ? "default"
-                                          : "outline"
-                                      }
-                                      size="sm"
-                                      onClick={() =>
-                                        handleStatusUpdate(
-                                          selectedComplaint.id,
+                                            ? "default"
+                                            : "outline"
+                                        }
+                                        size="sm"
+                                        onClick={() =>
+                                          handleStatusUpdate(
+                                            selectedComplaint.id,
+                                            "in-progress",
+                                          )
+                                        }
+                                        className={
+                                          selectedComplaint.status ===
+                                          "in-progress"
+                                            ? "bg-blue-500 hover:bg-blue-600 text-white"
+                                            : ""
+                                        }
+                                      >
+                                        In Progress
+                                      </Button>
+                                      <Button
+                                        variant={
+                                          selectedComplaint.status ===
                                           "resolved"
-                                        )
-                                      }
-                                      className={
-                                        selectedComplaint.status === "resolved"
-                                          ? "bg-green-500 hover:bg-green-600 text-white"
-                                          : ""
-                                      }
-                                    >
-                                      Resolved
-                                    </Button>
-                                    <Button
-                                      variant={
-                                        selectedComplaint.status === "rejected"
-                                          ? "default"
-                                          : "outline"
-                                      }
-                                      size="sm"
-                                      onClick={() =>
-                                        handleStatusUpdate(
-                                          selectedComplaint.id,
+                                            ? "default"
+                                            : "outline"
+                                        }
+                                        size="sm"
+                                        onClick={() =>
+                                          handleStatusUpdate(
+                                            selectedComplaint.id,
+                                            "resolved",
+                                          )
+                                        }
+                                        className={
+                                          selectedComplaint.status ===
+                                          "resolved"
+                                            ? "bg-green-500 hover:bg-green-600 text-white"
+                                            : ""
+                                        }
+                                      >
+                                        Resolved
+                                      </Button>
+                                      <Button
+                                        variant={
+                                          selectedComplaint.status ===
                                           "rejected"
-                                        )
-                                      }
-                                      className={
-                                        selectedComplaint.status === "rejected"
-                                          ? "bg-red-500 hover:bg-red-600 text-white"
-                                          : ""
-                                      }
-                                    >
-                                      Rejected
-                                    </Button>
+                                            ? "default"
+                                            : "outline"
+                                        }
+                                        size="sm"
+                                        onClick={() =>
+                                          handleStatusUpdate(
+                                            selectedComplaint.id,
+                                            "rejected",
+                                          )
+                                        }
+                                        className={
+                                          selectedComplaint.status ===
+                                          "rejected"
+                                            ? "bg-red-500 hover:bg-red-600 text-white"
+                                            : ""
+                                        }
+                                      >
+                                        Rejected
+                                      </Button>
+                                    </div>
                                   </div>
-                                </div>
 
-                                <div className="space-y-2">
-                                  <label className="font-medium">
-                                    Update Priority:
-                                  </label>
-                                  <div className="flex space-x-2">
-                                    <Button
-                                      variant={
-                                        selectedComplaint.priority === "low"
-                                          ? "default"
-                                          : "outline"
-                                      }
-                                      size="sm"
-                                      onClick={() =>
-                                        handlePriorityUpdate(
-                                          selectedComplaint.id,
-                                          "low"
-                                        )
-                                      }
-                                      className={
-                                        selectedComplaint.priority === "low"
-                                          ? "bg-green-500 hover:bg-green-600 text-white"
-                                          : ""
-                                      }
-                                    >
-                                      Low
-                                    </Button>
-                                    <Button
-                                      variant={
-                                        selectedComplaint.priority === "medium"
-                                          ? "default"
-                                          : "outline"
-                                      }
-                                      size="sm"
-                                      onClick={() =>
-                                        handlePriorityUpdate(
-                                          selectedComplaint.id,
+                                  <div className="space-y-2">
+                                    <label className="font-medium">
+                                      Update Priority:
+                                    </label>
+                                    <div className="flex space-x-2">
+                                      <Button
+                                        variant={
+                                          selectedComplaint.priority === "low"
+                                            ? "default"
+                                            : "outline"
+                                        }
+                                        size="sm"
+                                        onClick={() =>
+                                          handlePriorityUpdate(
+                                            selectedComplaint.id,
+                                            "low",
+                                          )
+                                        }
+                                        className={
+                                          selectedComplaint.priority === "low"
+                                            ? "bg-green-500 hover:bg-green-600 text-white"
+                                            : ""
+                                        }
+                                      >
+                                        Low
+                                      </Button>
+                                      <Button
+                                        variant={
+                                          selectedComplaint.priority ===
                                           "medium"
-                                        )
-                                      }
-                                      className={
-                                        selectedComplaint.priority === "medium"
-                                          ? "bg-yellow-500 hover:bg-yellow-600 text-white"
-                                          : ""
-                                      }
-                                    >
-                                      Medium
-                                    </Button>
-                                    <Button
-                                      variant={
-                                        selectedComplaint.priority === "high"
-                                          ? "default"
-                                          : "outline"
-                                      }
-                                      size="sm"
-                                      onClick={() =>
-                                        handlePriorityUpdate(
-                                          selectedComplaint.id,
-                                          "high"
-                                        )
-                                      }
-                                      className={
-                                        selectedComplaint.priority === "high"
-                                          ? "bg-red-500 hover:bg-red-600 text-white"
-                                          : ""
-                                      }
-                                    >
-                                      High
-                                    </Button>
+                                            ? "default"
+                                            : "outline"
+                                        }
+                                        size="sm"
+                                        onClick={() =>
+                                          handlePriorityUpdate(
+                                            selectedComplaint.id,
+                                            "medium",
+                                          )
+                                        }
+                                        className={
+                                          selectedComplaint.priority ===
+                                          "medium"
+                                            ? "bg-yellow-500 hover:bg-yellow-600 text-white"
+                                            : ""
+                                        }
+                                      >
+                                        Medium
+                                      </Button>
+                                      <Button
+                                        variant={
+                                          selectedComplaint.priority === "high"
+                                            ? "default"
+                                            : "outline"
+                                        }
+                                        size="sm"
+                                        onClick={() =>
+                                          handlePriorityUpdate(
+                                            selectedComplaint.id,
+                                            "high",
+                                          )
+                                        }
+                                        className={
+                                          selectedComplaint.priority === "high"
+                                            ? "bg-red-500 hover:bg-red-600 text-white"
+                                            : ""
+                                        }
+                                      >
+                                        High
+                                      </Button>
+                                    </div>
                                   </div>
-                                </div>
 
-                                <div className="space-y-2">
-                                  <label className="font-medium">
-                                    Admin Notes:
-                                  </label>
-                                  <Textarea
-                                    value={adminNotes}
-                                    onChange={(e) =>
-                                      setAdminNotes(e.target.value)
-                                    }
-                                    placeholder="Add notes about this request..."
-                                    rows={3}
-                                  />
-                                  <Button onClick={handleSaveNotes} size="sm">
-                                    Save Notes
-                                  </Button>
+                                  {renderAdminNotesAndProof()}
                                 </div>
-                              </div>
-                            )}
-                          </DialogContent>
-                        </Dialog>
+                              )}
+                            </DialogContent>
+                          </Dialog>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="group text-red-600 bg-transparent hover:bg-transparent hover:text-red-700 transition-all duration-200 hover:scale-110"
+                            onClick={() => setDeleteTarget(complaint)}
+                            aria-label={`Delete request: ${complaint.title}`}
+                            title="Delete Request"
+                          >
+                            <Trash2 className="w-4 h-4 transition-transform duration-200 group-hover:rotate-12" />
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -843,7 +1254,7 @@ export function AdminPanel({ complaints, onUpdateComplaint }: AdminPanelProps) {
 
           {/* Mobile Card View */}
           <div className="lg:hidden space-y-4">
-            {filteredComplaints.map((complaint) => (
+            {activeRequests.map((complaint) => (
               <Card key={complaint.id}>
                 <CardContent className="p-4">
                   <div className="space-y-3">
@@ -852,7 +1263,7 @@ export function AdminPanel({ complaints, onUpdateComplaint }: AdminPanelProps) {
                         <div className="flex items-center space-x-2 mb-1">
                           <div
                             className={`w-3 h-3 rounded-full ${getPriorityColor(
-                              complaint.priority
+                              complaint.priority,
                             )}`}
                           />
                           <h3 className="font-medium truncate">
@@ -866,12 +1277,13 @@ export function AdminPanel({ complaints, onUpdateComplaint }: AdminPanelProps) {
                     </div>
 
                     <div className="flex flex-wrap gap-2">
+                      <TicketBadge ticketId={complaint.ticketId} showPending />
                       <Badge variant="outline" className="text-xs">
                         {complaint.category}
                       </Badge>
                       <Badge
                         className={`${getStatusColor(
-                          complaint.status
+                          complaint.status,
                         )} border-0 text-xs`}
                       >
                         <div className="flex items-center space-x-1">
@@ -901,296 +1313,329 @@ export function AdminPanel({ complaints, onUpdateComplaint }: AdminPanelProps) {
                             hour: "numeric",
                             minute: "2-digit",
                             hour12: true,
-                          }
+                          },
                         )}
                       </p>
                     </div>
 
-                    <Dialog>
-                      <DialogTrigger asChild>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="w-full"
-                          onClick={() => {
-                            setSelectedComplaint(complaint);
-                            setAdminNotes(complaint.adminNotes || "");
-                            setSelectedPriority(complaint.priority);
-                          }}
-                        >
-                          Manage Request
-                        </Button>
-                      </DialogTrigger>
-                      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-                        <DialogHeader>
-                          <DialogTitle>Manage Request</DialogTitle>
-                          <DialogDescription>
-                            Update status and add administrative notes
-                          </DialogDescription>
-                        </DialogHeader>
+                    <div className="grid grid-cols-2 gap-2">
+                      <Dialog>
+                        <DialogTrigger asChild>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="w-full"
+                            onClick={() => {
+                              setSelectedComplaint(complaint);
+                              setAdminNotes(complaint.adminNotes || "");
+                              setSelectedPriority(complaint.priority);
+                            }}
+                          >
+                            Manage Request
+                          </Button>
+                        </DialogTrigger>
+                        <DialogContent className="max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
+                          <DialogHeader className="flex-shrink-0">
+                            <DialogTitle>Manage Request</DialogTitle>
+                            <DialogDescription>
+                              Update status and add administrative notes
+                            </DialogDescription>
+                          </DialogHeader>
 
-                        {selectedComplaint && (
-                          <div className="space-y-4">
-                            <div>
-                              <h3 className="font-medium">
-                                {selectedComplaint.title}
-                              </h3>
-                              <p className="text-sm text-muted-foreground mt-1">
-                                {selectedComplaint.description}
-                              </p>
-                            </div>
+                          {selectedComplaint && (
+                            <div className="space-y-4 overflow-y-auto flex-1 pr-2">
+                              <div>
+                                <h3 className="font-medium">
+                                  {selectedComplaint.title}
+                                </h3>
+                                <div className="mt-2">
+                                  <TicketBadge
+                                    ticketId={selectedComplaint.ticketId}
+                                    showPending
+                                  />
+                                </div>
+                                <p className="text-sm text-muted-foreground mt-1">
+                                  {selectedComplaint.description}
+                                </p>
+                              </div>
 
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
-                              <div>
-                                <span className="font-medium">
-                                  Complainant:
-                                </span>{" "}
-                                {selectedComplaint.userName || "Unknown"}
-                              </div>
-                              <div>
-                                <span className="font-medium">Category:</span>{" "}
-                                {selectedComplaint.category}
-                              </div>
-                              <div>
-                                <span className="font-medium">Location:</span>{" "}
-                                {selectedComplaint.location}
-                              </div>
-                              <div>
-                                <span className="font-medium">Contact:</span>{" "}
-                                {selectedComplaint.contactInfo}
-                              </div>
-                              <div>
-                                <span className="font-medium">
-                                  Submitted At:
-                                </span>{" "}
-                                {new Date(
-                                  selectedComplaint.dateSubmitted
-                                ).toLocaleString("en-US", {
-                                  month: "short",
-                                  day: "numeric",
-                                  year: "numeric",
-                                  hour: "numeric",
-                                  minute: "2-digit",
-                                  hour12: true,
-                                })}
-                              </div>
-                              {selectedComplaint.respondent && (
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
                                 <div>
                                   <span className="font-medium">
-                                    Respondent:
+                                    Complainant:
                                   </span>{" "}
-                                  {selectedComplaint.respondent}
+                                  {selectedComplaint.userName || "Unknown"}
+                                </div>
+                                <div>
+                                  <span className="font-medium">Category:</span>{" "}
+                                  {selectedComplaint.category}
+                                </div>
+                                <div>
+                                  <span className="font-medium">Location:</span>{" "}
+                                  {selectedComplaint.location}
+                                </div>
+                                <div>
+                                  <span className="font-medium">Contact:</span>{" "}
+                                  {selectedComplaint.contactInfo}
+                                </div>
+                                <div>
+                                  <span className="font-medium">
+                                    Submitted At:
+                                  </span>{" "}
+                                  {new Date(
+                                    selectedComplaint.dateSubmitted,
+                                  ).toLocaleString("en-US", {
+                                    month: "short",
+                                    day: "numeric",
+                                    year: "numeric",
+                                    hour: "numeric",
+                                    minute: "2-digit",
+                                    hour12: true,
+                                  })}
+                                </div>
+                                {selectedComplaint.respondent && (
+                                  <div>
+                                    <span className="font-medium">
+                                      Respondent:
+                                    </span>{" "}
+                                    {selectedComplaint.respondent}
+                                  </div>
+                                )}
+                              </div>
+
+                              {selectedComplaint.photo && (
+                                <div>
+                                  <label className="font-medium">
+                                    Photo Evidence:
+                                  </label>
+                                  <div className="mt-2 w-full">
+                                    <ImageWithFallback
+                                      src={selectedComplaint.photo}
+                                      alt="Request evidence"
+                                      className="rounded-lg w-full max-w-full h-auto max-h-[400px] object-contain"
+                                    />
+                                  </div>
                                 </div>
                               )}
-                            </div>
 
-                            {selectedComplaint.photo && (
-                              <div>
+                              <div className="space-y-2">
                                 <label className="font-medium">
-                                  Photo Evidence:
+                                  Update Status:
                                 </label>
-                                <ImageWithFallback
-                                  src={selectedComplaint.photo}
-                                  alt="Request evidence"
-                                  className="mt-2 rounded-lg max-w-full sm:max-w-md"
-                                />
+                                <div className="grid grid-cols-2 gap-2">
+                                  <Button
+                                    variant={
+                                      selectedComplaint.status === "pending"
+                                        ? "default"
+                                        : "outline"
+                                    }
+                                    size="sm"
+                                    onClick={() =>
+                                      handleStatusUpdate(
+                                        selectedComplaint.id,
+                                        "pending",
+                                      )
+                                    }
+                                    className={
+                                      selectedComplaint.status === "pending"
+                                        ? "bg-yellow-500 hover:bg-yellow-600 text-white"
+                                        : ""
+                                    }
+                                  >
+                                    Pending
+                                  </Button>
+                                  <Button
+                                    variant={
+                                      selectedComplaint.status === "in-progress"
+                                        ? "default"
+                                        : "outline"
+                                    }
+                                    size="sm"
+                                    onClick={() =>
+                                      handleStatusUpdate(
+                                        selectedComplaint.id,
+                                        "in-progress",
+                                      )
+                                    }
+                                    className={
+                                      selectedComplaint.status === "in-progress"
+                                        ? "bg-blue-500 hover:bg-blue-600 text-white"
+                                        : ""
+                                    }
+                                  >
+                                    In Progress
+                                  </Button>
+                                  <Button
+                                    variant={
+                                      selectedComplaint.status === "resolved"
+                                        ? "default"
+                                        : "outline"
+                                    }
+                                    size="sm"
+                                    onClick={() =>
+                                      handleStatusUpdate(
+                                        selectedComplaint.id,
+                                        "resolved",
+                                      )
+                                    }
+                                    className={
+                                      selectedComplaint.status === "resolved"
+                                        ? "bg-green-500 hover:bg-green-600 text-white"
+                                        : ""
+                                    }
+                                  >
+                                    Resolved
+                                  </Button>
+                                  <Button
+                                    variant={
+                                      selectedComplaint.status === "rejected"
+                                        ? "default"
+                                        : "outline"
+                                    }
+                                    size="sm"
+                                    onClick={() =>
+                                      handleStatusUpdate(
+                                        selectedComplaint.id,
+                                        "rejected",
+                                      )
+                                    }
+                                    className={
+                                      selectedComplaint.status === "rejected"
+                                        ? "bg-red-500 hover:bg-red-600 text-white"
+                                        : ""
+                                    }
+                                  >
+                                    Rejected
+                                  </Button>
+                                </div>
                               </div>
-                            )}
 
-                            <div className="space-y-2">
-                              <label className="font-medium">
-                                Update Status:
-                              </label>
-                              <div className="grid grid-cols-2 gap-2">
-                                <Button
-                                  variant={
-                                    selectedComplaint.status === "pending"
-                                      ? "default"
-                                      : "outline"
-                                  }
-                                  size="sm"
-                                  onClick={() =>
-                                    handleStatusUpdate(
-                                      selectedComplaint.id,
-                                      "pending"
-                                    )
-                                  }
-                                  className={
-                                    selectedComplaint.status === "pending"
-                                      ? "bg-yellow-500 hover:bg-yellow-600 text-white"
-                                      : ""
-                                  }
-                                >
-                                  Pending
-                                </Button>
-                                <Button
-                                  variant={
-                                    selectedComplaint.status === "in-progress"
-                                      ? "default"
-                                      : "outline"
-                                  }
-                                  size="sm"
-                                  onClick={() =>
-                                    handleStatusUpdate(
-                                      selectedComplaint.id,
-                                      "in-progress"
-                                    )
-                                  }
-                                  className={
-                                    selectedComplaint.status === "in-progress"
-                                      ? "bg-blue-500 hover:bg-blue-600 text-white"
-                                      : ""
-                                  }
-                                >
-                                  In Progress
-                                </Button>
-                                <Button
-                                  variant={
-                                    selectedComplaint.status === "resolved"
-                                      ? "default"
-                                      : "outline"
-                                  }
-                                  size="sm"
-                                  onClick={() =>
-                                    handleStatusUpdate(
-                                      selectedComplaint.id,
-                                      "resolved"
-                                    )
-                                  }
-                                  className={
-                                    selectedComplaint.status === "resolved"
-                                      ? "bg-green-500 hover:bg-green-600 text-white"
-                                      : ""
-                                  }
-                                >
-                                  Resolved
-                                </Button>
-                                <Button
-                                  variant={
-                                    selectedComplaint.status === "rejected"
-                                      ? "default"
-                                      : "outline"
-                                  }
-                                  size="sm"
-                                  onClick={() =>
-                                    handleStatusUpdate(
-                                      selectedComplaint.id,
-                                      "rejected"
-                                    )
-                                  }
-                                  className={
-                                    selectedComplaint.status === "rejected"
-                                      ? "bg-red-500 hover:bg-red-600 text-white"
-                                      : ""
-                                  }
-                                >
-                                  Rejected
-                                </Button>
+                              <div className="space-y-2">
+                                <label className="font-medium">
+                                  Update Priority:
+                                </label>
+                                <div className="grid grid-cols-3 gap-2">
+                                  <Button
+                                    variant={
+                                      selectedComplaint.priority === "low"
+                                        ? "default"
+                                        : "outline"
+                                    }
+                                    size="sm"
+                                    onClick={() =>
+                                      handlePriorityUpdate(
+                                        selectedComplaint.id,
+                                        "low",
+                                      )
+                                    }
+                                    className={
+                                      selectedComplaint.priority === "low"
+                                        ? "bg-green-500 hover:bg-green-600 text-white"
+                                        : ""
+                                    }
+                                  >
+                                    Low
+                                  </Button>
+                                  <Button
+                                    variant={
+                                      selectedComplaint.priority === "medium"
+                                        ? "default"
+                                        : "outline"
+                                    }
+                                    size="sm"
+                                    onClick={() =>
+                                      handlePriorityUpdate(
+                                        selectedComplaint.id,
+                                        "medium",
+                                      )
+                                    }
+                                    className={
+                                      selectedComplaint.priority === "medium"
+                                        ? "bg-yellow-500 hover:bg-yellow-600 text-white"
+                                        : ""
+                                    }
+                                  >
+                                    Medium
+                                  </Button>
+                                  <Button
+                                    variant={
+                                      selectedComplaint.priority === "high"
+                                        ? "default"
+                                        : "outline"
+                                    }
+                                    size="sm"
+                                    onClick={() =>
+                                      handlePriorityUpdate(
+                                        selectedComplaint.id,
+                                        "high",
+                                      )
+                                    }
+                                    className={
+                                      selectedComplaint.priority === "high"
+                                        ? "bg-red-500 hover:bg-red-600 text-white"
+                                        : ""
+                                    }
+                                  >
+                                    High
+                                  </Button>
+                                </div>
                               </div>
-                            </div>
 
-                            <div className="space-y-2">
-                              <label className="font-medium">
-                                Update Priority:
-                              </label>
-                              <div className="grid grid-cols-3 gap-2">
-                                <Button
-                                  variant={
-                                    selectedComplaint.priority === "low"
-                                      ? "default"
-                                      : "outline"
-                                  }
-                                  size="sm"
-                                  onClick={() =>
-                                    handlePriorityUpdate(
-                                      selectedComplaint.id,
-                                      "low"
-                                    )
-                                  }
-                                  className={
-                                    selectedComplaint.priority === "low"
-                                      ? "bg-green-500 hover:bg-green-600 text-white"
-                                      : ""
-                                  }
-                                >
-                                  Low
-                                </Button>
-                                <Button
-                                  variant={
-                                    selectedComplaint.priority === "medium"
-                                      ? "default"
-                                      : "outline"
-                                  }
-                                  size="sm"
-                                  onClick={() =>
-                                    handlePriorityUpdate(
-                                      selectedComplaint.id,
-                                      "medium"
-                                    )
-                                  }
-                                  className={
-                                    selectedComplaint.priority === "medium"
-                                      ? "bg-yellow-500 hover:bg-yellow-600 text-white"
-                                      : ""
-                                  }
-                                >
-                                  Medium
-                                </Button>
-                                <Button
-                                  variant={
-                                    selectedComplaint.priority === "high"
-                                      ? "default"
-                                      : "outline"
-                                  }
-                                  size="sm"
-                                  onClick={() =>
-                                    handlePriorityUpdate(
-                                      selectedComplaint.id,
-                                      "high"
-                                    )
-                                  }
-                                  className={
-                                    selectedComplaint.priority === "high"
-                                      ? "bg-red-500 hover:bg-red-600 text-white"
-                                      : ""
-                                  }
-                                >
-                                  High
-                                </Button>
-                              </div>
+                              {renderAdminNotesAndProof()}
                             </div>
-
-                            <div className="space-y-2">
-                              <label className="font-medium">
-                                Admin Notes:
-                              </label>
-                              <Textarea
-                                value={adminNotes}
-                                onChange={(e) => setAdminNotes(e.target.value)}
-                                placeholder="Add notes about this request..."
-                                rows={3}
-                              />
-                              <Button onClick={handleSaveNotes} size="sm">
-                                Save Notes
-                              </Button>
-                            </div>
-                          </div>
-                        )}
-                      </DialogContent>
-                    </Dialog>
+                          )}
+                        </DialogContent>
+                      </Dialog>
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        className="group w-full transition-all duration-200 hover:scale-[1.02] hover:shadow-md"
+                        onClick={() => setDeleteTarget(complaint)}
+                      >
+                        <Trash2 className="w-4 h-4 mr-2 transition-transform duration-200 group-hover:rotate-12" />
+                        Delete
+                      </Button>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
             ))}
           </div>
 
-          {filteredComplaints.length === 0 && (
+          {activeRequests.length === 0 && (
             <div className="text-center py-8 text-muted-foreground">
               No requests match your current filters
             </div>
           )}
         </CardContent>
       </Card>
+
+      <AlertDialog
+        open={Boolean(deleteTarget)}
+        onOpenChange={(open) => {
+          if (!open) setDeleteTarget(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Request?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete
+              {deleteTarget ? ` \"${deleteTarget.title}\"` : " this request"}.
+              This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={handleConfirmDelete}
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

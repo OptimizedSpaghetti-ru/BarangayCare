@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   Card,
   CardContent,
@@ -7,60 +8,35 @@ import {
   CardTitle,
 } from "./ui/card";
 import { Button } from "./ui/button";
-import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Switch } from "./ui/switch";
-import { Separator } from "./ui/separator";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "./ui/select";
 import {
   Settings,
   Bell,
-  Shield,
   Palette,
   Globe,
-  Smartphone,
-  Mail,
   Save,
   Moon,
   Sun,
   Monitor,
 } from "lucide-react";
 import { useTheme } from "./theme-provider";
-import { useAuth } from "./auth/auth-context";
 import { toast } from "sonner@2.0.3";
+import { LanguageToggle } from "./language-toggle";
 
 export function ResidentSettings() {
+  const { t } = useTranslation();
   const { theme, setTheme } = useTheme();
-  const { user } = useAuth();
 
   // Settings state
   const [notifications, setNotifications] = useState({
     email: true,
     push: true,
-    sms: false,
     statusUpdates: true,
-    weeklyDigest: true,
-    communityNews: false,
   });
 
   const [preferences, setPreferences] = useState({
-    language: "en",
-    timezone: "Asia/Manila",
-    defaultLocation: "Barangay Hall",
     autoLocation: true,
-  });
-
-  const [privacy, setPrivacy] = useState({
-    showProfile: true,
-    shareLocation: true,
-    allowContact: true,
-    dataCollection: false,
   });
 
   const [unsavedChanges, setUnsavedChanges] = useState(false);
@@ -75,14 +51,9 @@ export function ResidentSettings() {
     setUnsavedChanges(true);
   };
 
-  const handlePrivacyChange = (key: string, value: boolean) => {
-    setPrivacy((prev) => ({ ...prev, [key]: value }));
-    setUnsavedChanges(true);
-  };
-
   const handleSaveSettings = () => {
     // In a real app, this would save to backend
-    toast.success("Settings saved successfully!");
+    toast.success(t("messages.saveSuccess"));
     setUnsavedChanges(false);
   };
 
@@ -91,25 +62,13 @@ export function ResidentSettings() {
     setNotifications({
       email: true,
       push: true,
-      sms: false,
       statusUpdates: true,
-      weeklyDigest: true,
-      communityNews: false,
     });
     setPreferences({
-      language: "en",
-      timezone: "Asia/Manila",
-      defaultLocation: "Barangay Hall",
       autoLocation: true,
     });
-    setPrivacy({
-      showProfile: true,
-      shareLocation: true,
-      allowContact: true,
-      dataCollection: false,
-    });
     setUnsavedChanges(true);
-    toast.success("Settings reset to defaults");
+    toast.success(t("messages.updateSuccess"));
   };
 
   return (
@@ -118,7 +77,7 @@ export function ResidentSettings() {
       <div className="bg-gradient-to-r from-primary to-accent text-primary-foreground p-4 sm:p-6 rounded-lg">
         <h1 className="text-xl sm:text-2xl flex items-center space-x-2">
           <Settings className="w-6 h-6" />
-          <span>Settings</span>
+          <span>{t("settings.title")}</span>
         </h1>
         <p className="mt-2 opacity-90 text-sm sm:text-base">
           Customize your BarangayCARE experience
@@ -130,7 +89,7 @@ export function ResidentSettings() {
         <CardHeader>
           <CardTitle className="flex items-center space-x-2">
             <Palette className="w-5 h-5" />
-            <span>Appearance</span>
+            <span>{t("settings.appearance")}</span>
           </CardTitle>
           <CardDescription>
             Customize how BarangayCARE looks on your device
@@ -138,7 +97,7 @@ export function ResidentSettings() {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
-            <Label>Theme</Label>
+            <Label>{t("settings.theme")}</Label>
             <div className="grid grid-cols-3 gap-2">
               <Button
                 variant={theme === "light" ? "default" : "outline"}
@@ -146,7 +105,7 @@ export function ResidentSettings() {
                 className="flex items-center space-x-2"
               >
                 <Sun className="w-4 h-4" />
-                <span>Light</span>
+                <span>{t("settings.lightMode")}</span>
               </Button>
               <Button
                 variant={theme === "dark" ? "default" : "outline"}
@@ -154,7 +113,7 @@ export function ResidentSettings() {
                 className="flex items-center space-x-2"
               >
                 <Moon className="w-4 h-4" />
-                <span>Dark</span>
+                <span>{t("settings.darkMode")}</span>
               </Button>
               <Button
                 variant={theme === "system" ? "default" : "outline"}
@@ -162,7 +121,7 @@ export function ResidentSettings() {
                 className="flex items-center space-x-2"
               >
                 <Monitor className="w-4 h-4" />
-                <span>System</span>
+                <span>{t("settings.system")}</span>
               </Button>
             </div>
           </div>
@@ -174,7 +133,7 @@ export function ResidentSettings() {
         <CardHeader>
           <CardTitle className="flex items-center space-x-2">
             <Bell className="w-5 h-5" />
-            <span>Notifications</span>
+            <span>{t("settings.notifications")}</span>
           </CardTitle>
           <CardDescription>
             Choose how you want to be notified about updates
@@ -214,27 +173,6 @@ export function ResidentSettings() {
 
             <div className="flex items-center justify-between">
               <div className="space-y-1">
-                <Label>SMS Notifications</Label>
-                <p className="text-sm text-muted-foreground">
-                  Receive updates via text message
-                </p>
-              </div>
-              <Switch
-                checked={notifications.sms}
-                onCheckedChange={(checked) =>
-                  handleNotificationChange("sms", checked)
-                }
-              />
-            </div>
-          </div>
-
-          <Separator />
-
-          <div className="space-y-4">
-            <h4 className="font-medium">Notification Types</h4>
-
-            <div className="flex items-center justify-between">
-              <div className="space-y-1">
                 <Label>Status Updates</Label>
                 <p className="text-sm text-muted-foreground">
                   When your requests are updated
@@ -247,36 +185,6 @@ export function ResidentSettings() {
                 }
               />
             </div>
-
-            <div className="flex items-center justify-between">
-              <div className="space-y-1">
-                <Label>Weekly Digest</Label>
-                <p className="text-sm text-muted-foreground">
-                  Summary of community activities
-                </p>
-              </div>
-              <Switch
-                checked={notifications.weeklyDigest}
-                onCheckedChange={(checked) =>
-                  handleNotificationChange("weeklyDigest", checked)
-                }
-              />
-            </div>
-
-            <div className="flex items-center justify-between">
-              <div className="space-y-1">
-                <Label>Community News</Label>
-                <p className="text-sm text-muted-foreground">
-                  Updates from barangay officials
-                </p>
-              </div>
-              <Switch
-                checked={notifications.communityNews}
-                onCheckedChange={(checked) =>
-                  handleNotificationChange("communityNews", checked)
-                }
-              />
-            </div>
           </div>
         </CardContent>
       </Card>
@@ -286,63 +194,15 @@ export function ResidentSettings() {
         <CardHeader>
           <CardTitle className="flex items-center space-x-2">
             <Globe className="w-5 h-5" />
-            <span>Preferences</span>
+            <span>{t("settings.general")}</span>
           </CardTitle>
           <CardDescription>
             Set your location, language, and other preferences
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="language">Language</Label>
-              <Select
-                value={preferences.language}
-                onValueChange={(value) =>
-                  handlePreferenceChange("language", value)
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select language" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="en">English</SelectItem>
-                  <SelectItem value="fil">Filipino</SelectItem>
-                  <SelectItem value="tgl">Tagalog</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="timezone">Timezone</Label>
-              <Select
-                value={preferences.timezone}
-                onValueChange={(value) =>
-                  handlePreferenceChange("timezone", value)
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select timezone" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Asia/Manila">Asia/Manila (PHT)</SelectItem>
-                  <SelectItem value="UTC">UTC</SelectItem>
-                  <SelectItem value="Asia/Singapore">Asia/Singapore</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="defaultLocation">Default Location</Label>
-            <Input
-              id="defaultLocation"
-              value={preferences.defaultLocation}
-              onChange={(e) =>
-                handlePreferenceChange("defaultLocation", e.target.value)
-              }
-              placeholder="Enter your default location"
-            />
+          <div className="space-y-4">
+            <LanguageToggle />
           </div>
 
           <div className="flex items-center justify-between">
@@ -362,80 +222,6 @@ export function ResidentSettings() {
         </CardContent>
       </Card>
 
-      {/* Privacy Settings */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center space-x-2">
-            <Shield className="w-5 h-5" />
-            <span>Privacy & Security</span>
-          </CardTitle>
-          <CardDescription>
-            Control your privacy and data sharing preferences
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="space-y-1">
-              <Label>Show Profile to Others</Label>
-              <p className="text-sm text-muted-foreground">
-                Let other residents see your public profile
-              </p>
-            </div>
-            <Switch
-              checked={privacy.showProfile}
-              onCheckedChange={(checked) =>
-                handlePrivacyChange("showProfile", checked)
-              }
-            />
-          </div>
-
-          <div className="flex items-center justify-between">
-            <div className="space-y-1">
-              <Label>Share Location Data</Label>
-              <p className="text-sm text-muted-foreground">
-                Allow location sharing for better service
-              </p>
-            </div>
-            <Switch
-              checked={privacy.shareLocation}
-              onCheckedChange={(checked) =>
-                handlePrivacyChange("shareLocation", checked)
-              }
-            />
-          </div>
-
-          <div className="flex items-center justify-between">
-            <div className="space-y-1">
-              <Label>Allow Contact from Officials</Label>
-              <p className="text-sm text-muted-foreground">
-                Let barangay officials contact you directly
-              </p>
-            </div>
-            <Switch
-              checked={privacy.allowContact}
-              onCheckedChange={(checked) =>
-                handlePrivacyChange("allowContact", checked)
-              }
-            />
-          </div>
-
-          <div className="flex items-center justify-between">
-            <div className="space-y-1">
-              <Label>Anonymous Usage Data</Label>
-              <p className="text-sm text-muted-foreground">
-                Help improve the app with anonymous usage data
-              </p>
-            </div>
-            <Switch
-              checked={privacy.dataCollection}
-              onCheckedChange={(checked) =>
-                handlePrivacyChange("dataCollection", checked)
-              }
-            />
-          </div>
-        </CardContent>
-      </Card>
-
       {/* Action Buttons */}
       <div className="flex flex-col sm:flex-row gap-4 pt-4">
         <Button
@@ -444,11 +230,11 @@ export function ResidentSettings() {
           className="flex items-center space-x-2"
         >
           <Save className="w-4 h-4" />
-          <span>Save Settings</span>
+          <span>{t("common.save")}</span>
         </Button>
 
         <Button variant="outline" onClick={resetSettings}>
-          Reset to Defaults
+          {t("common.reset")}
         </Button>
       </div>
 

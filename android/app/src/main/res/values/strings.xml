@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">BarangayCare</string>
+    <string name="title_activity_main">BarangayCare</string>
+    <string name="package_name">com.barangaycare.app</string>
+    <string name="custom_url_scheme">com.barangaycare.app</string>
+</resources>
